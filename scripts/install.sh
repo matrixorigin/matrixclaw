@@ -951,6 +951,7 @@ map_legacy_env "OPENCLAW_TAGLINE_INDEX" "CLAWDBOT_TAGLINE_INDEX"
 map_legacy_env "OPENCLAW_NO_ONBOARD" "CLAWDBOT_NO_ONBOARD"
 map_legacy_env "OPENCLAW_NO_PROMPT" "CLAWDBOT_NO_PROMPT"
 map_legacy_env "OPENCLAW_DRY_RUN" "CLAWDBOT_DRY_RUN"
+map_legacy_env "OPENCLAW_AUTO_PATH_ADD" "CLAWDBOT_AUTO_PATH_ADD"
 map_legacy_env "OPENCLAW_INSTALL_METHOD" "CLAWDBOT_INSTALL_METHOD"
 map_legacy_env "OPENCLAW_VERSION" "CLAWDBOT_VERSION"
 map_legacy_env "OPENCLAW_BETA" "CLAWDBOT_BETA"
@@ -987,6 +988,7 @@ DRY_RUN=${OPENCLAW_DRY_RUN:-0}
 INSTALL_METHOD=${OPENCLAW_INSTALL_METHOD:-}
 OPENCLAW_VERSION=${OPENCLAW_VERSION:-latest}
 USE_BETA=${OPENCLAW_BETA:-0}
+AUTO_PATH_ADD=${OPENCLAW_AUTO_PATH_ADD:-0}
 GIT_DIR_DEFAULT="${HOME}/openclaw"
 GIT_DIR=${OPENCLAW_GIT_DIR:-$GIT_DIR_DEFAULT}
 GIT_UPDATE=${OPENCLAW_GIT_UPDATE:-1}
@@ -1014,6 +1016,7 @@ Options:
   --git-dir, --dir <path>             Checkout directory (default: ~/openclaw)
   --no-git-update                      Skip git pull for existing checkout
   --no-onboard                          Skip onboarding (non-interactive)
+  --auto-path                           Automatically add discovered bin directory to ~/.zshrc/.bashrc if missing
   --no-prompt                           Disable prompts (required in CI/automation)
   --dry-run                             Print what would happen (no changes)
   --verbose                             Print debug output (set -x, npm verbose)
@@ -1025,6 +1028,7 @@ Environment variables:
   OPENCLAW_BETA=0|1
   OPENCLAW_GIT_DIR=...
   OPENCLAW_GIT_UPDATE=0|1
+  OPENCLAW_AUTO_PATH_ADD=0|1            Auto-write PATH export to shell rc on macOS/Linux installs
   OPENCLAW_NO_PROMPT=1
   OPENCLAW_DRY_RUN=1
   OPENCLAW_NO_ONBOARD=1
@@ -1046,12 +1050,20 @@ parse_args() {
                 NO_ONBOARD=1
                 shift
                 ;;
+            onboard)
+                NO_ONBOARD=0
+                shift
+                ;;
             --onboard)
                 NO_ONBOARD=0
                 shift
                 ;;
             --dry-run)
                 DRY_RUN=1
+                shift
+                ;;
+            --auto-path)
+                AUTO_PATH_ADD=1
                 shift
                 ;;
             --verbose)
@@ -1759,6 +1771,33 @@ ensure_user_local_bin_on_path() {
     done
 }
 
+ensure_openclaw_local_wrapper_if_needed() {
+    local npm_root=""
+    local entrypoint=""
+    local local_wrapper="$HOME/.local/bin/openclaw"
+
+    if [[ -x "$local_wrapper" ]]; then
+        return 0
+    fi
+
+    npm_root="$(npm root -g 2>/dev/null || true)"
+    if [[ -z "$npm_root" || ! -f "${npm_root}/openclaw/openclaw.mjs" ]]; then
+        return 1
+    fi
+
+    entrypoint="${npm_root}/openclaw/openclaw.mjs"
+    ensure_user_local_bin_on_path
+
+    mkdir -p "$HOME/.local/bin"
+    cat > "$local_wrapper" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+exec node "$entrypoint" "\$@"
+EOF
+    chmod +x "$local_wrapper"
+    return 0
+}
+
 npm_global_bin_dir() {
     local prefix=""
     prefix="$(npm prefix -g 2>/dev/null || true)"
@@ -1797,6 +1836,55 @@ path_has_dir() {
     esac
 }
 
+persist_path_to_shell_rc() {
+    local dir="${1%/}"
+    local shell_name="${SHELL##*/}"
+    if [[ -z "$dir" ]]; then
+        return 1
+    fi
+
+    local -a shell_rc=()
+    case "$shell_name" in
+        zsh)
+            shell_rc=("$HOME/.zshrc")
+            ;;
+        bash)
+            shell_rc=("$HOME/.bashrc")
+            ;;
+        *)
+            shell_rc=("$HOME/.bashrc" "$HOME/.zshrc")
+            ;;
+    esac
+
+    local path_line='export PATH="'${dir}':$PATH"'
+    local updated=0
+    local rc
+
+    for rc in "${shell_rc[@]}"; do
+        if ! touch "$rc" 2>/dev/null; then
+            ui_warn "Could not write to ${rc}; skipping."
+            continue
+        fi
+        if grep -Fq "$path_line" "$rc"; then
+            updated=1
+            continue
+        fi
+        {
+            echo ""
+            echo "# Added by OpenClaw installer"
+            echo "$path_line"
+        } >> "$rc"
+        updated=1
+    done
+
+    if (( updated == 1 )); then
+        export PATH="${dir}:$PATH"
+        refresh_shell_command_cache
+        return 0
+    fi
+    return 1
+}
+
 warn_shell_path_missing_dir() {
     local dir="${1%/}"
     local label="$2"
@@ -1810,6 +1898,13 @@ warn_shell_path_missing_dir() {
     echo ""
     ui_warn "PATH missing ${label}: ${dir}"
     echo "  This can make openclaw show as \"command not found\" in new terminals."
+    if [[ "${AUTO_PATH_ADD:-0}" == "1" ]]; then
+        if persist_path_to_shell_rc "$dir"; then
+            ui_success "Updated shell startup file(s) with ${label}."
+            return 0
+        fi
+        ui_warn "Could not auto-update shell startup files."
+    fi
     echo "  Fix (zsh: ~/.zshrc, bash: ~/.bashrc):"
     echo "    export PATH=\"${dir}:\$PATH\""
 }
@@ -1856,9 +1951,16 @@ warn_openclaw_not_found() {
 resolve_openclaw_bin() {
     refresh_shell_command_cache
     local resolved=""
+    local local_wrapper="$HOME/.local/bin/openclaw"
     resolved="$(type -P openclaw 2>/dev/null || true)"
     if [[ -n "$resolved" && -x "$resolved" ]]; then
         echo "$resolved"
+        return 0
+    fi
+
+    if [[ -x "$local_wrapper" ]]; then
+        ensure_user_local_bin_on_path
+        echo "$local_wrapper"
         return 0
     fi
 
@@ -1875,6 +1977,17 @@ resolve_openclaw_bin() {
     if [[ -n "$npm_bin" && -x "${npm_bin}/openclaw" ]]; then
         echo "${npm_bin}/openclaw"
         return 0
+    fi
+
+    local npm_root=""
+    npm_root="$(npm root -g 2>/dev/null || true)"
+    if [[ -n "$npm_root" && -f "${npm_root}/openclaw/openclaw.mjs" ]]; then
+        if ensure_openclaw_local_wrapper_if_needed; then
+            if [[ -x "$local_wrapper" ]]; then
+                echo "$local_wrapper"
+                return 0
+            fi
+        fi
     fi
 
     maybe_nodenv_rehash
@@ -2274,11 +2387,20 @@ main() {
 
     OPENCLAW_BIN="$(resolve_openclaw_bin || true)"
 
+    if [[ -z "$OPENCLAW_BIN" && "$INSTALL_METHOD" == "npm" ]]; then
+        if ensure_openclaw_local_wrapper_if_needed; then
+            OPENCLAW_BIN="$(resolve_openclaw_bin || true)"
+        fi
+    fi
+
     # PATH warning: installs can succeed while the user's login shell still lacks npm's global bin dir.
     local npm_bin=""
     npm_bin="$(npm_global_bin_dir || true)"
     if [[ "$INSTALL_METHOD" == "npm" ]]; then
         warn_shell_path_missing_dir "$npm_bin" "npm global bin dir"
+        if [[ -x "$HOME/.local/bin/openclaw" ]]; then
+            warn_shell_path_missing_dir "$HOME/.local/bin" "user-local bin dir (~/.local/bin)"
+        fi
     fi
     if [[ "$INSTALL_METHOD" == "git" ]]; then
         if [[ -x "$HOME/.local/bin/openclaw" ]]; then
