@@ -66,6 +66,14 @@ impl Session {
         &self.queue
     }
 
+    pub fn drain_steering_messages(&mut self) -> Vec<String> {
+        self.queue.drain_steering_items()
+    }
+
+    pub fn drain_follow_up_messages(&mut self) -> Vec<String> {
+        self.queue.drain_follow_up_items()
+    }
+
     pub fn compaction_records(&self) -> &[CompactionRecord] {
         &self.compaction_records
     }

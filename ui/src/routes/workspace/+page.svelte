@@ -1,98 +1,335 @@
 <script lang="ts">
-    import {
-        visibleExecutionBackends,
-        sandboxFailureMessage,
-        sandboxPriority,
-        type ExecutionBackendLabel
-    } from "$lib/execution";
+    import { errorMessage, fetchJson } from "$lib/http";
     import {
         queueControlsCopy,
         queueDeliveryLabels,
-        type QueueControlsView,
-        type QueueSubmissionRequest
+        type QueueControlKind,
+        type QueueControlsView
     } from "$lib/queue";
-    import {
-        formatWorkspaceReference,
-        workspaceExplorerContract,
-        type WorkspaceEntry
-    } from "$lib/workspace";
+    import type { ExecutionBackendLabel } from "$lib/execution";
+    import { workspaceExplorerContract, type WorkspaceEntry } from "$lib/workspace";
+    import { onMount, tick } from "svelte";
+
+    type ExecutionSnapshot = {
+        modeLabel: string;
+        visibleBackends: ExecutionBackendLabel[];
+        sandboxPriority: ExecutionBackendLabel[];
+        sandboxFailureMessage: string;
+        fallbackPolicy: string;
+    };
 
     type TranscriptEntry = {
         role: "assistant" | "tool" | "warning";
         text: string;
-        backend?: ExecutionBackendLabel;
+        backend?: string;
     };
 
-    const workspaceEntries: WorkspaceEntry[] = [
-        {
-            relativePath: "agents/default/SOUL.md",
-            kind: "file",
-            referenceToken: formatWorkspaceReference("agents/default/SOUL.md")
-        },
-        {
-            relativePath: "agents/default/MEMORY.md",
-            kind: "file",
-            referenceToken: formatWorkspaceReference("agents/default/MEMORY.md")
-        },
-        {
-            relativePath: "workspace/specs/queue/notes.md",
-            kind: "file",
-            referenceToken: formatWorkspaceReference("workspace/specs/queue/notes.md")
-        },
-        {
-            relativePath: "workspace/src",
-            kind: "directory",
-            referenceToken: formatWorkspaceReference("workspace/src")
-        }
-    ];
-
-    const queueView: QueueControlsView = {
-        steering: {
-            kind: "steering",
-            submitRoute: "/api/queue/steering",
-            deliveryTiming: "next-turn",
-            summary: "1 steering item queued for the next assistant turn"
-        },
-        followUp: {
-            kind: "follow-up",
-            submitRoute: "/api/queue/follow-up",
-            deliveryTiming: "next-run",
-            summary: "1 follow-up item deferred until the current run completes"
-        }
+    type ApiWorkspaceEntry = {
+        relative_path: string;
+        kind: "File" | "Directory";
+        reference_token: string;
     };
 
-    const queuedDrafts: QueueSubmissionRequest[] = [
-        {
-            kind: "steering",
-            message: "Prefer the workspace file reference instead of pasting file contents."
-        },
-        {
-            kind: "follow-up",
-            message: "After the current run, open the Skills page and enable the deploy skill."
-        }
-    ];
+    type ApiWorkspaceReferenceResponse = {
+        relative_path: string;
+        reference_token: string;
+    };
 
-    const transcriptEntries: TranscriptEntry[] = [
-        {
-            role: "assistant",
-            text: "Workspace shell is reading files and preparing the next tool call.",
-            backend: "local"
-        },
-        {
-            role: "tool",
-            text: "Queued code execution completed in a Docker sandbox with deterministic mounts.",
-            backend: "docker"
-        },
-        {
-            role: "warning",
-            text: sandboxFailureMessage
-        }
-    ];
+    type ApiQueueControlState = {
+        kind: QueueControlKind;
+        submit_route: string;
+        delivery_timing: "next-turn" | "next-run" | "queued";
+        summary: string;
+    };
 
-    const composerReferences = workspaceEntries
-        .filter((entry) => entry.kind === "file")
-        .slice(0, 2)
-        .map((entry) => entry.referenceToken);
+    type ApiQueueControlsView = {
+        steering: ApiQueueControlState;
+        follow_up: ApiQueueControlState;
+    };
+
+    type ApiExecutionSnapshot = {
+        modeLabel: string;
+        visibleBackends: ExecutionBackendLabel[];
+        sandboxPriority: ExecutionBackendLabel[];
+        sandboxFailureMessage: string;
+        fallbackPolicy: string;
+    };
+
+    type AgentRunResponse = {
+        session_id?: string;
+        model: string;
+        streamed_message: string;
+        final_message: string;
+        events?: AgentRunEvent[];
+    };
+
+    type AgentRunEvent = {
+        sequence: number;
+        kind: string;
+        content?: string | null;
+    };
+
+    let workspaceEntries: WorkspaceEntry[] = [];
+    let queueView: QueueControlsView | null = null;
+    let executionSnapshot: ExecutionSnapshot | null = null;
+    let transcriptEntries: TranscriptEntry[] = [];
+    let composerReferences: string[] = [];
+    let steeringDraft =
+        "Prefer the workspace file reference instead of pasting file contents.";
+    let followUpDraft =
+        "After the current run, open the Skills page and enable the lint-bridge skill.";
+    let promptDraft = "";
+    let loading = true;
+    let busy = false;
+    let pageError = "";
+
+    onMount(async () => {
+        await loadPage();
+    });
+
+    function normalizeWorkspaceEntry(entry: ApiWorkspaceEntry): WorkspaceEntry {
+        return {
+            relativePath: entry.relative_path,
+            kind: entry.kind === "Directory" ? "directory" : "file",
+            referenceToken: entry.reference_token
+        };
+    }
+
+    function normalizeQueueView(view: ApiQueueControlsView): QueueControlsView {
+        return {
+            steering: {
+                kind: view.steering.kind,
+                submitRoute: view.steering.submit_route,
+                deliveryTiming: view.steering.delivery_timing,
+                summary: view.steering.summary
+            },
+            followUp: {
+                kind: view.follow_up.kind,
+                submitRoute: view.follow_up.submit_route,
+                deliveryTiming: view.follow_up.delivery_timing,
+                summary: view.follow_up.summary
+            }
+        };
+    }
+
+    function setInitialTranscript(view: QueueControlsView, execution: ExecutionSnapshot) {
+        transcriptEntries = [
+            {
+                role: "assistant",
+                text: `Workspace shell is connected. ${view.steering.summary}`
+            },
+            {
+                role: "tool",
+                text: `Execution policy is ${execution.fallbackPolicy}. Preferred sandbox order is ${execution.sandboxPriority.join(", ")}.`,
+                backend: execution.visibleBackends[0]
+            },
+            {
+                role: "warning",
+                text: execution.sandboxFailureMessage
+            }
+        ];
+    }
+
+    function pause(ms: number): Promise<void> {
+        return new Promise((resolve) => {
+            if (typeof window === "undefined") {
+                resolve();
+                return;
+            }
+
+            window.setTimeout(() => resolve(), ms);
+        });
+    }
+
+    function replayableAssistantEvents(response: AgentRunResponse): AgentRunEvent[] {
+        const replayEvents =
+            response.events?.filter(
+                (event) =>
+                    event.kind === "message_started" ||
+                    event.kind === "message_delta" ||
+                    event.kind === "message_completed"
+            ) ?? [];
+
+        if (replayEvents.length > 0) {
+            return replayEvents;
+        }
+
+        return [
+            { sequence: 0, kind: "message_started" },
+            {
+                sequence: 1,
+                kind: "message_delta",
+                content: response.streamed_message
+            },
+            {
+                sequence: 2,
+                kind: "message_completed",
+                content: response.final_message
+            }
+        ];
+    }
+
+    async function renderAssistantTurn(response: AgentRunResponse) {
+        const modelLabel = response.model.trim() || "unknown-model";
+        const turnEvents = replayableAssistantEvents(response);
+        const previousEntries = transcriptEntries;
+        let assistantText = "";
+
+        transcriptEntries = [
+            {
+                role: "assistant",
+                text: assistantText
+            },
+            {
+                role: "tool",
+                text: `Provider model: ${modelLabel}`
+            },
+            ...previousEntries
+        ];
+
+        await tick();
+
+        for (const event of turnEvents) {
+            if (event.kind === "message_started") {
+                assistantText = "";
+            } else if (event.kind === "message_delta") {
+                assistantText += event.content ?? "";
+            } else if (event.kind === "message_completed") {
+                assistantText = event.content?.trim() || response.final_message.trim() || assistantText;
+            }
+
+            transcriptEntries = [
+                {
+                    ...transcriptEntries[0],
+                    text: assistantText
+                },
+                ...transcriptEntries.slice(1)
+            ];
+            await tick();
+
+            if (event.kind === "message_delta") {
+                await pause(800);
+            }
+        }
+    }
+
+    async function loadPage() {
+        loading = true;
+        pageError = "";
+
+        try {
+            const [entryPayload, queuePayload, executionPayload] = await Promise.all([
+                fetchJson<ApiWorkspaceEntry[]>(workspaceExplorerContract.filesRoute),
+                fetchJson<ApiQueueControlsView>("/api/queue/state"),
+                fetchJson<ApiExecutionSnapshot>("/api/execution/visibility")
+            ]);
+
+            workspaceEntries = entryPayload.map(normalizeWorkspaceEntry);
+            queueView = normalizeQueueView(queuePayload);
+            executionSnapshot = executionPayload;
+            composerReferences = workspaceEntries
+                .filter((entry) => entry.kind === "file")
+                .slice(0, 2)
+                .map((entry) => entry.referenceToken);
+            promptDraft =
+                composerReferences.length >= 2
+                    ? `Review ${composerReferences[0]} before touching ${composerReferences[1]}.`
+                    : "";
+            setInitialTranscript(queueView, executionSnapshot);
+        } catch (error) {
+            pageError = errorMessage(error);
+        } finally {
+            loading = false;
+        }
+    }
+
+    async function attachReference(entry: WorkspaceEntry) {
+        busy = true;
+        pageError = "";
+
+        try {
+            const response = await fetchJson<ApiWorkspaceReferenceResponse>(
+                workspaceExplorerContract.referenceRoute,
+                {
+                    method: "POST",
+                    body: JSON.stringify({
+                        relative_path: entry.relativePath
+                    })
+                }
+            );
+
+            if (!composerReferences.includes(response.reference_token)) {
+                composerReferences = [...composerReferences, response.reference_token];
+            }
+
+            promptDraft = `${promptDraft}\n${response.reference_token}`.trim();
+            transcriptEntries = [
+                {
+                    role: "assistant",
+                    text: `Attached workspace reference ${response.reference_token}.`
+                },
+                ...transcriptEntries
+            ];
+        } catch (error) {
+            pageError = errorMessage(error);
+        } finally {
+            busy = false;
+        }
+    }
+
+    async function submitQueue(kind: QueueControlKind, message: string) {
+        busy = true;
+        pageError = "";
+
+        try {
+            const route = kind === "steering" ? "/api/queue/steering" : "/api/queue/follow-up";
+            await fetchJson(route, {
+                method: "POST",
+                body: JSON.stringify({
+                    kind,
+                    message
+                })
+            });
+
+            const queuePayload = await fetchJson<ApiQueueControlsView>("/api/queue/state");
+            queueView = normalizeQueueView(queuePayload);
+            transcriptEntries = [
+                {
+                    role: "assistant",
+                    text: `${kind === "steering" ? "Steering" : "Follow-up"} queued: ${message}`
+                },
+                ...transcriptEntries
+            ];
+        } catch (error) {
+            pageError = errorMessage(error);
+        } finally {
+            busy = false;
+        }
+    }
+
+    async function sendPrompt() {
+        if (!promptDraft.trim()) {
+            return;
+        }
+
+        busy = true;
+        pageError = "";
+
+        try {
+            const response = await fetchJson<AgentRunResponse>("/api/agent/run", {
+                method: "POST",
+                body: JSON.stringify({
+                    prompt: promptDraft.trim()
+                })
+            });
+
+            await renderAssistantTurn(response);
+        } catch (error) {
+            pageError = errorMessage(error);
+        } finally {
+            busy = false;
+        }
+    }
 </script>
 
 <section class="workspace-shell">
@@ -109,71 +346,116 @@
             <code>{workspaceExplorerContract.referenceRoute}</code>
         </div>
 
-        <ul class="file-list">
-            {#each workspaceEntries as entry}
-                <li>
-                    <div>
-                        <strong>{entry.relativePath}</strong>
-                        <small>{entry.kind === "directory" ? "Directory" : entry.referenceToken}</small>
-                    </div>
-                    <button type="button">
-                        {entry.kind === "directory" ? "Browse" : "Reference"}
-                    </button>
-                </li>
-            {/each}
-        </ul>
+        {#if loading}
+            <p class="status-copy">Loading workspace…</p>
+        {:else if pageError}
+            <p class="error-copy">{pageError}</p>
+        {:else}
+            <ul class="file-list">
+                {#each workspaceEntries as entry}
+                    <li>
+                        <div>
+                            <strong>{entry.relativePath}</strong>
+                            <small>
+                                {entry.kind === "directory" ? "Directory" : entry.referenceToken}
+                            </small>
+                        </div>
+                        <button
+                            type="button"
+                            disabled={busy || entry.kind === "directory"}
+                            on:click={() => attachReference(entry)}
+                        >
+                            {entry.kind === "directory" ? "Browse" : "Reference"}
+                        </button>
+                    </li>
+                {/each}
+            </ul>
+        {/if}
     </aside>
 
     <div class="main-column">
         <div class="transcript">
             <div class="panel-heading">
                 <p class="section-label">Transcript</p>
-                <h2>Run stream</h2>
+                <h2>Loopback run stream</h2>
             </div>
 
             {#each transcriptEntries as item}
-                <article data-role={item.role}>
-                    <div class="entry-header">
-                        <strong>{item.role}</strong>
-                        {#if item.backend}
-                            <span class="backend-badge">{item.backend}</span>
-                        {/if}
-                    </div>
-                    <p>{item.text}</p>
-                </article>
+                {#if item.role === "assistant"}
+                    <article data-role="assistant"><p>{item.text}</p></article>
+                {:else}
+                    <article data-role={item.role}>
+                        <div class="entry-header">
+                            <strong>{item.role}</strong>
+                            {#if item.backend}
+                                <span class="backend-badge">{item.backend}</span>
+                            {/if}
+                        </div>
+                        <p>{item.text}</p>
+                    </article>
+                {/if}
             {/each}
         </div>
 
-        <section class="queue-strip">
-            <div class="queue-card">
-                <p class="section-label">Steering</p>
-                <h3>{queueDeliveryLabels[queueView.steering.deliveryTiming]}</h3>
-                <p>{queueControlsCopy.steering}</p>
-                <small>{queueView.steering.summary}</small>
-            </div>
+        {#if queueView}
+            <section class="queue-strip">
+                <div class="queue-card">
+                    <p class="section-label">Steering</p>
+                    <h3>{queueDeliveryLabels[queueView.steering.deliveryTiming]}</h3>
+                    <p>{queueControlsCopy.steering}</p>
+                    <small>{queueView.steering.summary}</small>
+                    <textarea
+                        rows="3"
+                        bind:value={steeringDraft}
+                        placeholder="Queue the next-turn steering instruction."
+                    ></textarea>
+                    <button
+                        type="button"
+                        disabled={busy || !steeringDraft.trim()}
+                        on:click={() => submitQueue("steering", steeringDraft.trim())}
+                    >
+                        Queue steering
+                    </button>
+                </div>
 
-            <div class="queue-card">
-                <p class="section-label">Follow-up</p>
-                <h3>{queueDeliveryLabels[queueView.followUp.deliveryTiming]}</h3>
-                <p>{queueControlsCopy.followUp}</p>
-                <small>{queueView.followUp.summary}</small>
-            </div>
-        </section>
+                <div class="queue-card">
+                    <p class="section-label">Follow-up</p>
+                    <h3>{queueDeliveryLabels[queueView.followUp.deliveryTiming]}</h3>
+                    <p>{queueControlsCopy.followUp}</p>
+                    <small>{queueView.followUp.summary}</small>
+                    <textarea
+                        rows="3"
+                        bind:value={followUpDraft}
+                        placeholder="Queue the post-run follow-up instruction."
+                    ></textarea>
+                    <button
+                        type="button"
+                        disabled={busy || !followUpDraft.trim()}
+                        on:click={() => submitQueue("follow-up", followUpDraft.trim())}
+                    >
+                        Queue follow-up
+                    </button>
+                </div>
+            </section>
+        {/if}
 
         <form class="composer">
             <label for="prompt">Composer</label>
             <textarea
                 id="prompt"
                 rows="4"
+                bind:value={promptDraft}
                 placeholder="Ask the agent, attach references, or queue a steering update."
-            >Review {composerReferences[0]} before touching {composerReferences[1]}.</textarea>
+            ></textarea>
             <div class="composer-actions">
                 <div class="reference-chips">
                     {#each composerReferences as reference}
                         <span>{reference}</span>
                     {/each}
                 </div>
-                <button type="button">Send</button>
+                <button type="button" disabled={busy || !promptDraft.trim()} on:click={sendPrompt}>
+                    Send
+                </button>
             </div>
         </form>
     </div>
@@ -187,13 +469,13 @@
         <div class="execution-card">
             <span class="card-title">Visible backends</span>
             <div class="backend-stack">
-                {#each visibleExecutionBackends as backend}
+                {#each executionSnapshot?.visibleBackends ?? [] as backend}
                     <span class="backend-badge">{backend}</span>
                 {/each}
             </div>
             <p>Sandbox priority</p>
             <ol>
-                {#each sandboxPriority as backend, index}
+                {#each executionSnapshot?.sandboxPriority ?? [] as backend, index}
                     <li>{index + 1}. {backend}</li>
                 {/each}
             </ol>
@@ -201,20 +483,16 @@
 
         <div class="execution-card failure">
             <span class="card-title">Sandbox policy</span>
-            <strong>{sandboxFailureMessage}</strong>
-            <p>Required-sandbox failures stay explicit instead of silently falling back to local.</p>
+            <strong>{executionSnapshot?.sandboxFailureMessage ?? "loading execution policy"}</strong>
+            <p>
+                Required-sandbox failures stay explicit instead of silently falling back to local.
+            </p>
         </div>
 
         <div class="execution-card">
-            <span class="card-title">Queued drafts</span>
-            <ul class="draft-list">
-                {#each queuedDrafts as draft}
-                    <li>
-                        <strong>{draft.kind}</strong>
-                        <small>{draft.message}</small>
-                    </li>
-                {/each}
-            </ul>
+            <span class="card-title">Runtime contract</span>
+            <p>Mode: <code>{executionSnapshot?.modeLabel ?? "loading"}</code></p>
+            <p>Fallback: <code>{executionSnapshot?.fallbackPolicy ?? "loading"}</code></p>
         </div>
     </aside>
 </section>
@@ -271,9 +549,14 @@
     .execution-card p,
     .queue-card p,
     .queue-card small,
-    .draft-list small,
-    article p {
+    article p,
+    .status-copy {
         color: #cbd5e1;
+        line-height: 1.55;
+    }
+
+    .error-copy {
+        color: #fecaca;
         line-height: 1.55;
     }
 
@@ -285,15 +568,13 @@
     }
 
     .file-list,
-    .draft-list,
     ol {
         margin: 0;
         padding: 0;
         list-style: none;
     }
 
-    .file-list li,
-    .draft-list li {
+    .file-list li {
         display: grid;
         gap: 0.6rem;
         margin-bottom: 0.75rem;
@@ -303,13 +584,11 @@
     }
 
     .file-list strong,
-    .draft-list strong,
     .execution-card strong {
         color: #f8fafc;
     }
 
-    .file-list small,
-    .draft-list small {
+    .file-list small {
         display: block;
         margin-top: 0.25rem;
         color: #94a3b8;
@@ -324,6 +603,11 @@
         color: #111827;
         font-weight: 700;
         cursor: pointer;
+    }
+
+    button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
     }
 
     .transcript {
@@ -386,6 +670,10 @@
         background: rgba(2, 6, 23, 0.45);
         color: inherit;
         font: inherit;
+    }
+
+    .queue-card textarea {
+        min-height: 5rem;
     }
 
     .composer-actions {

@@ -1,14 +1,88 @@
 <script lang="ts">
+    import { goto } from "$app/navigation";
+    import { errorMessage, fetchJson } from "$lib/http";
     import { executionPriority, setupSteps } from "$lib/shell";
-    import {
-        sandboxFailureMessage,
-        visibleExecutionBackends
-    } from "$lib/execution/index";
-    import {
-        defaultSetupDraft,
-        reviewChecklist,
-        setupCopy
-    } from "$lib/setup/state";
+    import { sandboxFailureMessage, visibleExecutionBackends } from "$lib/execution";
+    import { defaultSetupDraft, reviewChecklist, setupCopy } from "$lib/setup/state";
+    import { onMount } from "svelte";
+
+    type HealthSnapshot = {
+        mode: string;
+        baseUrl: string;
+        configReady: boolean;
+    };
+
+    type SetupValidationResponse = {
+        accepted: boolean;
+        configWritten: boolean;
+        next?: string | null;
+        error?: string | null;
+    };
+
+    const draft = { ...defaultSetupDraft };
+    let health: HealthSnapshot | null = null;
+    let submitError = "";
+    let submitMessage = "";
+    let submitting = false;
+
+    onMount(async () => {
+        try {
+            health = await fetchJson<HealthSnapshot>("/healthz");
+        } catch (error) {
+            submitError = errorMessage(error);
+        }
+    });
+
+    async function submitSetup() {
+        submitError = "";
+        submitMessage = "";
+        submitting = true;
+
+        try {
+            const response = await fetchJson<SetupValidationResponse>("/api/setup/config", {
+                method: "POST",
+                body: JSON.stringify({
+                    provider: {
+                        provider_name: draft.providerName,
+                        model: draft.model
+                    },
+                    workspace: {
+                        name: draft.workspaceName,
+                        root: draft.workspaceRoot
+                    },
+                    auth: {
+                        token: draft.authToken
+                    },
+                    execution: {
+                        mode: draft.executionMode === "sandboxed" ? "Sandboxed" : "Local",
+                        backend:
+                            draft.executionMode === "sandboxed"
+                                ? {
+                                      kind: "Sandbox",
+                                      label: "sandbox",
+                                      requires_docker: false
+                                  }
+                                : {
+                                      kind: "LocalCommand",
+                                      label: "local-command",
+                                      requires_docker: false
+                                  }
+                    }
+                })
+            });
+
+            if (response.configWritten) {
+                submitMessage = "Configuration saved. Opening workspace...";
+                await goto("/workspace");
+            } else {
+                submitError = response.error ?? "setup submission was rejected";
+            }
+        } catch (error) {
+            submitError = errorMessage(error);
+        } finally {
+            submitting = false;
+        }
+    }
 </script>
 
 <section class="setup-shell">
@@ -46,23 +120,30 @@
         <div class="form-preview">
             <div>
                 <span class="field-label">Provider</span>
-                <strong>{defaultSetupDraft.providerName}</strong>
+                <input bind:value={draft.providerName} />
             </div>
             <div>
                 <span class="field-label">Model</span>
-                <strong>{defaultSetupDraft.model}</strong>
+                <input bind:value={draft.model} />
             </div>
             <div>
                 <span class="field-label">Workspace</span>
-                <strong>{defaultSetupDraft.workspaceName}</strong>
+                <input bind:value={draft.workspaceName} />
             </div>
             <div>
                 <span class="field-label">Root</span>
-                <strong>{defaultSetupDraft.workspaceRoot}</strong>
+                <input bind:value={draft.workspaceRoot} />
+            </div>
+            <div>
+                <span class="field-label">Auth token</span>
+                <input bind:value={draft.authToken} placeholder="sk-..." />
             </div>
             <div>
                 <span class="field-label">Execution</span>
-                <strong>{defaultSetupDraft.executionMode}</strong>
+                <select bind:value={draft.executionMode}>
+                    <option value="local">local</option>
+                    <option value="sandboxed">sandboxed</option>
+                </select>
             </div>
         </div>
 
@@ -94,6 +175,22 @@
                 Submit to <code>/api/setup/config</code> and transition to workspace only after
                 backend validation succeeds.
             </p>
+            {#if health}
+                <p class="endpoint-copy">Health mode: <code>{health.mode}</code></p>
+            {/if}
+            {#if submitMessage}
+                <p class="success-copy">{submitMessage}</p>
+            {/if}
+            {#if submitError}
+                <p class="error-copy">{submitError}</p>
+            {/if}
+            <button type="button" class="submit-button" on:click={submitSetup} disabled={submitting}>
+                {#if submitting}
+                    Saving...
+                {:else}
+                    Save and continue
+                {/if}
+            </button>
         </div>
     </div>
 </section>
@@ -227,6 +324,17 @@
         color: #f8fafc;
     }
 
+    input,
+    select {
+        width: 100%;
+        padding: 0.7rem 0.8rem;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 0.85rem;
+        background: rgba(15, 23, 42, 0.64);
+        color: inherit;
+        font: inherit;
+    }
+
     .review-callout {
         margin-top: 1rem;
     }
@@ -236,6 +344,30 @@
         font-family:
             "IBM Plex Mono",
             monospace;
+    }
+
+    .submit-button {
+        margin-top: 0.8rem;
+        padding: 0.75rem 1rem;
+        border: 0;
+        border-radius: 999px;
+        background: #fbbf24;
+        color: #111827;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .submit-button:disabled {
+        opacity: 0.65;
+        cursor: progress;
+    }
+
+    .success-copy {
+        color: #86efac;
+    }
+
+    .error-copy {
+        color: #fca5a5;
     }
 
     @media (max-width: 820px) {

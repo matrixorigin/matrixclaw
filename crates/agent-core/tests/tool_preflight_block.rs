@@ -75,9 +75,7 @@ impl ToolExecutor for CountingTool {
 #[test]
 fn tool_preflight_block() {
     let mut provider = BlockedToolProvider::default();
-    let request = RunRequest {
-        prompt: "delete everything".to_string(),
-    };
+    let request = RunRequest::new("delete everything");
     let mut policy = DenyDangerPolicy::default();
     let mut tool = CountingTool::default();
 

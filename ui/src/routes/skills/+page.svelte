@@ -1,22 +1,92 @@
 <script lang="ts">
-    import {
-        enabledSkillState,
-        installedSkills,
-        isSkillEnabled,
-        toggleSkill,
-        type EnabledSkillState,
-        type InstalledSkill
-    } from "$lib/skills";
+    import { errorMessage, fetchJson } from "$lib/http";
+    import { onMount } from "svelte";
 
-    let selectedSkill: InstalledSkill = installedSkills[0];
-    let skillState: EnabledSkillState = enabledSkillState;
+    type InstalledSkillRecord = {
+        name: string;
+        source_root: string;
+        installed_root: string;
+        manifest_path: string;
+        provenance_path: string;
+    };
 
-    function selectSkill(skill: InstalledSkill) {
-        selectedSkill = skill;
+    type EnabledSkillsRecord = {
+        agent_name: string;
+        enabled: string[];
+    };
+
+    type SkillsInventory = {
+        installed: InstalledSkillRecord[];
+        enabled: EnabledSkillsRecord[];
+    };
+
+    const agentName = "default";
+
+    let inventory: InstalledSkillRecord[] = [];
+    let enabledState: EnabledSkillsRecord = {
+        agent_name: agentName,
+        enabled: []
+    };
+    let selectedSkill: InstalledSkillRecord | null = null;
+    let pageError = "";
+    let busy = false;
+
+    onMount(async () => {
+        await loadInventory();
+    });
+
+    function isSkillEnabled(skillName: string): boolean {
+        return enabledState.enabled.includes(skillName);
     }
 
-    function flipSelectedSkill() {
-        skillState = toggleSkill(selectedSkill.name, skillState);
+    function supportTier(skill: InstalledSkillRecord): "native" | "shimmed" {
+        return skill.name.includes("bridge") ? "shimmed" : "native";
+    }
+
+    function descriptionFor(skill: InstalledSkillRecord): string {
+        return supportTier(skill) === "native"
+            ? "Imported as a native MatrixClaw skill package."
+            : "Imported through a shimmed compatibility boundary.";
+    }
+
+    async function loadInventory() {
+        pageError = "";
+
+        try {
+            const response = await fetchJson<SkillsInventory>(`/api/skills?agent=${agentName}`);
+            inventory = response.installed;
+            enabledState = response.enabled[0] ?? {
+                agent_name: agentName,
+                enabled: []
+            };
+            selectedSkill = inventory[0] ?? null;
+        } catch (error) {
+            pageError = errorMessage(error);
+        }
+    }
+
+    async function toggleSelectedSkill() {
+        if (!selectedSkill) {
+            return;
+        }
+
+        busy = true;
+        pageError = "";
+
+        try {
+            enabledState = await fetchJson<EnabledSkillsRecord>("/api/skills/toggle", {
+                method: "POST",
+                body: JSON.stringify({
+                    agent_name: enabledState.agent_name,
+                    skill_name: selectedSkill.name,
+                    enabled: !isSkillEnabled(selectedSkill.name)
+                })
+            });
+        } catch (error) {
+            pageError = errorMessage(error);
+        } finally {
+            busy = false;
+        }
     }
 </script>
 
@@ -25,78 +95,91 @@
         <p class="section-label">Installed skills</p>
         <h2>Global inventory</h2>
         <p class="lead">
-            Installed skill packages stay immutable. Agent-local enablement is tracked
-            separately so operators can reuse the same imports safely.
+            Installed skill packages stay immutable. Agent-local enablement is tracked separately
+            so operators can reuse the same imports safely.
         </p>
 
+        {#if pageError}
+            <p class="error-copy">{pageError}</p>
+        {/if}
+
         <div class="skill-list">
-            {#each installedSkills as skill}
+            {#each inventory as skill}
                 <button
                     type="button"
-                    class:selected={skill.name === selectedSkill.name}
-                    on:click={() => selectSkill(skill)}
+                    class:selected={skill.name === selectedSkill?.name}
+                    on:click={() => (selectedSkill = skill)}
                 >
                     <strong>{skill.name}</strong>
-                    <span>{skill.supportTier}</span>
-                    <small>{skill.source}</small>
+                    <span>{supportTier(skill)}</span>
+                    <small>{skill.source_root}</small>
                 </button>
             {/each}
         </div>
     </aside>
 
     <article class="detail">
-        <p class="section-label">Selected skill</p>
-        <div class="title-row">
-            <div>
-                <h2>{selectedSkill.name}</h2>
-                <p>{selectedSkill.description}</p>
+        {#if selectedSkill}
+            <p class="section-label">Selected skill</p>
+            <div class="title-row">
+                <div>
+                    <h2>{selectedSkill.name}</h2>
+                    <p>{descriptionFor(selectedSkill)}</p>
+                </div>
+                <span class:enabled={isSkillEnabled(selectedSkill.name)} class="status-pill">
+                    {#if isSkillEnabled(selectedSkill.name)}
+                        Enabled for {enabledState.agent_name}
+                    {:else}
+                        Installed only
+                    {/if}
+                </span>
             </div>
-            <span
-                class:enabled={isSkillEnabled(selectedSkill.name, skillState)}
-                class="status-pill"
-            >
-                {#if isSkillEnabled(selectedSkill.name, skillState)}
-                    Enabled for {skillState.agentName}
+
+            <dl class="meta-grid">
+                <div>
+                    <dt>Compatibility</dt>
+                    <dd>{supportTier(selectedSkill)}</dd>
+                </div>
+                <div>
+                    <dt>Agent-local state</dt>
+                    <dd>{enabledState.agent_name}</dd>
+                </div>
+                <div>
+                    <dt>Manifest</dt>
+                    <dd>{selectedSkill.manifest_path}</dd>
+                </div>
+                <div>
+                    <dt>Provenance</dt>
+                    <dd>{selectedSkill.provenance_path}</dd>
+                </div>
+                <div>
+                    <dt>Installed root</dt>
+                    <dd>{selectedSkill.installed_root}</dd>
+                </div>
+                <div>
+                    <dt>Mutation boundary</dt>
+                    <dd>`enabled-skills.json` only</dd>
+                </div>
+            </dl>
+
+            <div class="callout">
+                <h3>Enablement safety</h3>
+                <p>
+                    Toggling enablement updates only agent metadata. Imported packages and upstream
+                    source files are left untouched.
+                </p>
+            </div>
+
+            <button type="button" class="toggle" on:click={toggleSelectedSkill} disabled={busy}>
+                {#if isSkillEnabled(selectedSkill.name)}
+                    Disable for {enabledState.agent_name}
                 {:else}
-                    Installed only
+                    Enable for {enabledState.agent_name}
                 {/if}
-            </span>
-        </div>
-
-        <dl class="meta-grid">
-            <div>
-                <dt>Version</dt>
-                <dd>{selectedSkill.version}</dd>
-            </div>
-            <div>
-                <dt>Compatibility</dt>
-                <dd>{selectedSkill.supportTier}</dd>
-            </div>
-            <div>
-                <dt>Agent-local state</dt>
-                <dd>{skillState.agentName}</dd>
-            </div>
-            <div>
-                <dt>Mutation boundary</dt>
-                <dd>`enabled-skills.json` only</dd>
-            </div>
-        </dl>
-
-        <div class="callout">
-            <h3>Enablement safety</h3>
-            <p>
-                Toggling enablement updates only agent metadata. Imported packages and upstream
-                source files are left untouched.
-            </p>
-        </div>
-
-        <button type="button" class="toggle" on:click={flipSelectedSkill}>
-            {#if isSkillEnabled(selectedSkill.name, skillState)}
-                Disable for {skillState.agentName}
-            {:else}
-                Enable for {skillState.agentName}
-            {/if}
-        </button>
+            </button>
+        {:else}
+            <p class="lead">No installed skills were found for this agent yet.</p>
+        {/if}
     </article>
 </section>
 
@@ -129,6 +212,10 @@
     small {
         color: #cbd5e1;
         line-height: 1.55;
+    }
+
+    .error-copy {
+        color: #fecaca;
     }
 
     h2,
@@ -206,6 +293,7 @@
 
     dd {
         margin: 0;
+        overflow-wrap: anywhere;
     }
 
     .callout {
@@ -223,6 +311,11 @@
         color: #1e1b4b;
         font-weight: 700;
         cursor: pointer;
+    }
+
+    .toggle:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
     }
 
     @media (max-width: 860px) {

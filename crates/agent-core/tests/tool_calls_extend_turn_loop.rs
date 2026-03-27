@@ -41,9 +41,7 @@ impl ToolExecutor for SumTool {
 #[test]
 fn tool_calls_extend_turn_loop() {
     let mut provider = ToolCallProvider::default();
-    let request = RunRequest {
-        prompt: "add 2 and 3".to_string(),
-    };
+    let request = RunRequest::new("add 2 and 3");
     let mut tool = SumTool;
 
     let trace =

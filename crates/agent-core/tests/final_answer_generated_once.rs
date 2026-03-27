@@ -40,9 +40,7 @@ impl Provider for ProbeProvider {
 #[test]
 fn final_answer_generated_once() {
     let mut provider = ProbeProvider::new();
-    let request = RunRequest {
-        prompt: "hello world".to_string(),
-    };
+    let request = RunRequest::new("hello world");
 
     let result = run_prompt(&mut provider, &request).expect("run prompt");
 

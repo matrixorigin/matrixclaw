@@ -1,5 +1,28 @@
 <script lang="ts">
+    import { goto } from "$app/navigation";
+    import { errorMessage, fetchJson } from "$lib/http";
     import { executionPriority, setupSteps } from "$lib/shell";
+    import { onMount } from "svelte";
+
+    type HealthSnapshot = {
+        mode: string;
+        baseUrl: string;
+        configReady: boolean;
+    };
+
+    let routeMessage = "Checking local runtime state...";
+
+    onMount(async () => {
+        try {
+            const health = await fetchJson<HealthSnapshot>("/healthz");
+            routeMessage = health.configReady
+                ? "Config is ready. Opening workspace..."
+                : "Setup is required. Opening setup flow...";
+            await goto(health.configReady ? "/workspace" : "/setup");
+        } catch (error) {
+            routeMessage = `Loopback health check is unavailable: ${errorMessage(error)}`;
+        }
+    });
 </script>
 
 <section class="landing">
@@ -11,6 +34,7 @@
             preview builds have a concrete entry point while `app-host` decides whether to send a
             user to setup or workspace at runtime.
         </p>
+        <p>{routeMessage}</p>
     </div>
 
     <div class="grid">

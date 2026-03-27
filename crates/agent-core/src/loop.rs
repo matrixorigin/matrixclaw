@@ -107,6 +107,7 @@ fn run_prompt_inner(
         let continuation_prompt = build_tool_result_prompt(&tool_results);
         current_request = RunRequest {
             prompt: continuation_prompt.clone(),
+            context_messages: Vec::new(),
         };
 
         let mut continuation_events = Vec::new();

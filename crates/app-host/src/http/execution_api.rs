@@ -14,6 +14,12 @@ pub struct ExecutionVisibilitySnapshot {
     pub fallback_policy: String,
 }
 
+pub const EXECUTION_VISIBILITY_ROUTE: &str = "/api/execution/visibility";
+
+pub fn is_execution_visibility_route(path: &str) -> bool {
+    crate::http::routes::normalize_path(path) == EXECUTION_VISIBILITY_ROUTE
+}
+
 pub fn execution_visibility_snapshot() -> ExecutionVisibilitySnapshot {
     let local_mode_label = execution_mode_label(&ExecutionMode::Local).to_string();
     let visible_backends = vec![

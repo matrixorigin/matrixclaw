@@ -3,8 +3,11 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
+use crate::http::{HttpRequest, HttpResponse, SetupSurface};
 use crate::paths;
+use matrixclaw_manifests::config::AppConfig;
 
 pub const WORKSPACE_FILES_ROUTE: &str = "/api/workspace/files";
 pub const WORKSPACE_REFERENCE_ROUTE: &str = "/api/workspace/reference";
@@ -28,11 +31,30 @@ pub struct WorkspaceExplorerContract {
     pub reference_route: &'static str,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkspaceReferenceRequest {
+    pub relative_path: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkspaceReferenceResponse {
+    pub relative_path: PathBuf,
+    pub reference_token: String,
+}
+
 pub fn workspace_explorer_contract() -> WorkspaceExplorerContract {
     WorkspaceExplorerContract {
         files_route: WORKSPACE_FILES_ROUTE,
         reference_route: WORKSPACE_REFERENCE_ROUTE,
     }
+}
+
+pub fn is_workspace_files_route(path: &str) -> bool {
+    crate::http::routes::normalize_path(path) == WORKSPACE_FILES_ROUTE
+}
+
+pub fn is_workspace_reference_route(path: &str) -> bool {
+    crate::http::routes::normalize_path(path) == WORKSPACE_REFERENCE_ROUTE
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -66,8 +88,65 @@ impl WorkspaceExplorerSurface {
 }
 
 pub fn workspace_surface_for_home(home: impl AsRef<Path>) -> io::Result<WorkspaceExplorerSurface> {
-    let workspace_root = paths::config_dir(home).join("workspace");
+    let home = home.as_ref();
+    let legacy_root = paths::config_dir(home).join("workspace");
+    let workspace_root = AppConfig::load_from_home(home)
+        .map(|config| config.workspace.root)
+        .unwrap_or_else(|_| {
+            if legacy_root.exists() {
+                legacy_root
+            } else {
+                home.join("workspace")
+            }
+        });
     Ok(WorkspaceExplorerSurface::new(workspace_root))
+}
+
+pub fn list_entries_response(surface: &SetupSurface) -> HttpResponse {
+    match WorkspaceExplorerSurface::new(match surface.workspace_root() {
+        Ok(root) => root,
+        Err(error) => {
+            return HttpResponse::text(500, format!("failed to resolve workspace root: {error}"))
+        }
+    })
+    .list_entries()
+    {
+        Ok(entries) => {
+            let body = serde_json::to_string_pretty(&entries).expect("serialize workspace entries");
+            HttpResponse::json(200, body)
+        }
+        Err(error) => HttpResponse::text(500, format!("failed to list workspace entries: {error}")),
+    }
+}
+
+pub fn reference_response(surface: &SetupSurface, request: HttpRequest) -> HttpResponse {
+    let Ok(payload) = serde_json::from_slice::<WorkspaceReferenceRequest>(&request.body) else {
+        return HttpResponse::json(
+            400,
+            json!({
+                "error": "workspace reference payload must be valid JSON"
+            })
+            .to_string(),
+        );
+    };
+
+    let explorer = match surface.workspace_root() {
+        Ok(root) => WorkspaceExplorerSurface::new(root),
+        Err(error) => {
+            return HttpResponse::json(
+                500,
+                json!({ "error": format!("failed to resolve workspace root: {error}") }).to_string(),
+            )
+        }
+    };
+
+    let response = WorkspaceReferenceResponse {
+        relative_path: payload.relative_path.clone(),
+        reference_token: explorer.reference_token_for_path(&payload.relative_path),
+    };
+
+    let body = serde_json::to_string_pretty(&response).expect("serialize workspace reference");
+    HttpResponse::json(200, body)
 }
 
 fn normalize_workspace_path(path: &Path) -> String {

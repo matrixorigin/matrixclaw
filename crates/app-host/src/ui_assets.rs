@@ -4,8 +4,9 @@ use std::path::{Path, PathBuf};
 pub const UI_WORKSPACE_DIR: &str = "ui";
 pub const UI_BUILD_DIR: &str = "build";
 pub const UI_ENTRY_HTML: &str = "index.html";
-pub const UI_SETUP_HTML: &str = "setup/index.html";
-pub const UI_WORKSPACE_HTML: &str = "workspace/index.html";
+pub const UI_SETUP_HTML: &str = "setup.html";
+pub const UI_WORKSPACE_HTML: &str = "workspace.html";
+pub const UI_SKILLS_HTML: &str = "skills.html";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UiAssetKind {
@@ -66,6 +67,10 @@ impl UiAssetLayout {
         self.build_dir.join(UI_WORKSPACE_HTML)
     }
 
+    pub fn skills_entry_html(&self) -> PathBuf {
+        self.build_dir.join(UI_SKILLS_HTML)
+    }
+
     pub fn shell_document_for_route(&self, route: &str) -> Option<PathBuf> {
         let normalized = normalize_request_path(route);
         let shell = self.entry_html();
@@ -75,6 +80,22 @@ impl UiAssetLayout {
 
         match normalized.as_str() {
             "/" => Some(shell),
+            "/setup" => {
+                let setup = self.setup_entry_html();
+                Some(if setup.is_file() { setup } else { shell.clone() })
+            }
+            "/workspace" => {
+                let workspace = self.workspace_entry_html();
+                Some(if workspace.is_file() {
+                    workspace
+                } else {
+                    shell.clone()
+                })
+            }
+            "/skills" => {
+                let skills = self.skills_entry_html();
+                Some(if skills.is_file() { skills } else { shell.clone() })
+            }
             _ if is_client_route(&normalized) => Some(shell),
             _ => None,
         }
@@ -141,7 +162,8 @@ fn is_client_route(request_path: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        is_client_route, UiAssetKind, UiAssetLayout, UI_BUILD_DIR, UI_ENTRY_HTML, UI_WORKSPACE_DIR,
+        is_client_route, UiAssetKind, UiAssetLayout, UI_BUILD_DIR, UI_ENTRY_HTML, UI_SETUP_HTML,
+        UI_SKILLS_HTML, UI_WORKSPACE_DIR, UI_WORKSPACE_HTML,
     };
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -166,6 +188,27 @@ mod tests {
             "<html><body>matrixclaw shell</body></html>",
         )
         .expect("write shell document");
+        fs::write(
+            root.join(UI_WORKSPACE_DIR)
+                .join(UI_BUILD_DIR)
+                .join(UI_SETUP_HTML),
+            "<html><body>matrixclaw setup</body></html>",
+        )
+        .expect("write setup document");
+        fs::write(
+            root.join(UI_WORKSPACE_DIR)
+                .join(UI_BUILD_DIR)
+                .join(UI_WORKSPACE_HTML),
+            "<html><body>matrixclaw workspace</body></html>",
+        )
+        .expect("write workspace document");
+        fs::write(
+            root.join(UI_WORKSPACE_DIR)
+                .join(UI_BUILD_DIR)
+                .join(UI_SKILLS_HTML),
+            "<html><body>matrixclaw skills</body></html>",
+        )
+        .expect("write skills document");
         fs::write(
             root.join(UI_WORKSPACE_DIR)
                 .join(UI_BUILD_DIR)
@@ -200,6 +243,29 @@ mod tests {
             .expect("client routes should resolve to the shell entry");
         assert_eq!(resolved.kind, UiAssetKind::Shell);
         assert_eq!(resolved.file_path, layout.entry_html());
+    }
+
+    #[test]
+    fn top_level_routes_resolve_to_route_specific_shells() {
+        let layout = UiAssetLayout::from_repo_root(temp_repo_root());
+
+        let setup = layout
+            .resolve_request_path("/setup")
+            .expect("setup should resolve to a shell document");
+        assert_eq!(setup.kind, UiAssetKind::Shell);
+        assert_eq!(setup.file_path, layout.build_dir.join(UI_SETUP_HTML));
+
+        let workspace = layout
+            .resolve_request_path("/workspace")
+            .expect("workspace should resolve to a shell document");
+        assert_eq!(workspace.kind, UiAssetKind::Shell);
+        assert_eq!(workspace.file_path, layout.build_dir.join(UI_WORKSPACE_HTML));
+
+        let skills = layout
+            .resolve_request_path("/skills")
+            .expect("skills should resolve to a shell document");
+        assert_eq!(skills.kind, UiAssetKind::Shell);
+        assert_eq!(skills.file_path, layout.build_dir.join(UI_SKILLS_HTML));
     }
 
     #[test]

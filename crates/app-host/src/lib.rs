@@ -6,9 +6,13 @@ pub mod execution;
 pub mod http;
 pub mod install;
 pub mod local_command;
+pub mod llm_smoke;
+pub mod live_runtime;
+pub mod openai_compatible;
 pub mod paths;
 pub mod plugin_launcher;
 pub mod sandbox_backend;
+pub mod server;
 pub mod setup;
 pub mod ui_assets;
 
@@ -24,6 +28,65 @@ pub fn run(args: impl IntoIterator<Item = String>) -> i32 {
             println!("MatrixClaw {}", VERSION);
             0
         }
+        Some("serve") => {
+            let fixture = args.next();
+            let home = paths::home_dir();
+            let result = match fixture.as_deref() {
+                Some("--fixture") => match args.next().as_deref() {
+                    Some("demo") => server::serve_with_demo_fixture(&home),
+                    Some(other) => Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        format!("unknown fixture: {other}"),
+                    )),
+                    None => Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "missing fixture name after --fixture",
+                    )),
+                },
+                Some(other) => Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!("unknown serve option: {other}"),
+                )),
+                None => server::serve_for_home(&home),
+            };
+
+            match result {
+                Ok(()) => 0,
+                Err(error) => {
+                    eprintln!("server failed: {error}");
+                    1
+                }
+            }
+        }
+        Some("llm-smoke") => {
+            let mut model = "moonshotai/kimi-k2.5".to_string();
+            while let Some(flag) = args.next() {
+                match flag.as_str() {
+                    "--model" => {
+                        let Some(value) = args.next() else {
+                            eprintln!("missing model name after --model");
+                            return 1;
+                        };
+                        model = value;
+                    }
+                    other => {
+                        eprintln!("unknown llm-smoke option: {other}");
+                        return 1;
+                    }
+                }
+            }
+
+            match llm_smoke::run_openrouter_smoke(&model) {
+                Ok(report) => {
+                    println!("{report}");
+                    0
+                }
+                Err(error) => {
+                    eprintln!("llm smoke failed: {error}");
+                    1
+                }
+            }
+        }
         None => match setup::ensure_first_launch() {
             Ok(setup::StartupMode::Ready) => 0,
             Ok(setup::StartupMode::Setup(surface)) => {
@@ -36,7 +99,9 @@ pub fn run(args: impl IntoIterator<Item = String>) -> i32 {
             }
         },
         _ => {
-            eprintln!("usage: matrixclaw version");
+            eprintln!(
+                "usage: matrixclaw version | matrixclaw serve [--fixture demo] | matrixclaw llm-smoke [--model <id>]"
+            );
             1
         }
     }

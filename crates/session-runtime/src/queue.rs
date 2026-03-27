@@ -55,4 +55,16 @@ impl SessionQueue {
         });
         drained
     }
+
+    pub fn drain_steering_items(&mut self) -> Vec<String> {
+        let mut drained = Vec::new();
+        self.items.retain(|item| match item {
+            QueueItem::Steering(message) => {
+                drained.push(message.clone());
+                false
+            }
+            QueueItem::FollowUp(_) => true,
+        });
+        drained
+    }
 }

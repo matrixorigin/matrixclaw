@@ -1,7 +1,9 @@
 use crate::auth::{validate_response, CHALLENGE_TOKEN};
 use crate::capabilities::{AgentDescriptor, CapabilityDescriptor};
 use crate::stream_adapter::{ChatFrame, LoopbackChatStreamAdapter};
-use crate::translation::{default_agents, translate_chat_request, OpenClawChatRequest};
+use crate::translation::{
+    default_agents, persist_openclaw_chat_session, translate_chat_request, OpenClawChatRequest,
+};
 use matrixclaw_session_runtime::ChatRuntime;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -56,6 +58,8 @@ where
 
     let mut adapter = LoopbackChatStreamAdapter::new();
     translate_chat_request(request, runtime, &mut adapter);
+    persist_openclaw_chat_session(&request.conversation_id, adapter.frames())
+        .expect("persist compatibility session");
 
     ChatWebSocketConversation {
         capability,

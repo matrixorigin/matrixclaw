@@ -3,8 +3,10 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 use crate::compat_registry::CompatRegistryEntry;
+use crate::http::{HttpRequest, HttpResponse, SetupSurface};
 use crate::paths;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -42,6 +44,17 @@ struct EnabledSkillsFile {
     #[serde(rename = "agentName")]
     agent_name: String,
     enabled: Vec<String>,
+}
+
+pub const SKILLS_INVENTORY_ROUTE: &str = "/api/skills";
+pub const SKILLS_TOGGLE_ROUTE: &str = "/api/skills/toggle";
+
+pub fn is_skills_inventory_route(path: &str) -> bool {
+    crate::http::routes::normalize_path(path) == SKILLS_INVENTORY_ROUTE
+}
+
+pub fn is_skills_toggle_route(path: &str) -> bool {
+    crate::http::routes::normalize_path(path) == SKILLS_TOGGLE_ROUTE
 }
 
 pub fn compat_registry_path(home: impl AsRef<Path>) -> PathBuf {
@@ -170,4 +183,50 @@ fn load_registry_entries(body: &str) -> serde_json::Result<Vec<CompatRegistryEnt
             }
         },
     }
+}
+
+pub fn skills_inventory_response(surface: &SetupSurface, request_path: &str) -> HttpResponse {
+    let agent_name = agent_name_from_request(request_path).unwrap_or_else(|| surface.current_agent_name());
+    match skills_inventory_for_agent(surface.home(), &agent_name) {
+        Ok(inventory) => {
+            let body = serde_json::to_string_pretty(&inventory).expect("serialize skills inventory");
+            HttpResponse::json(200, body)
+        }
+        Err(error) => HttpResponse::json(
+            500,
+            json!({ "error": format!("failed to load skills inventory: {error}") }).to_string(),
+        ),
+    }
+}
+
+pub fn toggle_skill_response(surface: &SetupSurface, request: HttpRequest) -> HttpResponse {
+    let Ok(change) = serde_json::from_slice::<EnableSkillChange>(&request.body) else {
+        return HttpResponse::json(
+            400,
+            json!({ "error": "toggle payload must be valid JSON" }).to_string(),
+        );
+    };
+
+    match set_skill_enabled(surface.home(), &change) {
+        Ok(record) => {
+            let body = serde_json::to_string_pretty(&record).expect("serialize enabled skills");
+            HttpResponse::json(200, body)
+        }
+        Err(error) => HttpResponse::json(
+            500,
+            json!({ "error": format!("failed to update enabled skills: {error}") }).to_string(),
+        ),
+    }
+}
+
+fn agent_name_from_request(request_path: &str) -> Option<String> {
+    let (_path, query) = request_path.split_once('?')?;
+    for pair in query.split('&') {
+        let (key, value) = pair.split_once('=')?;
+        if key == "agent" && !value.is_empty() {
+            return Some(value.to_string());
+        }
+    }
+
+    None
 }

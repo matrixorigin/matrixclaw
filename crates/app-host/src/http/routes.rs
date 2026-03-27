@@ -36,7 +36,7 @@ pub fn is_shell_route(path: &str) -> bool {
         || (!normalized.starts_with("/api/") && !normalized.starts_with("/healthz"))
 }
 
-fn normalize_path(path: &str) -> String {
+pub fn normalize_path(path: &str) -> String {
     let trimmed = path.trim();
     if trimmed.is_empty() || trimmed == "/" {
         return "/".to_string();

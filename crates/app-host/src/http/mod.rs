@@ -1,8 +1,10 @@
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 pub mod execution_api;
+pub mod agent_api;
 pub mod queue_api;
 pub mod routes;
 pub mod setup_api;
@@ -10,6 +12,8 @@ pub mod skills_api;
 pub mod workspace_api;
 
 use crate::ui_assets::{UiAssetKind, UiAssetLayout};
+use matrixclaw_manifests::config::AppConfig;
+use matrixclaw_session_runtime::queue::SessionQueue;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HttpMethod {
@@ -83,21 +87,34 @@ impl HttpResponse {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct SetupSurface {
     home: PathBuf,
     base_url: String,
     asset_layout: UiAssetLayout,
     contract: routes::SetupServerContract,
+    agent_name: String,
+    queue: Arc<Mutex<SessionQueue>>,
 }
 
 impl SetupSurface {
     pub fn new(home: impl AsRef<Path>, asset_layout: UiAssetLayout) -> Self {
+        Self::with_state(home, asset_layout, "default", SessionQueue::default())
+    }
+
+    pub fn with_state(
+        home: impl AsRef<Path>,
+        asset_layout: UiAssetLayout,
+        agent_name: impl Into<String>,
+        queue: SessionQueue,
+    ) -> Self {
         Self {
             home: home.as_ref().to_path_buf(),
             base_url: routes::LOOPBACK_BASE_URL.to_string(),
             asset_layout,
             contract: routes::setup_server_contract(),
+            agent_name: agent_name.into(),
+            queue: Arc::new(Mutex::new(queue)),
         }
     }
 
@@ -118,24 +135,57 @@ impl SetupSurface {
             return setup_api::handle_submission(self, request);
         }
 
+        if workspace_api::is_workspace_files_route(&request.path) && request.method == HttpMethod::Get
+        {
+            return workspace_api::list_entries_response(self);
+        }
+
+        if workspace_api::is_workspace_reference_route(&request.path)
+            && request.method == HttpMethod::Post
+        {
+            return workspace_api::reference_response(self, request);
+        }
+
+        if queue_api::is_queue_state_route(&request.path) && request.method == HttpMethod::Get {
+            return queue_api::queue_state_response(self);
+        }
+
+        if queue_api::is_queue_submit_route(&request.path) && request.method == HttpMethod::Post {
+            return queue_api::queue_submission_response(self, request);
+        }
+
+        if execution_api::is_execution_visibility_route(&request.path)
+            && request.method == HttpMethod::Get
+        {
+            return execution_api::execution_visibility_response();
+        }
+
+        if agent_api::is_agent_run_route(&request.path) && request.method == HttpMethod::Post {
+            return agent_api::agent_run_response(self, request);
+        }
+
+        if skills_api::is_skills_inventory_route(&request.path) && request.method == HttpMethod::Get
+        {
+            return skills_api::skills_inventory_response(self, &request.path);
+        }
+
+        if skills_api::is_skills_toggle_route(&request.path) && request.method == HttpMethod::Post {
+            return skills_api::toggle_skill_response(self, request);
+        }
+
         if request.method == HttpMethod::Get && routes::is_shell_route(&request.path) {
             if let Some(resolved) = self.asset_layout.resolve_request_path(&request.path) {
-                if resolved.kind == UiAssetKind::Shell || resolved.kind == UiAssetKind::Static {
-                    match fs::read(&resolved.file_path) {
-                        Ok(body) => {
-                            let content_type = if resolved.kind == UiAssetKind::Shell {
-                                "text/html; charset=utf-8"
-                            } else {
-                                "application/octet-stream"
-                            };
-                            return HttpResponse::new(200, content_type, body);
-                        }
-                        Err(error) => {
-                            return HttpResponse::text(
-                                500,
-                                format!("failed to read UI asset: {error}"),
-                            );
-                        }
+                match fs::read(&resolved.file_path) {
+                    Ok(body) => {
+                        let content_type =
+                            content_type_for_asset(resolved.kind, resolved.file_path.as_path());
+                        return HttpResponse::new(200, content_type, body);
+                    }
+                    Err(error) => {
+                        return HttpResponse::text(
+                            500,
+                            format!("failed to read UI asset: {error}"),
+                        );
                     }
                 }
             }
@@ -148,8 +198,59 @@ impl SetupSurface {
     pub fn home(&self) -> &Path {
         &self.home
     }
+
+    pub fn config_ready(&self) -> bool {
+        crate::setup::config_path(&self.home).exists()
+    }
+
+    pub fn current_agent_name(&self) -> String {
+        if let Ok(config) = self.app_config() {
+            return config.workspace.name;
+        }
+
+        self.agent_name.clone()
+    }
+
+    pub fn app_config(&self) -> io::Result<AppConfig> {
+        AppConfig::load_from_home(&self.home)
+    }
+
+    pub fn workspace_root(&self) -> io::Result<PathBuf> {
+        if let Ok(config) = self.app_config() {
+            return Ok(config.workspace.root);
+        }
+
+        let legacy_root = crate::paths::config_dir(&self.home).join("workspace");
+        if legacy_root.exists() {
+            return Ok(legacy_root);
+        }
+
+        Ok(self.home.join("workspace"))
+    }
+
+    pub fn queue(&self) -> Arc<Mutex<SessionQueue>> {
+        Arc::clone(&self.queue)
+    }
 }
 
 pub fn setup_surface_for_home(home: impl AsRef<Path>) -> io::Result<SetupSurface> {
     Ok(SetupSurface::new(home, UiAssetLayout::discover()))
+}
+
+fn content_type_for_asset(kind: UiAssetKind, path: &Path) -> &'static str {
+    if kind == UiAssetKind::Shell {
+        return "text/html; charset=utf-8";
+    }
+
+    match path.extension().and_then(|value| value.to_str()) {
+        Some("css") => "text/css; charset=utf-8",
+        Some("js") => "text/javascript; charset=utf-8",
+        Some("json") => "application/json",
+        Some("svg") => "image/svg+xml",
+        Some("png") => "image/png",
+        Some("jpg") | Some("jpeg") => "image/jpeg",
+        Some("webp") => "image/webp",
+        Some("woff2") => "font/woff2",
+        _ => "application/octet-stream",
+    }
 }

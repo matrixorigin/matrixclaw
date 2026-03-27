@@ -255,6 +255,30 @@ impl AppConfig {
         serde_json::to_string_pretty(&body)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
     }
+
+    pub fn load_from_home(home: impl AsRef<Path>) -> io::Result<Self> {
+        let path = Self::config_path(home);
+        let body = fs::read_to_string(&path)?;
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct AppConfigFile {
+            #[serde(rename = "schemaVersion")]
+            _schema_version: Option<String>,
+            provider: ProviderSettings,
+            workspace: WorkspaceSettings,
+            auth: AuthSettings,
+            managed_assets: ManagedAssetsSettings,
+        }
+
+        let parsed: AppConfigFile = serde_json::from_str(&body)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        Ok(Self {
+            provider: parsed.provider,
+            workspace: parsed.workspace,
+            auth: parsed.auth,
+            managed_assets: parsed.managed_assets,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
