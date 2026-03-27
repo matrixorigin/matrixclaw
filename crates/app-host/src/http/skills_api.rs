@@ -186,10 +186,12 @@ fn load_registry_entries(body: &str) -> serde_json::Result<Vec<CompatRegistryEnt
 }
 
 pub fn skills_inventory_response(surface: &SetupSurface, request_path: &str) -> HttpResponse {
-    let agent_name = agent_name_from_request(request_path).unwrap_or_else(|| surface.current_agent_name());
+    let agent_name =
+        agent_name_from_request(request_path).unwrap_or_else(|| surface.current_agent_name());
     match skills_inventory_for_agent(surface.home(), &agent_name) {
         Ok(inventory) => {
-            let body = serde_json::to_string_pretty(&inventory).expect("serialize skills inventory");
+            let body =
+                serde_json::to_string_pretty(&inventory).expect("serialize skills inventory");
             HttpResponse::json(200, body)
         }
         Err(error) => HttpResponse::json(

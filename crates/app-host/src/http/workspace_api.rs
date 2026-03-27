@@ -135,7 +135,8 @@ pub fn reference_response(surface: &SetupSurface, request: HttpRequest) -> HttpR
         Err(error) => {
             return HttpResponse::json(
                 500,
-                json!({ "error": format!("failed to resolve workspace root: {error}") }).to_string(),
+                json!({ "error": format!("failed to resolve workspace root: {error}") })
+                    .to_string(),
             )
         }
     };

@@ -13,6 +13,7 @@ use matrixclaw_app_host::http::{HttpRequest, SetupSurface};
 use matrixclaw_app_host::live_runtime::session_db_path;
 use matrixclaw_app_host::ui_assets::UiAssetLayout;
 use matrixclaw_session_runtime::queue::{QueueItem, SessionQueue};
+use matrixclaw_session_runtime::recovery::SessionRecoveryStore;
 use matrixclaw_session_runtime::session::Session;
 use matrixclaw_session_runtime::sqlite::SqliteStorage;
 use matrixclaw_session_runtime::storage::TranscriptStore;
@@ -73,8 +74,8 @@ fn session_resume_over_http() {
         .expect("provider request should contain chat messages");
 
     assert!(
-        messages.len() >= 4,
-        "expected the resumed request to carry the persisted transcript plus queue metadata"
+        messages.len() >= 3,
+        "expected the resumed request to carry the persisted transcript plus steering metadata"
     );
     assert!(
         messages.iter().any(|message| {
@@ -89,10 +90,10 @@ fn session_resume_over_http() {
         "expected steering metadata to survive restart and reach the next prompt"
     );
     assert!(
-        messages.iter().any(|message| {
+        !messages.iter().any(|message| {
             message.get("content").and_then(Value::as_str) == Some("defer this follow-up")
         }),
-        "expected follow-up metadata to survive restart and reach the next prompt"
+        "follow-up metadata should stay deferred until the current run completes"
     );
     assert!(
         messages.iter().any(|message| {
@@ -111,6 +112,19 @@ fn session_resume_over_http() {
             .any(|entry| entry.content == "persisted assistant state"),
         "the previous transcript should remain persisted"
     );
+    let recovered = resumed_storage
+        .load_recovery_snapshot()
+        .expect("load recovery snapshot after resumed run");
+    assert_eq!(
+        recovered.queue.steering_items().count(),
+        0,
+        "steering should be drained after the resumed turn"
+    );
+    assert_eq!(
+        recovered.queue.follow_up_items().count(),
+        1,
+        "follow-up should remain queued for the next run"
+    );
 }
 
 fn seed_persisted_session(path: &PathBuf) {
@@ -120,7 +134,9 @@ fn seed_persisted_session(path: &PathBuf) {
 
     let mut storage = SqliteStorage::open(path).expect("open session storage");
     let session = Session::from_parts(
-        vec![RuntimeMessage::Assistant("persisted assistant state".to_string())],
+        vec![RuntimeMessage::Assistant(
+            "persisted assistant state".to_string(),
+        )],
         SessionQueue::from_items(vec![
             QueueItem::Steering("keep this steering".to_string()),
             QueueItem::FollowUp("defer this follow-up".to_string()),

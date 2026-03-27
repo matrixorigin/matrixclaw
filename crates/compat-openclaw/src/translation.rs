@@ -128,7 +128,7 @@ pub fn openclaw_session_db_path(conversation_id: &str) -> PathBuf {
     openclaw_runtime_home()
         .join("state")
         .join("sessions")
-        .join(format!("{conversation_id}.sqlite3"))
+        .join(format!("{}.sqlite3", session_file_stem(conversation_id)))
 }
 
 pub fn openclaw_runtime_home() -> PathBuf {
@@ -137,21 +137,34 @@ pub fn openclaw_runtime_home() -> PathBuf {
     }
 
     if let Some(home) = discover_temp_home() {
-        return home;
+        return home.join(".matrixclaw");
     }
 
     if let Some(home) = env::var_os("HOME").filter(|value| !value.is_empty()) {
-        return PathBuf::from(home);
+        return PathBuf::from(home).join(".matrixclaw");
     }
 
     env::current_dir().unwrap_or_else(|_| env::temp_dir())
 }
 
+fn session_file_stem(conversation_id: &str) -> String {
+    let trimmed = conversation_id.trim();
+    let source = if trimmed.is_empty() {
+        "conversation"
+    } else {
+        trimmed
+    };
+    let mut stem = String::with_capacity(source.len() * 2 + 3);
+    stem.push_str("id-");
+    for byte in source.as_bytes() {
+        use std::fmt::Write as _;
+        let _ = write!(&mut stem, "{byte:02x}");
+    }
+    stem
+}
+
 fn discover_temp_home() -> Option<PathBuf> {
-    let prefix = format!(
-        "matrixclaw-compat-runtime-reuse-{}-",
-        std::process::id()
-    );
+    let prefix = format!("matrixclaw-compat-runtime-reuse-{}-", std::process::id());
     let mut newest: Option<PathBuf> = None;
 
     for entry in fs::read_dir(env::temp_dir()).ok()? {
@@ -189,7 +202,9 @@ fn load_or_create_session(path: &Path) -> Result<Session, String> {
     }
 
     let storage = SqliteStorage::open(path).map_err(storage_error)?;
-    let snapshot = storage.load_recovery_snapshot().map_err(|error| error.to_string())?;
+    let snapshot = storage
+        .load_recovery_snapshot()
+        .map_err(|error| error.to_string())?;
     Ok(restore_session(snapshot).session)
 }
 

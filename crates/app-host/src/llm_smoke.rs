@@ -11,8 +11,8 @@ pub fn run_openrouter_smoke(model: &str) -> Result<String, String> {
     let api_key = env::var("OPENROUTER_API_KEY")
         .map_err(|_| "OPENROUTER_API_KEY is not set in the environment".to_string())?;
 
-    let mut provider = OpenAiCompatibleProvider::for_openrouter(api_key, model)
-        .map_err(|error| error.0)?;
+    let mut provider =
+        OpenAiCompatibleProvider::for_openrouter(api_key, model).map_err(|error| error.0)?;
 
     let request = RunRequest::new(format!(
         "Reply with exactly `{EXPECTED_SENTINEL}` and nothing else."

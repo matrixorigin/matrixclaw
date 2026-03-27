@@ -15,12 +15,9 @@ fn openrouter_provider_streaming() {
     let request_bodies = Arc::new(Mutex::new(Vec::new()));
     let server_url = spawn_fixture_server(request_count.clone(), request_bodies.clone());
 
-    let mut provider = OpenAiCompatibleProvider::with_base_url(
-        server_url,
-        "test-key",
-        "moonshotai/kimi-k2.5",
-    )
-    .expect("create fixture-backed provider");
+    let mut provider =
+        OpenAiCompatibleProvider::with_base_url(server_url, "test-key", "moonshotai/kimi-k2.5")
+            .expect("create fixture-backed provider");
 
     let request = RunRequest::new("Say MatrixClaw");
     let mut events = Vec::new();

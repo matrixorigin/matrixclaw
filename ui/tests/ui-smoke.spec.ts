@@ -30,13 +30,13 @@ const workspaceFiles = [
 
 const queueState = {
     steering: {
-        kind: "manual",
+        kind: "steering",
         submit_route: "/api/queue/steering",
         delivery_timing: "next-turn",
         summary: "Steering instructions are queued for the next turn."
     },
     follow_up: {
-        kind: "manual",
+        kind: "follow-up",
         submit_route: "/api/queue/follow-up",
         delivery_timing: "next-run",
         summary: "Follow-up instructions wait until the next run completes."
@@ -44,9 +44,9 @@ const queueState = {
 };
 
 const executionVisibility = {
-    modeLabel: "loopback",
-    visibleBackends: ["loopback", "sandbox"],
-    sandboxPriority: ["sandbox", "loopback"],
+    modeLabel: "local",
+    visibleBackends: ["local", "docker", "boxlite"],
+    sandboxPriority: ["docker", "boxlite"],
     sandboxFailureMessage: "Sandbox-only operations remain explicit in the workspace shell.",
     fallbackPolicy: "prefer-sandbox"
 };
@@ -77,6 +77,8 @@ const skillsInventory = {
 };
 
 test("browser smoke verifies live workspace and skills flows", async ({ page }) => {
+    let queueSessionId = "";
+
     await page.route("**/healthz", async (route) => {
         await route.fulfill({
             contentType: "application/json",
@@ -130,7 +132,11 @@ test("browser smoke verifies live workspace and skills flows", async ({ page }) 
         });
     });
 
-    await page.route("**/api/queue/state", async (route) => {
+    await page.route("**/api/queue/state*", async (route) => {
+        const sessionId = new URL(route.request().url()).searchParams.get("session_id");
+        if (sessionId) {
+            queueSessionId = sessionId;
+        }
         await route.fulfill({
             contentType: "application/json",
             body: JSON.stringify(queueState)
@@ -138,16 +144,24 @@ test("browser smoke verifies live workspace and skills flows", async ({ page }) 
     });
 
     await page.route("**/api/queue/steering", async (route) => {
+        const payload = route.request().postDataJSON() as { session_id?: string };
+        expect(payload.session_id).toBeTruthy();
         await route.fulfill({
             contentType: "application/json",
-            body: JSON.stringify({ ok: true })
+            body: JSON.stringify({
+                accepted: true,
+                state: queueState.steering
+            })
         });
     });
 
     await page.route("**/api/queue/follow-up", async (route) => {
         await route.fulfill({
             contentType: "application/json",
-            body: JSON.stringify({ ok: true })
+            body: JSON.stringify({
+                accepted: true,
+                state: queueState.follow_up
+            })
         });
     });
 
@@ -187,6 +201,7 @@ test("browser smoke verifies live workspace and skills flows", async ({ page }) 
 
     await page.goto("/workspace");
     await expect(page.getByRole("heading", { name: "Files and references" })).toBeVisible();
+    expect(queueSessionId).toBeTruthy();
     await page.getByRole("button", { name: "Reference" }).first().click();
     await expect(page.locator(".reference-chips span").filter({ hasText: "[[workspace:src/main.rs]]" })).toBeVisible();
 

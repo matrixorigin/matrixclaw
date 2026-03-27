@@ -5,7 +5,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use matrixclaw_agent_core::event::AgentEvent;
 use matrixclaw_agent_core::provider::{Provider, ProviderError};
 use matrixclaw_agent_core::RunRequest;
-use matrixclaw_app_host::live_runtime::{session_db_path, LiveRunRequest, SessionBackedLiveRunService};
+use matrixclaw_app_host::live_runtime::{
+    session_db_path, LiveRunRequest, SessionBackedLiveRunService,
+};
 use matrixclaw_session_runtime::message_projection::{
     DurableTranscriptEntry, DurableTranscriptKind,
 };
@@ -37,8 +39,7 @@ fn blocked_tool_policy_surfacing() {
     let transcript = storage.load_transcript().expect("load transcript");
 
     assert_eq!(
-        provider.stream_calls,
-        2,
+        provider.stream_calls, 2,
         "the run should continue after a blocked tool instead of crashing"
     );
     assert!(

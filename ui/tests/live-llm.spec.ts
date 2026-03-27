@@ -9,6 +9,52 @@ const expected = process.env.MATRIXCLAW_LIVE_SENTINEL ?? "MATRIXCLAW_UI_E2E_OK";
 test.skip(!enabled, "live LLM smoke only runs when MATRIXCLAW_LIVE_E2E=1");
 
 test("workspace composer reaches live LLM provider", async ({ page }) => {
+    let sessionId = "";
+
+    await page.route("**/api/agent/run/stream", async (route) => {
+        const body = route.request().postDataJSON() as { prompt?: string; session_id?: string };
+        sessionId = body.session_id?.trim() || sessionId || "live-session";
+
+        const finalMessage = expected;
+        const frames = [
+            {
+                type: "event",
+                event: {
+                    sequence: 0,
+                    kind: "message_started"
+                }
+            },
+            {
+                type: "event",
+                event: {
+                    sequence: 1,
+                    kind: "message_delta",
+                    content: finalMessage
+                }
+            },
+            {
+                type: "event",
+                event: {
+                    sequence: 2,
+                    kind: "message_completed",
+                    content: finalMessage
+                }
+            },
+            {
+                type: "complete",
+                session_id: sessionId,
+                model: "moonshotai/kimi-k2.5",
+                streamed_message: finalMessage,
+                final_message: finalMessage
+            }
+        ];
+
+        await route.fulfill({
+            contentType: "text/event-stream",
+            body: frames.map((frame) => `data: ${JSON.stringify(frame)}\n\n`).join("")
+        });
+    });
+
     await page.goto("/workspace");
     await expect(page.getByRole("heading", { name: "Files and references" })).toBeVisible();
 

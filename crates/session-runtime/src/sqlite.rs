@@ -24,6 +24,11 @@ impl SqliteStorage {
                 kind TEXT NOT NULL,
                 content TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS recovery_message (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                kind TEXT NOT NULL,
+                content TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS compaction_record (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 summary TEXT NOT NULL
@@ -49,6 +54,7 @@ impl SqliteStorage {
         let snapshot = session.snapshot();
         let tx = self.conn.transaction()?;
         tx.execute("DELETE FROM transcript", [])?;
+        tx.execute("DELETE FROM recovery_message", [])?;
         tx.execute("DELETE FROM compaction_record_message", [])?;
         tx.execute("DELETE FROM compaction_record", [])?;
         tx.execute("DELETE FROM queue_item", [])?;
@@ -65,6 +71,16 @@ impl SqliteStorage {
             tx.execute(
                 "INSERT INTO queue_item (kind, content) VALUES (?1, ?2)",
                 params![kind, content],
+            )?;
+        }
+
+        for message in &snapshot.history {
+            tx.execute(
+                "INSERT INTO recovery_message (kind, content) VALUES (?1, ?2)",
+                params![
+                    Self::runtime_message_kind_as_str(message),
+                    Self::runtime_message_content(message)
+                ],
             )?;
         }
 
@@ -112,6 +128,7 @@ impl SqliteStorage {
 
     fn runtime_message_kind_as_str(message: &RuntimeMessage) -> &'static str {
         match message {
+            RuntimeMessage::User(_) => "user",
             RuntimeMessage::Assistant(_) => "assistant",
             RuntimeMessage::RuntimeSummary(_) => "runtime_summary",
             RuntimeMessage::ToolResult(_) => "tool_result",
@@ -124,7 +141,8 @@ impl SqliteStorage {
 
     fn runtime_message_content(message: &RuntimeMessage) -> &str {
         match message {
-            RuntimeMessage::Assistant(content)
+            RuntimeMessage::User(content)
+            | RuntimeMessage::Assistant(content)
             | RuntimeMessage::RuntimeSummary(content)
             | RuntimeMessage::ToolResult(content)
             | RuntimeMessage::Steering(content)
@@ -136,6 +154,7 @@ impl SqliteStorage {
 
     fn runtime_message_from_parts(kind: &str, content: String) -> RuntimeMessage {
         match kind {
+            "user" => RuntimeMessage::User(content),
             "assistant" => RuntimeMessage::Assistant(content),
             "runtime_summary" => RuntimeMessage::RuntimeSummary(content),
             "tool_result" => RuntimeMessage::ToolResult(content),
@@ -249,18 +268,22 @@ impl TranscriptStore for SqliteStorage {
 impl SessionRecoveryStore for SqliteStorage {
     fn load_recovery_snapshot(&self) -> Result<RecoverySnapshot, RecoveryError> {
         let history = self
-            .load_transcript()?
-            .into_iter()
-            .map(|entry| match entry.kind {
-                DurableTranscriptKind::Assistant => RuntimeMessage::Assistant(entry.content),
-                DurableTranscriptKind::RuntimeSummary => {
-                    RuntimeMessage::RuntimeSummary(entry.content)
-                }
-                DurableTranscriptKind::ToolResult => RuntimeMessage::ToolResult(entry.content),
-                DurableTranscriptKind::Warning => RuntimeMessage::Warning(entry.content),
-                DurableTranscriptKind::RetryMarker => RuntimeMessage::RetryMarker(entry.content),
-            })
-            .collect();
+            .load_recovery_history()
+            .unwrap_or_else(|_| {
+                self.load_transcript()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|entry| match entry.kind {
+                        DurableTranscriptKind::Assistant => RuntimeMessage::Assistant(entry.content),
+                        DurableTranscriptKind::RuntimeSummary => {
+                            RuntimeMessage::RuntimeSummary(entry.content)
+                        }
+                        DurableTranscriptKind::ToolResult => RuntimeMessage::ToolResult(entry.content),
+                        DurableTranscriptKind::Warning => RuntimeMessage::Warning(entry.content),
+                        DurableTranscriptKind::RetryMarker => RuntimeMessage::RetryMarker(entry.content),
+                    })
+                    .collect()
+            });
 
         let mut stmt = self
             .conn
@@ -284,5 +307,29 @@ impl SessionRecoveryStore for SqliteStorage {
             queue: SessionQueue::from_items(queue_items),
             compaction_records: self.load_compaction_records()?,
         })
+    }
+}
+
+impl SqliteStorage {
+    fn load_recovery_history(&self) -> Result<Vec<RuntimeMessage>, StorageError> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT kind, content FROM recovery_message ORDER BY id ASC")?;
+        let rows = stmt.query_map([], |row| {
+            let kind: String = row.get(0)?;
+            let content: String = row.get(1)?;
+            Ok(Self::runtime_message_from_parts(&kind, content))
+        })?;
+
+        let mut history = Vec::new();
+        for row in rows {
+            history.push(row?);
+        }
+
+        if history.is_empty() {
+            return Err(StorageError::Sqlite(rusqlite::Error::QueryReturnedNoRows));
+        }
+
+        Ok(history)
     }
 }

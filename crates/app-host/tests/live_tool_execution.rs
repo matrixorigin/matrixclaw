@@ -51,7 +51,9 @@ fn live_tool_execution() {
 
     let session_path = session_db_path(&home, &outcome.session_id);
     let storage = SqliteStorage::open(&session_path).expect("open persisted session");
-    let transcript = storage.load_transcript().expect("load persisted transcript");
+    let transcript = storage
+        .load_transcript()
+        .expect("load persisted transcript");
 
     let expected_events = vec![
         LiveRunEvent {

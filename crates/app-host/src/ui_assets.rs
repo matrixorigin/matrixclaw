@@ -82,7 +82,11 @@ impl UiAssetLayout {
             "/" => Some(shell),
             "/setup" => {
                 let setup = self.setup_entry_html();
-                Some(if setup.is_file() { setup } else { shell.clone() })
+                Some(if setup.is_file() {
+                    setup
+                } else {
+                    shell.clone()
+                })
             }
             "/workspace" => {
                 let workspace = self.workspace_entry_html();
@@ -94,7 +98,11 @@ impl UiAssetLayout {
             }
             "/skills" => {
                 let skills = self.skills_entry_html();
-                Some(if skills.is_file() { skills } else { shell.clone() })
+                Some(if skills.is_file() {
+                    skills
+                } else {
+                    shell.clone()
+                })
             }
             _ if is_client_route(&normalized) => Some(shell),
             _ => None,
@@ -259,7 +267,10 @@ mod tests {
             .resolve_request_path("/workspace")
             .expect("workspace should resolve to a shell document");
         assert_eq!(workspace.kind, UiAssetKind::Shell);
-        assert_eq!(workspace.file_path, layout.build_dir.join(UI_WORKSPACE_HTML));
+        assert_eq!(
+            workspace.file_path,
+            layout.build_dir.join(UI_WORKSPACE_HTML)
+        );
 
         let skills = layout
             .resolve_request_path("/skills")

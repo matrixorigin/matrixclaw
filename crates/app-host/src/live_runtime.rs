@@ -6,9 +6,10 @@ use matrixclaw_agent_core::event::AgentEvent;
 use matrixclaw_agent_core::message::ToolResultMessage;
 use matrixclaw_agent_core::policy::{ToolPreflightDecision, ToolPreflightPolicy};
 use matrixclaw_agent_core::provider::{Provider, ProviderError};
-use matrixclaw_agent_core::r#loop::run_prompt_with_policy_trace;
+use matrixclaw_agent_core::r#loop::run_prompt_with_policy_trace_sink;
 use matrixclaw_agent_core::tool::{ToolExecutionRequest, ToolExecutionResponse, ToolExecutor};
 use matrixclaw_agent_core::{RunMessage, RunRequest};
+use matrixclaw_session_runtime::queue::{QueueItem, SessionQueue};
 use matrixclaw_session_runtime::recovery::{restore_session, SessionRecoveryStore};
 use matrixclaw_session_runtime::session::Session;
 use matrixclaw_session_runtime::sqlite::SqliteStorage;
@@ -58,19 +59,48 @@ impl SessionBackedLiveRunService {
         request: LiveRunRequest,
         provider: &mut dyn Provider,
     ) -> Result<LiveRunOutcome, String> {
-        let session_id = request
-            .session_id
-            .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(generate_session_id);
-        let session_path = session_db_path(&self.home, &session_id);
-        let mut session = load_or_create_session(&session_path)?;
+        self.run_with_provider_and_queue(model, request, None, provider)
+    }
+
+    pub fn run_with_provider_and_queue(
+        &self,
+        model: impl Into<String>,
+        request: LiveRunRequest,
+        bootstrap_queue: Option<SessionQueue>,
+        provider: &mut dyn Provider,
+    ) -> Result<LiveRunOutcome, String> {
+        self.run_with_provider_and_queue_stream(
+            model,
+            request,
+            bootstrap_queue,
+            provider,
+            &mut |_| {},
+        )
+    }
+
+    pub fn run_with_provider_and_queue_stream(
+        &self,
+        model: impl Into<String>,
+        request: LiveRunRequest,
+        bootstrap_queue: Option<SessionQueue>,
+        provider: &mut dyn Provider,
+        on_event: &mut dyn FnMut(LiveRunEvent),
+    ) -> Result<LiveRunOutcome, String> {
+        let (session_id, mut session) =
+            load_or_create_session_for_request(&self.home, request.session_id.as_deref())?;
+        merge_bootstrap_queue(&mut session, bootstrap_queue.as_ref());
 
         let projection_kind = projection_kind_for_session(&session);
         let provider_prompt = build_provider_prompt(&session, projection_kind, &request.prompt);
-        let context_messages = build_context_messages(&session, &request.prompt);
+        let context_messages = build_context_messages(&session, projection_kind, &request.prompt);
         let mut tool_executor = AppToolExecutor;
         let mut policy = AppToolPolicy;
-        let trace = run_prompt_with_policy_trace(
+        let mut sequence = 0_u64;
+        let mut on_agent_event = |event: AgentEvent| {
+            on_event(LiveRunEvent::from_agent_event(sequence, event));
+            sequence += 1;
+        };
+        let trace = run_prompt_with_policy_trace_sink(
             provider,
             &RunRequest {
                 prompt: provider_prompt,
@@ -78,12 +108,19 @@ impl SessionBackedLiveRunService {
             },
             Some(&mut tool_executor),
             Some(&mut policy),
+            &mut on_agent_event,
         )
         .map_err(provider_error)?;
 
-        finalize_session_after_run(&mut session, projection_kind, &trace.events, &trace.result.final_message);
+        finalize_session_after_run(
+            &mut session,
+            projection_kind,
+            &request.prompt,
+            &trace.events,
+            &trace.result.final_message,
+        );
 
-        persist_session(&session_path, &session)?;
+        persist_session_for_id(&self.home, &session_id, &session)?;
 
         Ok(LiveRunOutcome {
             session_id,
@@ -133,10 +170,12 @@ impl ToolExecutor for AppToolExecutor {
 impl ToolPreflightPolicy for AppToolPolicy {
     fn before_tool_call(&mut self, request: &ToolExecutionRequest) -> ToolPreflightDecision {
         if request.call.tool_name == "danger" {
-            return ToolPreflightDecision::Block(matrixclaw_agent_core::tool::BlockedToolResult::new(
-                request.call.clone(),
-                "policy denied execution",
-            ));
+            return ToolPreflightDecision::Block(
+                matrixclaw_agent_core::tool::BlockedToolResult::new(
+                    request.call.clone(),
+                    "policy denied execution",
+                ),
+            );
         }
 
         ToolPreflightDecision::Allow
@@ -175,7 +214,7 @@ impl LiveRunEvent {
     }
 }
 
-fn load_or_create_session(path: &Path) -> Result<Session, String> {
+pub(crate) fn load_or_create_session(path: &Path) -> Result<Session, String> {
     if !path.exists() {
         return Ok(Session::new(Vec::new()));
     }
@@ -230,31 +269,35 @@ fn build_provider_prompt(
     lines.join("\n")
 }
 
-fn build_context_messages(session: &Session, prompt: &str) -> Vec<RunMessage> {
-    let mut messages = session
-        .history()
-        .iter()
-        .map(run_message_from_runtime)
-        .collect::<Vec<_>>();
-
-    messages.extend(
-        session
-            .queue()
-            .steering_items()
-            .map(|message| RunMessage::system(message.to_string())),
-    );
-    messages.extend(
-        session
-            .queue()
-            .follow_up_items()
-            .map(|message| RunMessage::system(message.to_string())),
-    );
+fn build_context_messages(
+    session: &Session,
+    projection_kind: PromptProjectionKind,
+    prompt: &str,
+) -> Vec<RunMessage> {
+    let mut messages = match projection_kind {
+        PromptProjectionKind::Direct => session
+            .history()
+            .iter()
+            .map(run_message_from_runtime)
+            .collect::<Vec<_>>(),
+        PromptProjectionKind::NextTurn => session
+            .project_next_turn()
+            .into_iter()
+            .map(|message| run_message_from_runtime(&message))
+            .collect::<Vec<_>>(),
+        PromptProjectionKind::NextRun => session
+            .project_next_run()
+            .into_iter()
+            .map(|message| run_message_from_runtime(&message))
+            .collect::<Vec<_>>(),
+    };
     messages.push(RunMessage::user(prompt.to_string()));
     messages
 }
 
 fn run_message_from_runtime(message: &RuntimeMessage) -> RunMessage {
     match message {
+        RuntimeMessage::User(content) => RunMessage::user(content.clone()),
         RuntimeMessage::Assistant(content) => RunMessage::assistant(content.clone()),
         RuntimeMessage::RuntimeSummary(content) => RunMessage::system(content.clone()),
         RuntimeMessage::ToolResult(content) => RunMessage::tool(content.clone()),
@@ -267,7 +310,8 @@ fn run_message_from_runtime(message: &RuntimeMessage) -> RunMessage {
 
 fn render_runtime_message(message: RuntimeMessage) -> String {
     match message {
-        RuntimeMessage::Assistant(content)
+        RuntimeMessage::User(content)
+        | RuntimeMessage::Assistant(content)
         | RuntimeMessage::RuntimeSummary(content)
         | RuntimeMessage::ToolResult(content)
         | RuntimeMessage::Steering(content)
@@ -280,6 +324,7 @@ fn render_runtime_message(message: RuntimeMessage) -> String {
 fn finalize_session_after_run(
     session: &mut Session,
     projection_kind: PromptProjectionKind,
+    prompt: &str,
     events: &[AgentEvent],
     final_message: &str,
 ) {
@@ -292,6 +337,10 @@ fn finalize_session_after_run(
             let _ = session.drain_follow_up_messages();
         }
     }
+
+    session
+        .history_mut()
+        .push(RuntimeMessage::User(prompt.to_string()));
 
     for event in events {
         if let AgentEvent::ToolResultAppended(content) = event {
@@ -314,13 +363,64 @@ fn normalize_tool_result(content: &str) -> String {
     }
 }
 
-fn persist_session(path: &Path, session: &Session) -> Result<(), String> {
+fn merge_bootstrap_queue(session: &mut Session, queue: Option<&SessionQueue>) {
+    let Some(queue) = queue else {
+        return;
+    };
+
+    for item in queue.items() {
+        match item {
+            QueueItem::Steering(message) => session.queue_steering_message(message.clone()),
+            QueueItem::FollowUp(message) => session.queue_follow_up_message(message.clone()),
+        }
+    }
+}
+
+pub fn load_or_create_session_for_request(
+    home: impl AsRef<Path>,
+    session_id: Option<&str>,
+) -> Result<(String, Session), String> {
+    let session_id = session_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(generate_session_id);
+    let session_path = session_db_path(home, &session_id);
+    let session = load_or_create_session(&session_path)?;
+    Ok((session_id, session))
+}
+
+pub fn persist_session_for_id(
+    home: impl AsRef<Path>,
+    session_id: &str,
+    session: &Session,
+) -> Result<(), String> {
+    let session_path = session_db_path(home, session_id);
+    persist_session(&session_path, session)
+}
+
+pub fn load_session_queue(
+    home: impl AsRef<Path>,
+    session_id: Option<&str>,
+) -> Result<matrixclaw_session_runtime::queue::SessionQueue, String> {
+    let Some(session_id) = session_id.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(matrixclaw_session_runtime::queue::SessionQueue::default());
+    };
+
+    let session_path = session_db_path(home, session_id);
+    Ok(load_or_create_session(&session_path)?.queue().clone())
+}
+
+pub(crate) fn persist_session(path: &Path, session: &Session) -> Result<(), String> {
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|error| format!("failed to create session directory: {error}"))?;
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("failed to create session directory: {error}"))?;
     }
 
     let mut storage = SqliteStorage::open(path).map_err(|error| error.to_string())?;
-    storage.persist_session(session).map_err(|error| error.to_string())
+    storage
+        .persist_session(session)
+        .map_err(|error| error.to_string())
 }
 
 fn generate_session_id() -> String {
@@ -339,5 +439,21 @@ pub fn session_db_path(home: impl AsRef<Path>, session_id: &str) -> PathBuf {
     paths::runtime_home(home)
         .join("state")
         .join("sessions")
-        .join(format!("{session_id}.sqlite3"))
+        .join(format!("{}.sqlite3", session_file_stem(session_id)))
+}
+
+fn session_file_stem(session_id: &str) -> String {
+    let trimmed = session_id.trim();
+    let source = if trimmed.is_empty() {
+        "session"
+    } else {
+        trimmed
+    };
+    let mut stem = String::with_capacity(source.len() * 2 + 3);
+    stem.push_str("id-");
+    for byte in source.as_bytes() {
+        use std::fmt::Write as _;
+        let _ = write!(&mut stem, "{byte:02x}");
+    }
+    stem
 }

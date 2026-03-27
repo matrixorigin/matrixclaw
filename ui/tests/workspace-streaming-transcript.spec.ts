@@ -8,13 +8,13 @@ type WorkspaceFilesPayload = Array<{
 
 type QueueStatePayload = {
     steering: {
-        kind: "manual" | "automatic";
+        kind: "steering";
         submit_route: string;
         delivery_timing: "next-turn" | "next-run" | "queued";
         summary: string;
     };
     follow_up: {
-        kind: "manual" | "automatic";
+        kind: "follow-up";
         submit_route: string;
         delivery_timing: "next-turn" | "next-run" | "queued";
         summary: string;
@@ -49,13 +49,13 @@ const workspaceFiles: WorkspaceFilesPayload = [
 
 const queueState: QueueStatePayload = {
     steering: {
-        kind: "manual",
+        kind: "steering",
         submit_route: "/api/queue/steering",
         delivery_timing: "next-turn",
         summary: "Steering instructions are queued for the next turn."
     },
     follow_up: {
-        kind: "manual",
+        kind: "follow-up",
         submit_route: "/api/queue/follow-up",
         delivery_timing: "next-run",
         summary: "Follow-up instructions wait until the next run completes."
@@ -63,9 +63,9 @@ const queueState: QueueStatePayload = {
 };
 
 const executionVisibility: ExecutionVisibilityPayload = {
-    modeLabel: "loopback",
-    visibleBackends: ["loopback", "sandbox"],
-    sandboxPriority: ["sandbox", "loopback"],
+    modeLabel: "local",
+    visibleBackends: ["local", "docker", "boxlite"],
+    sandboxPriority: ["docker", "boxlite"],
     sandboxFailureMessage: "Sandbox-only operations remain explicit in the workspace shell.",
     fallbackPolicy: "prefer-sandbox"
 };
@@ -73,6 +73,10 @@ const executionVisibility: ExecutionVisibilityPayload = {
 test("workspace transcript streams deltas without duplicating the final assistant message", async ({
     page
 }) => {
+    let firstSessionId = "";
+    let queueStateSeenSessionId = false;
+    let streamRequestCount = 0;
+
     await page.route("**/api/workspace/files", async (route) => {
         await route.fulfill({
             contentType: "application/json",
@@ -80,7 +84,9 @@ test("workspace transcript streams deltas without duplicating the final assistan
         });
     });
 
-    await page.route("**/api/queue/state", async (route) => {
+    await page.route("**/api/queue/state*", async (route) => {
+        queueStateSeenSessionId =
+            !!new URL(route.request().url()).searchParams.get("session_id") || queueStateSeenSessionId;
         await route.fulfill({
             contentType: "application/json",
             body: JSON.stringify(queueState)
@@ -94,15 +100,42 @@ test("workspace transcript streams deltas without duplicating the final assistan
         });
     });
 
-    await page.route("**/api/agent/run", async (route) => {
-        await page.waitForTimeout(250);
-        await route.fulfill({
-            contentType: "application/json",
-            body: JSON.stringify({
+    await page.route("**/api/agent/run/stream", async (route) => {
+        const body = route.request().postDataJSON() as { prompt?: string; session_id?: string };
+        if (!firstSessionId) {
+            expect(body.session_id).toBeTruthy();
+            firstSessionId = body.session_id ?? "";
+        } else {
+            expect(body.session_id).toBe(firstSessionId);
+        }
+
+        streamRequestCount += 1;
+        const finalMessage = `Final assistant answer ${streamRequestCount}`;
+        const streamedMessage = `Drafting chunk ${streamRequestCount} of 2`;
+        const frames = [
+            {
+                type: "event",
+                event: { sequence: 0, kind: "message_started" }
+            },
+            {
+                type: "event",
+                event: { sequence: 1, kind: "message_delta", content: streamedMessage }
+            },
+            {
+                type: "event",
+                event: { sequence: 2, kind: "message_completed", content: finalMessage }
+            },
+            {
+                type: "complete",
+                session_id: firstSessionId,
                 model: "mock-stream",
-                streamed_message: "Drafting chunk 1 of 2",
-                final_message: "Final assistant answer"
-            })
+                streamed_message: streamedMessage,
+                final_message: finalMessage
+            }
+        ];
+        await route.fulfill({
+            contentType: "text/event-stream",
+            body: frames.map((frame) => `data: ${JSON.stringify(frame)}\n\n`).join("")
         });
     });
 
@@ -111,21 +144,24 @@ test("workspace transcript streams deltas without duplicating the final assistan
     await expect(page.getByRole("heading", { name: "Files and references" })).toBeVisible();
     await expect(page.getByText("Visible backends")).toBeVisible();
     await expect(page.getByText("Runtime contract")).toBeVisible();
+    expect(queueStateSeenSessionId).toBeTruthy();
 
     await page.getByLabel("Composer").fill("Stream the answer in two deltas.");
     await page.getByRole("button", { name: "Send" }).click();
 
     await expect(
         page.locator('article[data-role="assistant"]').filter({
-            hasText: /^Drafting chunk 1 of 2$/
-        })
-    ).toBeVisible({ timeout: 500 });
-
-    await expect(
-        page.locator('article[data-role="assistant"]').filter({
-            hasText: /^Final assistant answer$/
+            hasText: /^Final assistant answer 1$/
         })
     ).toHaveCount(1);
+
+    await page.getByLabel("Composer").fill("Run the next turn on the same session.");
+    await page.getByRole("button", { name: "Send" }).click();
+    await expect(
+        page.locator('article[data-role="assistant"]').filter({
+            hasText: /^Final assistant answer 2$/
+        }).first()
+    ).toBeVisible();
 
     await expect(page.getByText("Visible backends")).toBeVisible();
     await expect(page.getByText("Runtime contract")).toBeVisible();

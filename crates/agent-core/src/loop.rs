@@ -26,7 +26,8 @@ pub fn run_prompt_with_trace(
     request: &RunRequest,
     tool_executor: Option<&mut dyn ToolExecutor>,
 ) -> Result<RunTrace, ProviderError> {
-    run_prompt_inner(provider, request, tool_executor, None)
+    let mut sink = |_| {};
+    run_prompt_inner(provider, request, tool_executor, None, &mut sink)
 }
 
 pub fn run_prompt_with_policy_trace(
@@ -35,7 +36,18 @@ pub fn run_prompt_with_policy_trace(
     tool_executor: Option<&mut dyn ToolExecutor>,
     policy: Option<&mut dyn ToolPreflightPolicy>,
 ) -> Result<RunTrace, ProviderError> {
-    run_prompt_inner(provider, request, tool_executor, policy)
+    let mut sink = |_| {};
+    run_prompt_inner(provider, request, tool_executor, policy, &mut sink)
+}
+
+pub fn run_prompt_with_policy_trace_sink(
+    provider: &mut dyn Provider,
+    request: &RunRequest,
+    tool_executor: Option<&mut dyn ToolExecutor>,
+    policy: Option<&mut dyn ToolPreflightPolicy>,
+    on_event_sink: &mut dyn FnMut(AgentEvent),
+) -> Result<RunTrace, ProviderError> {
+    run_prompt_inner(provider, request, tool_executor, policy, on_event_sink)
 }
 
 fn run_prompt_inner(
@@ -43,25 +55,22 @@ fn run_prompt_inner(
     request: &RunRequest,
     mut tool_executor: Option<&mut dyn ToolExecutor>,
     mut policy: Option<&mut dyn ToolPreflightPolicy>,
+    on_event_sink: &mut dyn FnMut(AgentEvent),
 ) -> Result<RunTrace, ProviderError> {
     let mut events = Vec::new();
     let mut current_request = request.clone();
 
     let streamed_message = loop {
-        let mut turn_events = Vec::new();
         let mut on_event = |event: AgentEvent| {
-            turn_events.push(event);
+            emit_event(&mut events, on_event_sink, event);
         };
 
         let assistant_output = provider.stream(&current_request, &mut on_event)?;
         let tool_calls = parse_tool_calls(&assistant_output);
 
         if tool_calls.is_empty() {
-            events.extend(turn_events);
             break assistant_output;
         }
-
-        events.extend(turn_events);
 
         let mut tool_results = Vec::new();
         let mut saw_unhandled_tool = false;
@@ -77,7 +86,7 @@ fn run_prompt_inner(
             };
 
             if let Some(blocked) = blocked_result {
-                record_blocked_tool(&mut events, &blocked);
+                record_blocked_tool(&mut events, on_event_sink, &blocked);
                 tool_results.push(blocked.result);
                 continue;
             }
@@ -87,16 +96,32 @@ fn run_prompt_inner(
                 break;
             };
 
-            events.push(AgentEvent::ToolCallStarted(request.call.tool_name.clone()));
-            events.push(AgentEvent::ToolExecutionStarted(
+            emit_event(
+                &mut events,
+                on_event_sink,
+                AgentEvent::ToolCallStarted(request.call.tool_name.clone()),
+            );
+            emit_event(
+                &mut events,
+                on_event_sink,
+                AgentEvent::ToolExecutionStarted(
                 request.call.tool_name.clone(),
-            ));
+                ),
+            );
 
             let response = tool_executor.execute(&request);
             let result = response.result;
 
-            events.push(AgentEvent::ToolExecutionCompleted(result.output.clone()));
-            events.push(AgentEvent::ToolResultAppended(result.output.clone()));
+            emit_event(
+                &mut events,
+                on_event_sink,
+                AgentEvent::ToolExecutionCompleted(result.output.clone()),
+            );
+            emit_event(
+                &mut events,
+                on_event_sink,
+                AgentEvent::ToolResultAppended(result.output.clone()),
+            );
             tool_results.push(result);
         }
 
@@ -111,27 +136,40 @@ fn run_prompt_inner(
         };
 
         let mut continuation_events = Vec::new();
+        let mut saw_continuation_start = false;
         let mut on_continuation_event = |event: AgentEvent| {
+            if !saw_continuation_start && matches!(event, AgentEvent::RunStarted) {
+                saw_continuation_start = true;
+                return;
+            }
+            saw_continuation_start = true;
             continuation_events.push(event);
         };
         let continuation_output = provider.stream(&current_request, &mut on_continuation_event)?;
 
         if parse_tool_calls(&continuation_output).is_empty() {
-            if matches!(continuation_events.first(), Some(AgentEvent::RunStarted)) {
-                continuation_events.remove(0);
+            for event in continuation_events {
+                emit_event(&mut events, on_event_sink, event);
             }
-            events.extend(continuation_events);
             break continuation_output;
         }
 
         let synthetic_message = synthesize_tool_continuation(&tool_results);
-        events.push(AgentEvent::MessageStarted);
-        events.push(AgentEvent::MessageDelta(synthetic_message.clone()));
-        events.push(AgentEvent::MessageCompleted(synthetic_message.clone()));
+        emit_event(&mut events, on_event_sink, AgentEvent::MessageStarted);
+        emit_event(
+            &mut events,
+            on_event_sink,
+            AgentEvent::MessageDelta(synthetic_message.clone()),
+        );
+        emit_event(
+            &mut events,
+            on_event_sink,
+            AgentEvent::MessageCompleted(synthetic_message.clone()),
+        );
         break synthetic_message;
     };
 
-    events.push(AgentEvent::RunCompleted);
+    emit_event(&mut events, on_event_sink, AgentEvent::RunCompleted);
     let final_message = streamed_message.clone();
 
     Ok(RunTrace {
@@ -143,11 +181,28 @@ fn run_prompt_inner(
     })
 }
 
-fn record_blocked_tool(events: &mut Vec<AgentEvent>, blocked: &BlockedToolResult) {
-    events.push(AgentEvent::ToolCallStarted(
-        blocked.result.tool_name.clone(),
-    ));
-    events.push(AgentEvent::ToolResultAppended(
-        blocked.result.output.clone(),
-    ));
+fn emit_event(
+    events: &mut Vec<AgentEvent>,
+    on_event_sink: &mut dyn FnMut(AgentEvent),
+    event: AgentEvent,
+) {
+    on_event_sink(event.clone());
+    events.push(event);
+}
+
+fn record_blocked_tool(
+    events: &mut Vec<AgentEvent>,
+    on_event_sink: &mut dyn FnMut(AgentEvent),
+    blocked: &BlockedToolResult,
+) {
+    emit_event(
+        events,
+        on_event_sink,
+        AgentEvent::ToolCallStarted(blocked.result.tool_name.clone()),
+    );
+    emit_event(
+        events,
+        on_event_sink,
+        AgentEvent::ToolResultAppended(blocked.result.output.clone()),
+    );
 }

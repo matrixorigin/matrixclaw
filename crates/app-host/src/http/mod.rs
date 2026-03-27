@@ -3,8 +3,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-pub mod execution_api;
 pub mod agent_api;
+pub mod execution_api;
 pub mod queue_api;
 pub mod routes;
 pub mod setup_api;
@@ -135,7 +135,8 @@ impl SetupSurface {
             return setup_api::handle_submission(self, request);
         }
 
-        if workspace_api::is_workspace_files_route(&request.path) && request.method == HttpMethod::Get
+        if workspace_api::is_workspace_files_route(&request.path)
+            && request.method == HttpMethod::Get
         {
             return workspace_api::list_entries_response(self);
         }
@@ -147,7 +148,7 @@ impl SetupSurface {
         }
 
         if queue_api::is_queue_state_route(&request.path) && request.method == HttpMethod::Get {
-            return queue_api::queue_state_response(self);
+            return queue_api::queue_state_response(self, &request);
         }
 
         if queue_api::is_queue_submit_route(&request.path) && request.method == HttpMethod::Post {

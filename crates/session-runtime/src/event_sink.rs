@@ -14,12 +14,12 @@ pub enum VisibleTranscriptEvent {
 impl VisibleTranscriptEvent {
     fn into_entry(self) -> DurableTranscriptEntry {
         match self {
-            VisibleTranscriptEvent::Assistant(content) => DurableTranscriptEntry {
-                kind: DurableTranscriptKind::Assistant,
-                content,
-            },
             VisibleTranscriptEvent::RuntimeSummary(content) => DurableTranscriptEntry {
                 kind: DurableTranscriptKind::RuntimeSummary,
+                content,
+            },
+            VisibleTranscriptEvent::Assistant(content) => DurableTranscriptEntry {
+                kind: DurableTranscriptKind::Assistant,
                 content,
             },
             VisibleTranscriptEvent::ToolResult(content) => DurableTranscriptEntry {
@@ -78,6 +78,7 @@ pub fn project_visible_transcript_event(
     message: &RuntimeMessage,
 ) -> Option<VisibleTranscriptEvent> {
     match message {
+        RuntimeMessage::User(_) => None,
         RuntimeMessage::Assistant(content) => {
             Some(VisibleTranscriptEvent::Assistant(content.clone()))
         }

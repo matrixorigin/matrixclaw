@@ -47,6 +47,12 @@
         follow_up: ApiQueueControlState;
     };
 
+    type ApiQueueSubmissionResult = {
+        accepted: boolean;
+        session_id: string;
+        state: ApiQueueControlState;
+    };
+
     type ApiExecutionSnapshot = {
         modeLabel: string;
         visibleBackends: ExecutionBackendLabel[];
@@ -55,19 +61,28 @@
         fallbackPolicy: string;
     };
 
-    type AgentRunResponse = {
-        session_id?: string;
-        model: string;
-        streamed_message: string;
-        final_message: string;
-        events?: AgentRunEvent[];
-    };
-
     type AgentRunEvent = {
         sequence: number;
         kind: string;
         content?: string | null;
     };
+
+    type AgentRunStreamFrame =
+        | {
+              type: "event";
+              event: AgentRunEvent;
+          }
+        | {
+              type: "complete";
+              session_id: string;
+              model: string;
+              streamed_message: string;
+              final_message: string;
+          }
+        | {
+              type: "error";
+              error: string;
+          };
 
     let workspaceEntries: WorkspaceEntry[] = [];
     let queueView: QueueControlsView | null = null;
@@ -82,10 +97,29 @@
     let loading = true;
     let busy = false;
     let pageError = "";
+    let sessionId = "";
+    let streamPreviousEntries: TranscriptEntry[] = [];
 
     onMount(async () => {
+        sessionId = createSessionId();
         await loadPage();
     });
+
+    function createSessionId() {
+        if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+            return crypto.randomUUID();
+        }
+
+        return `workspace-${Date.now()}`;
+    }
+
+    function queueStateRoute() {
+        if (!sessionId.trim()) {
+            return "/api/queue/state";
+        }
+
+        return `/api/queue/state?session_id=${encodeURIComponent(sessionId)}`;
+    }
 
     function normalizeWorkspaceEntry(entry: ApiWorkspaceEntry): WorkspaceEntry {
         return {
@@ -130,87 +164,137 @@
         ];
     }
 
-    function pause(ms: number): Promise<void> {
-        return new Promise((resolve) => {
-            if (typeof window === "undefined") {
-                resolve();
-                return;
-            }
-
-            window.setTimeout(() => resolve(), ms);
-        });
-    }
-
-    function replayableAssistantEvents(response: AgentRunResponse): AgentRunEvent[] {
-        const replayEvents =
-            response.events?.filter(
-                (event) =>
-                    event.kind === "message_started" ||
-                    event.kind === "message_delta" ||
-                    event.kind === "message_completed"
-            ) ?? [];
-
-        if (replayEvents.length > 0) {
-            return replayEvents;
-        }
-
-        return [
-            { sequence: 0, kind: "message_started" },
-            {
-                sequence: 1,
-                kind: "message_delta",
-                content: response.streamed_message
-            },
-            {
-                sequence: 2,
-                kind: "message_completed",
-                content: response.final_message
-            }
-        ];
-    }
-
-    async function renderAssistantTurn(response: AgentRunResponse) {
-        const modelLabel = response.model.trim() || "unknown-model";
-        const turnEvents = replayableAssistantEvents(response);
-        const previousEntries = transcriptEntries;
-        let assistantText = "";
-
+    function startStreamShell(modelLabel: string) {
         transcriptEntries = [
             {
                 role: "assistant",
-                text: assistantText
+                text: ""
             },
             {
                 role: "tool",
-                text: `Provider model: ${modelLabel}`
+                text: `Provider model: ${modelLabel.trim() || "streaming"}`
             },
-            ...previousEntries
+            ...streamPreviousEntries
         ];
+    }
+
+    function setAssistantText(text: string) {
+        if (transcriptEntries.length === 0) {
+            return;
+        }
+
+        transcriptEntries = [
+            {
+                ...transcriptEntries[0],
+                text
+            },
+            ...transcriptEntries.slice(1)
+        ];
+    }
+
+    function updateModelLabel(modelLabel: string) {
+        if (transcriptEntries.length < 2) {
+            return;
+        }
+
+        transcriptEntries = [
+            transcriptEntries[0],
+            {
+                ...transcriptEntries[1],
+                text: `Provider model: ${modelLabel.trim() || "unknown-model"}`
+            },
+            ...transcriptEntries.slice(2)
+        ];
+    }
+
+    async function renderAssistantFrame(frame: AgentRunStreamFrame) {
+        if (frame.type === "error") {
+            throw new Error(frame.error);
+        }
+
+        if (frame.type === "complete") {
+            sessionId = frame.session_id.trim() || sessionId;
+            startStreamShell(frame.model);
+            updateModelLabel(frame.model);
+            setAssistantText(frame.final_message.trim() || frame.streamed_message.trim() || "");
+            await tick();
+            return;
+        }
+
+        const event = frame.event;
+        if (transcriptEntries.length === 0) {
+            startStreamShell("streaming");
+        }
+
+        if (event.kind === "message_started") {
+            setAssistantText("");
+        } else if (event.kind === "message_delta") {
+            const current = transcriptEntries[0]?.text ?? "";
+            setAssistantText(`${current}${event.content ?? ""}`);
+        } else if (event.kind === "message_completed") {
+            setAssistantText(event.content?.trim() || transcriptEntries[0]?.text || "");
+        }
 
         await tick();
+    }
 
-        for (const event of turnEvents) {
-            if (event.kind === "message_started") {
-                assistantText = "";
-            } else if (event.kind === "message_delta") {
-                assistantText += event.content ?? "";
-            } else if (event.kind === "message_completed") {
-                assistantText = event.content?.trim() || response.final_message.trim() || assistantText;
-            }
-
-            transcriptEntries = [
-                {
-                    ...transcriptEntries[0],
-                    text: assistantText
-                },
-                ...transcriptEntries.slice(1)
-            ];
-            await tick();
-
-            if (event.kind === "message_delta") {
-                await pause(800);
-            }
+    async function consumeStreamResponse(response: Response) {
+        if (!response.ok) {
+            const body = await response.text();
+            throw new Error(body || `request failed with status ${response.status}`);
         }
+
+        if (!response.body) {
+            throw new Error("stream response did not include a body");
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        try {
+            while (true) {
+                const { value, done } = await reader.read();
+                if (value) {
+                    buffer += decoder.decode(value, { stream: !done });
+                }
+
+                let splitIndex = buffer.indexOf("\n\n");
+                while (splitIndex !== -1) {
+                    const block = buffer.slice(0, splitIndex);
+                    buffer = buffer.slice(splitIndex + 2);
+                    const payload = extractSsePayload(block);
+                    if (payload) {
+                        await renderAssistantFrame(JSON.parse(payload) as AgentRunStreamFrame);
+                    }
+                    splitIndex = buffer.indexOf("\n\n");
+                }
+
+                if (done) {
+                    break;
+                }
+            }
+
+            buffer += decoder.decode();
+            const payload = extractSsePayload(buffer);
+            if (payload) {
+                await renderAssistantFrame(JSON.parse(payload) as AgentRunStreamFrame);
+            }
+        } finally {
+            reader.releaseLock();
+        }
+    }
+
+    function extractSsePayload(block: string): string | null {
+        const payload = block
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter((line) => line.startsWith("data:"))
+            .map((line) => line.slice(5).trimStart())
+            .join("\n")
+            .trim();
+
+        return payload ? payload : null;
     }
 
     async function loadPage() {
@@ -220,7 +304,7 @@
         try {
             const [entryPayload, queuePayload, executionPayload] = await Promise.all([
                 fetchJson<ApiWorkspaceEntry[]>(workspaceExplorerContract.filesRoute),
-                fetchJson<ApiQueueControlsView>("/api/queue/state"),
+                fetchJson<ApiQueueControlsView>(queueStateRoute()),
                 fetchJson<ApiExecutionSnapshot>("/api/execution/visibility")
             ]);
 
@@ -283,15 +367,17 @@
 
         try {
             const route = kind === "steering" ? "/api/queue/steering" : "/api/queue/follow-up";
-            await fetchJson(route, {
+            const response = await fetchJson<ApiQueueSubmissionResult>(route, {
                 method: "POST",
                 body: JSON.stringify({
                     kind,
-                    message
+                    message,
+                    session_id: sessionId || undefined
                 })
             });
+            sessionId = response.session_id?.trim() || sessionId;
 
-            const queuePayload = await fetchJson<ApiQueueControlsView>("/api/queue/state");
+            const queuePayload = await fetchJson<ApiQueueControlsView>(queueStateRoute());
             queueView = normalizeQueueView(queuePayload);
             transcriptEntries = [
                 {
@@ -316,14 +402,20 @@
         pageError = "";
 
         try {
-            const response = await fetchJson<AgentRunResponse>("/api/agent/run", {
+            streamPreviousEntries = transcriptEntries;
+            startStreamShell("streaming");
+            const response = await fetch("/api/agent/run/stream", {
                 method: "POST",
+                headers: {
+                    "content-type": "application/json"
+                },
                 body: JSON.stringify({
-                    prompt: promptDraft.trim()
+                    prompt: promptDraft.trim(),
+                    session_id: sessionId || undefined
                 })
             });
-
-            await renderAssistantTurn(response);
+            await consumeStreamResponse(response);
+            queueView = normalizeQueueView(await fetchJson<ApiQueueControlsView>(queueStateRoute()));
         } catch (error) {
             pageError = errorMessage(error);
         } finally {

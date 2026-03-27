@@ -66,6 +66,10 @@ impl Session {
         &self.queue
     }
 
+    pub fn queue_mut(&mut self) -> &mut SessionQueue {
+        &mut self.queue
+    }
+
     pub fn drain_steering_messages(&mut self) -> Vec<String> {
         self.queue.drain_steering_items()
     }

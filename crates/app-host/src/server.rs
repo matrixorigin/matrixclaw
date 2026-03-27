@@ -1,8 +1,8 @@
 use std::fs;
-use std::io;
+use std::io::{self, Read};
 use std::net::{SocketAddr, TcpListener};
 use std::path::Path;
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::mpsc::{self, Receiver, RecvError, Sender};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
@@ -97,7 +97,7 @@ fn run_server(server: Server, surface: SetupSurface, shutdown_rx: &Receiver<()>)
 fn map_request(
     surface: &SetupSurface,
     mut request: tiny_http::Request,
-) -> io::Result<(tiny_http::Request, Response<std::io::Cursor<Vec<u8>>>)> {
+) -> io::Result<(tiny_http::Request, Response<Box<dyn Read + Send>>)> {
     let method = match request.method() {
         Method::Get => HttpMethod::Get,
         Method::Post => HttpMethod::Post,
@@ -114,6 +114,12 @@ fn map_request(
     let mut body = Vec::new();
     request.as_reader().read_to_end(&mut body)?;
 
+    if method == HttpMethod::Post && crate::http::agent_api::is_agent_run_stream_route(request.url())
+    {
+        let response = build_streaming_agent_response(surface.clone(), body)?;
+        return Ok((request, response));
+    }
+
     let response = surface.handle(HttpRequest {
         method,
         path: request.url().to_string(),
@@ -122,11 +128,41 @@ fn map_request(
 
     Ok((
         request,
-        build_response(
-            response.status_code,
-            &response.content_type,
-            response.body,
-        )?,
+        build_response(response.status_code, &response.content_type, response.body)?,
+    ))
+}
+
+fn build_streaming_agent_response(
+    surface: SetupSurface,
+    body: Vec<u8>,
+) -> io::Result<Response<Box<dyn Read + Send>>> {
+    let (tx, rx) = mpsc::channel::<Vec<u8>>();
+    thread::spawn(move || {
+        let mut writer = |chunk: Vec<u8>| -> io::Result<()> {
+            tx.send(chunk)
+                .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "stream receiver dropped"))
+        };
+
+        if let Err(error) = crate::http::agent_api::stream_agent_run(&surface, &body, &mut writer) {
+            let _ = tx.send(
+                crate::http::agent_api::sse_frame(&crate::http::agent_api::AgentRunStreamFrame::Error {
+                    error: error.to_string(),
+                }),
+            );
+        }
+    });
+
+    let content_type = Header::from_bytes("Content-Type", b"text/event-stream")
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid content type"))?;
+    let cache_control = Header::from_bytes("Cache-Control", b"no-cache")
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid cache control"))?;
+
+    Ok(Response::new(
+        StatusCode(200),
+        vec![content_type, cache_control],
+        Box::new(ChannelReader::new(rx)),
+        None,
+        None,
     ))
 }
 
@@ -134,14 +170,14 @@ fn build_response(
     status_code: u16,
     content_type: &str,
     body: Vec<u8>,
-) -> io::Result<Response<std::io::Cursor<Vec<u8>>>> {
+) -> io::Result<Response<Box<dyn Read + Send>>> {
     let header = Header::from_bytes("Content-Type", content_type.as_bytes())
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid content type"))?;
 
     Ok(Response::new(
         StatusCode(status_code),
         vec![header],
-        std::io::Cursor::new(body.clone()),
+        Box::new(std::io::Cursor::new(body.clone())),
         Some(body.len()),
         None,
     ))
@@ -151,6 +187,46 @@ fn bind_server(bind_addr: &str) -> io::Result<Server> {
     let listener = TcpListener::bind(bind_addr)?;
     Server::from_listener(listener, None)
         .map_err(|error| io::Error::new(io::ErrorKind::AddrInUse, error))
+}
+
+struct ChannelReader {
+    rx: Receiver<Vec<u8>>,
+    current: std::io::Cursor<Vec<u8>>,
+    closed: bool,
+}
+
+impl ChannelReader {
+    fn new(rx: Receiver<Vec<u8>>) -> Self {
+        Self {
+            rx,
+            current: std::io::Cursor::new(Vec::new()),
+            closed: false,
+        }
+    }
+}
+
+impl Read for ChannelReader {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        loop {
+            let read = self.current.read(buf)?;
+            if read > 0 {
+                return Ok(read);
+            }
+
+            if self.closed {
+                return Ok(0);
+            }
+
+            match self.rx.recv() {
+                Ok(next) => {
+                    self.current = std::io::Cursor::new(next);
+                }
+                Err(RecvError) => {
+                    self.closed = true;
+                }
+            }
+        }
+    }
 }
 
 fn never_shutdown() -> Receiver<()> {

@@ -1,5 +1,5 @@
-use std::time::Duration;
 use std::io::{BufRead, BufReader};
+use std::time::Duration;
 
 use matrixclaw_agent_core::event::AgentEvent;
 use matrixclaw_agent_core::provider::{Provider, ProviderError};
@@ -19,7 +19,10 @@ pub struct OpenAiCompatibleProvider {
 }
 
 impl OpenAiCompatibleProvider {
-    pub fn for_openrouter(api_key: impl Into<String>, model: impl Into<String>) -> Result<Self, ProviderError> {
+    pub fn for_openrouter(
+        api_key: impl Into<String>,
+        model: impl Into<String>,
+    ) -> Result<Self, ProviderError> {
         Self::with_base_url(OPENROUTER_BASE_URL, api_key, model)
     }
 
@@ -67,22 +70,25 @@ impl OpenAiCompatibleProvider {
             .map_err(|error| ProviderError(format!("provider request failed: {error}")))?;
 
         let status = response.status();
-        let body: Value = response
-            .json()
-            .map_err(|error| ProviderError(format!("provider response was not valid JSON: {error}")))?;
+        let body: Value = response.json().map_err(|error| {
+            ProviderError(format!("provider response was not valid JSON: {error}"))
+        })?;
 
         if !status.is_success() {
             return Err(ProviderError(format!(
                 "provider returned {}: {}",
-                status,
-                body
+                status, body
             )));
         }
 
         extract_message_content(&body)
             .map(|content| content.trim().to_string())
             .filter(|content| !content.is_empty())
-            .ok_or_else(|| ProviderError(format!("provider response did not include assistant content: {body}")))
+            .ok_or_else(|| {
+                ProviderError(format!(
+                    "provider response did not include assistant content: {body}"
+                ))
+            })
     }
 
     fn perform_streaming_completion(
@@ -104,10 +110,13 @@ impl OpenAiCompatibleProvider {
 
         let status = response.status();
         if !status.is_success() {
-            let body = response
-                .text()
-                .map_err(|error| ProviderError(format!("provider error body was unreadable: {error}")))?;
-            return Err(ProviderError(format!("provider returned {}: {}", status, body)));
+            let body = response.text().map_err(|error| {
+                ProviderError(format!("provider error body was unreadable: {error}"))
+            })?;
+            return Err(ProviderError(format!(
+                "provider returned {}: {}",
+                status, body
+            )));
         }
 
         let mut reader = BufReader::new(response);
@@ -119,9 +128,9 @@ impl OpenAiCompatibleProvider {
 
         loop {
             let mut line = String::new();
-            let bytes_read = reader
-                .read_line(&mut line)
-                .map_err(|error| ProviderError(format!("provider stream could not be read: {error}")))?;
+            let bytes_read = reader.read_line(&mut line).map_err(|error| {
+                ProviderError(format!("provider stream could not be read: {error}"))
+            })?;
 
             if bytes_read == 0 {
                 break;
@@ -151,7 +160,9 @@ impl OpenAiCompatibleProvider {
         }
 
         if final_message.is_empty() {
-            return Err(ProviderError("provider response did not include assistant content".to_string()));
+            return Err(ProviderError(
+                "provider response did not include assistant content".to_string(),
+            ));
         }
 
         on_event(AgentEvent::MessageCompleted(final_message.clone()));
@@ -223,8 +234,11 @@ fn handle_stream_chunk(
     payload: String,
     on_event: &mut dyn FnMut(AgentEvent),
 ) -> Result<String, ProviderError> {
-    let chunk: ChatCompletionChunk = serde_json::from_str(&payload)
-        .map_err(|error| ProviderError(format!("provider stream chunk was not valid JSON: {error}; payload={payload}")))?;
+    let chunk: ChatCompletionChunk = serde_json::from_str(&payload).map_err(|error| {
+        ProviderError(format!(
+            "provider stream chunk was not valid JSON: {error}; payload={payload}"
+        ))
+    })?;
 
     let mut text = String::new();
     if let Some(choice) = chunk.choices.first() {
@@ -283,7 +297,12 @@ fn extract_delta_content(content: &Option<Value>) -> Option<String> {
 }
 
 fn extract_message_content(body: &Value) -> Option<String> {
-    let content = body.get("choices")?.as_array()?.first()?.get("message")?.get("content")?;
+    let content = body
+        .get("choices")?
+        .as_array()?
+        .first()?
+        .get("message")?
+        .get("content")?;
 
     if let Some(text) = content.as_str() {
         return Some(text.to_string());
@@ -326,7 +345,10 @@ mod tests {
             ]
         });
 
-        assert_eq!(extract_message_content(&body).as_deref(), Some("MatrixClaw"));
+        assert_eq!(
+            extract_message_content(&body).as_deref(),
+            Some("MatrixClaw")
+        );
     }
 
     #[test]
@@ -344,6 +366,9 @@ mod tests {
             ]
         });
 
-        assert_eq!(extract_message_content(&body).as_deref(), Some("MatrixClaw"));
+        assert_eq!(
+            extract_message_content(&body).as_deref(),
+            Some("MatrixClaw")
+        );
     }
 }

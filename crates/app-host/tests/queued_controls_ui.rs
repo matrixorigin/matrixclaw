@@ -55,11 +55,16 @@ fn queued_controls_ui() {
         QueueSubmissionRequest {
             kind: QueueControlKind::Steering,
             message: "tighten the answer".to_string(),
+            session_id: Some("session-test".to_string()),
         },
     );
     assert!(
         steering_submission.accepted,
         "queue submissions should return an accepted result"
+    );
+    assert_eq!(
+        steering_submission.session_id, "session-test",
+        "queue submissions should echo the session id they apply to"
     );
     assert_eq!(
         steering_submission.state.delivery_timing,

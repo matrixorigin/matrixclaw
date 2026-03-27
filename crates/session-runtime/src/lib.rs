@@ -45,6 +45,7 @@ pub trait ChatRuntime {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RuntimeMessage {
+    User(String),
     Assistant(String),
     RuntimeSummary(String),
     ToolResult(String),

@@ -4,8 +4,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use matrixclaw_agent_core::event::AgentEvent;
 use matrixclaw_agent_core::provider::{Provider, ProviderError};
-use matrixclaw_agent_core::RunRequest;
-use matrixclaw_app_host::live_runtime::{session_db_path, LiveRunRequest, SessionBackedLiveRunService};
+use matrixclaw_agent_core::{RunMessageRole, RunRequest};
+use matrixclaw_app_host::live_runtime::{
+    session_db_path, LiveRunRequest, SessionBackedLiveRunService,
+};
 use matrixclaw_session_runtime::queue::SessionQueue;
 use matrixclaw_session_runtime::session::Session;
 use matrixclaw_session_runtime::sqlite::SqliteStorage;
@@ -22,10 +24,7 @@ fn live_queue_integration() {
             RuntimeMessage::ToolResult("result:alpha".to_string()),
             RuntimeMessage::ToolResult("result:beta".to_string()),
         ],
-        vec![
-            "hold the line".to_string(),
-            "what changed?".to_string(),
-        ],
+        vec!["hold the line".to_string(), "what changed?".to_string()],
     );
 
     let service = SessionBackedLiveRunService::new(&home);
@@ -64,10 +63,11 @@ fn live_queue_integration() {
     assert_prompt_contains_in_order(
         &provider.prompts[0],
         &[
-            "result:alpha",
-            "result:beta",
-            "hold the line",
-            "next assistant turn",
+            "tool:result:alpha",
+            "tool:result:beta",
+            "system:hold the line",
+            "assistant:next assistant turn",
+            "user:start",
         ],
         "steering should appear before the next assistant turn and preserve prior tool-result ordering",
     );
@@ -80,10 +80,11 @@ fn live_queue_integration() {
     assert_prompt_contains_in_order(
         &provider.prompts[1],
         &[
-            "result:alpha",
-            "result:beta",
-            "what changed?",
-            "next run assistant turn",
+            "tool:result:alpha",
+            "tool:result:beta",
+            "system:what changed?",
+            "assistant:next run assistant turn",
+            "user:resume",
         ],
         "follow-up should be deferred until the current run completes while preserving tool-result ordering",
     );
@@ -111,7 +112,17 @@ impl Provider for RecordingProvider {
         request: &RunRequest,
         on_event: &mut dyn FnMut(AgentEvent),
     ) -> Result<String, ProviderError> {
-        self.prompts.push(request.prompt.clone());
+        let prompt = if request.context_messages.is_empty() {
+            request.prompt.clone()
+        } else {
+            request
+                .context_messages
+                .iter()
+                .map(|message| format!("{}:{}", role_name(&message.role), message.content))
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+        self.prompts.push(prompt);
 
         on_event(AgentEvent::RunStarted);
         on_event(AgentEvent::MessageStarted);
@@ -120,6 +131,15 @@ impl Provider for RecordingProvider {
         on_event(AgentEvent::MessageCompleted("Persisted hello".to_string()));
 
         Ok("Persisted hello".to_string())
+    }
+}
+
+fn role_name(role: &RunMessageRole) -> &'static str {
+    match role {
+        RunMessageRole::User => "user",
+        RunMessageRole::System => "system",
+        RunMessageRole::Assistant => "assistant",
+        RunMessageRole::Tool => "tool",
     }
 }
 
@@ -155,7 +175,9 @@ fn seed_session(
     let session = Session::from_parts(history, queue, Vec::new());
 
     let mut storage = SqliteStorage::open(&session_path).expect("open session storage");
-    storage.persist_session(&session).expect("persist seeded session");
+    storage
+        .persist_session(&session)
+        .expect("persist seeded session");
 }
 
 fn temp_home() -> PathBuf {

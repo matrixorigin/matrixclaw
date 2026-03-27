@@ -2,6 +2,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::http::{HttpRequest, HttpResponse, SetupSurface};
+use crate::live_runtime::{
+    load_or_create_session_for_request, load_session_queue, persist_session_for_id,
+};
 use matrixclaw_session_runtime::queue::SessionQueue;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -44,11 +47,14 @@ pub struct QueueControlsContract {
 pub struct QueueSubmissionRequest {
     pub kind: QueueControlKind,
     pub message: String,
+    #[serde(default)]
+    pub session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct QueueSubmissionResult {
     pub accepted: bool,
+    pub session_id: String,
     pub state: QueueControlState,
 }
 
@@ -113,13 +119,20 @@ pub fn submit_queue_control(
 
     QueueSubmissionResult {
         accepted: true,
+        session_id: request.session_id.unwrap_or_default(),
         state,
     }
 }
 
-pub fn queue_state_response(surface: &SetupSurface) -> HttpResponse {
-    let queue = surface.queue();
-    let queue = queue.lock().expect("queue lock poisoned");
+pub fn queue_state_response(surface: &SetupSurface, request: &HttpRequest) -> HttpResponse {
+    let queue =
+        match load_session_queue(surface.home(), request_session_id(&request.path).as_deref()) {
+            Ok(queue) => queue,
+            Err(error) => {
+                return HttpResponse::json(400, json!({ "error": error }).to_string());
+            }
+        };
+
     let body = serde_json::to_string_pretty(&queue_controls_view(&queue))
         .expect("serialize queue controls view");
     HttpResponse::json(200, body)
@@ -133,9 +146,81 @@ pub fn queue_submission_response(surface: &SetupSurface, request: HttpRequest) -
         );
     };
 
-    let queue = surface.queue();
-    let mut queue = queue.lock().expect("queue lock poisoned");
-    let response = submit_queue_control(&mut queue, payload);
+    if payload.message.trim().is_empty() {
+        return HttpResponse::json(
+            400,
+            json!({ "error": "queue message is required" }).to_string(),
+        );
+    }
+
+    let session_id = payload.session_id.clone();
+    let response = match submit_session_queue_control(surface, session_id.as_deref(), payload) {
+        Ok(response) => response,
+        Err(error) => {
+            return HttpResponse::json(400, json!({ "error": error }).to_string());
+        }
+    };
     let body = serde_json::to_string_pretty(&response).expect("serialize queue submission result");
     HttpResponse::json(200, body)
+}
+
+fn request_session_id(path: &str) -> Option<String> {
+    let query = path.split_once('?')?.1;
+    for pair in query.split('&') {
+        let (name, value) = pair.split_once('=').unwrap_or((pair, ""));
+        if name == "session_id" {
+            return Some(percent_decode(value));
+        }
+    }
+
+    None
+}
+
+fn percent_decode(value: &str) -> String {
+    let bytes = value.as_bytes();
+    let mut decoded = String::with_capacity(value.len());
+    let mut index = 0;
+
+    while index < bytes.len() {
+        match bytes[index] {
+            b'+' => {
+                decoded.push(' ');
+                index += 1;
+            }
+            b'%' if index + 2 < bytes.len() => {
+                let hex = &value[index + 1..index + 3];
+                if let Ok(byte) = u8::from_str_radix(hex, 16) {
+                    decoded.push(byte as char);
+                    index += 3;
+                } else {
+                    decoded.push('%');
+                    index += 1;
+                }
+            }
+            byte => {
+                decoded.push(byte as char);
+                index += 1;
+            }
+        }
+    }
+
+    decoded
+}
+
+fn submit_session_queue_control(
+    surface: &SetupSurface,
+    session_id: Option<&str>,
+    payload: QueueSubmissionRequest,
+) -> Result<QueueSubmissionResult, String> {
+    let (resolved_session_id, mut session) =
+        load_or_create_session_for_request(surface.home(), session_id)?;
+    let response = submit_queue_control(
+        session.queue_mut(),
+        QueueSubmissionRequest {
+            session_id: Some(resolved_session_id.clone()),
+            ..payload
+        },
+    );
+    persist_session_for_id(surface.home(), &resolved_session_id, &session)?;
+    Ok(response)
 }
