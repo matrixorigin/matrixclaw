@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "crates/agent-core",
+    "crates/app-host",
+    "crates/compat-openclaw",
+    "crates/manifests",
+    "crates/session-runtime",
+]
+resolver = "2"

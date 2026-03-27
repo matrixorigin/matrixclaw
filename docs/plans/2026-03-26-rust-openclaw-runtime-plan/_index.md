@@ -34,7 +34,18 @@ Because this is effectively greenfield code inside an existing repo, the plan ha
 | Agent loop | Specified in docs | Streaming-first `agent-core` with deterministic events |
 | Session behavior | Specified in docs | Durable `session-runtime` with queue, retry, compaction, and resume |
 | Compatibility | Scope defined only | Fixture-backed OpenClaw protocol adapter and ecosystem importer |
-| Operator experience | No binary, no setup flow | User-owned install path, first-run setup, lazy assets, explicit sandbox policy |
+| Operator experience | No binary, no setup flow | User-owned install path, first-run setup, lazy assets, explicit sandbox policy, and a path toward skill/plugin management plus workspace-first UI |
+
+## Scope Note
+
+The design package now explicitly incorporates two upstream product lessons:
+
+- from FastClaw
+  - browser-first setup wizard, Skills/Plugins operator surfaces, and agent-local skill enablement
+- from PiClaw
+  - workspace-first chat UX, file-reference insertion, and queued steering controls in the UI
+
+Those product learnings are important, but they do not change the current implementation ordering. The active task graph still prioritizes runtime correctness, persistence, compatibility boundaries, and basic local product shell behavior before richer operator UI and skill-management surfaces.
 
 ## Execution Plan
 

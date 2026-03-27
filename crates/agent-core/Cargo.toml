@@ -1,0 +1,11 @@
+[package]
+name = "matrixclaw-agent-core"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "matrixclaw_agent_core"
+path = "src/lib.rs"
+
+[dependencies]
+matrixclaw-manifests = { path = "../manifests" }
