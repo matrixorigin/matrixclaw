@@ -13,6 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 matrixclaw-agent-core = { path = "../agent-core" }
+matrixclaw-compat-openclaw = { path = "../compat-openclaw" }
 matrixclaw-manifests = { path = "../manifests" }
 matrixclaw-session-runtime = { path = "../session-runtime" }
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }

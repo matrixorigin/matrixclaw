@@ -1,10 +1,7 @@
 use crate::auth::{validate_response, CHALLENGE_TOKEN};
 use crate::capabilities::{AgentDescriptor, CapabilityDescriptor};
-use crate::stream_adapter::{ChatFrame, LoopbackChatStreamAdapter};
-use crate::translation::{
-    default_agents, persist_openclaw_chat_session, translate_chat_request, OpenClawChatRequest,
-};
-use matrixclaw_session_runtime::ChatRuntime;
+use crate::stream_adapter::ChatFrame;
+use crate::translation::default_agents;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Frame {
@@ -45,24 +42,4 @@ pub fn openclaw_agents_list(enabled: bool) -> WebSocketConversation {
 pub struct ChatWebSocketConversation {
     pub capability: CapabilityDescriptor,
     pub frames: Vec<ChatFrame>,
-}
-
-pub fn openclaw_chat<R>(request: &OpenClawChatRequest, runtime: &mut R) -> ChatWebSocketConversation
-where
-    R: ChatRuntime,
-{
-    let capability = CapabilityDescriptor {
-        agent_listing_supported: true,
-        ..CapabilityDescriptor::default()
-    };
-
-    let mut adapter = LoopbackChatStreamAdapter::new();
-    translate_chat_request(request, runtime, &mut adapter);
-    persist_openclaw_chat_session(&request.conversation_id, adapter.frames())
-        .expect("persist compatibility session");
-
-    ChatWebSocketConversation {
-        capability,
-        frames: adapter.frames().to_vec(),
-    }
 }

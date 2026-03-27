@@ -10,16 +10,14 @@ use matrixclaw_agent_core::{RunMessageRole, RunRequest};
 use matrixclaw_app_host::live_runtime::{
     session_db_path, LiveRunRequest, SessionBackedLiveRunService,
 };
-use matrixclaw_compat_openclaw::http::openclaw_chat_http;
-use matrixclaw_compat_openclaw::translation::{
-    openclaw_session_db_path, OpenClawChatMessage, OpenClawChatRequest,
-};
-use matrixclaw_session_runtime::sqlite::SqliteStorage;
+use matrixclaw_app_host::openclaw_transport::openclaw_chat_http_with_provider;
+use matrixclaw_compat_openclaw::translation::{OpenClawChatMessage, OpenClawChatRequest};
 use matrixclaw_session_runtime::recovery::SessionRecoveryStore;
-use matrixclaw_session_runtime::{ChatEvent, ChatRequest, ChatRuntime, RuntimeMessage};
+use matrixclaw_session_runtime::sqlite::SqliteStorage;
+use matrixclaw_session_runtime::RuntimeMessage;
 
 #[test]
-fn openclaw_seeded_session_is_reused_by_shared_live_runtime() {
+fn openclaw_transport_reuses_the_shared_live_runtime() {
     let _env_lock = env_lock().lock().expect("env lock");
     let home = temp_home();
     env::set_var("HOME", &home);
@@ -34,24 +32,25 @@ fn openclaw_seeded_session_is_reused_by_shared_live_runtime() {
     let request = OpenClawChatRequest::new(
         conversation_id.clone(),
         vec![
-            OpenClawChatMessage::user("seed through the OpenClaw boundary"),
             OpenClawChatMessage::system("keep the compatibility layer protocol-shaped"),
+            OpenClawChatMessage::user("seed through the OpenClaw boundary"),
         ],
     );
 
-    let mut compat_runtime = RecordingRuntime::default();
-    let response = openclaw_chat_http(&request, &mut compat_runtime);
+    let mut compat_provider = RecordingProvider::compat();
+    let response = openclaw_chat_http_with_provider(
+        &home,
+        "moonshotai/kimi-k2.5",
+        &request,
+        &mut compat_provider,
+    )
+    .expect("serve OpenClaw request through the shared runtime");
 
-    let compat_session_path = openclaw_session_db_path(&conversation_id);
     let live_session_path = session_db_path(&home, &conversation_id);
 
-    assert_eq!(
-        compat_session_path, live_session_path,
-        "OpenClaw and app-host should share the same on-disk session layout"
-    );
     assert!(
-        compat_session_path.exists(),
-        "compat chat should persist a session before the live runtime resumes it"
+        live_session_path.exists(),
+        "OpenClaw transport should persist a session before the live runtime resumes it"
     );
     assert_eq!(response.conversation_id, conversation_id);
     assert_eq!(
@@ -62,11 +61,28 @@ fn openclaw_seeded_session_is_reused_by_shared_live_runtime() {
             },
             matrixclaw_compat_openclaw::stream_adapter::ChatFrame::Completed,
         ],
-        "the compatibility boundary should continue to project OpenClaw chat frames"
+        "the app-host transport should continue to project OpenClaw chat frames"
+    );
+    assert_eq!(
+        compat_provider.context_messages.len(),
+        1,
+        "OpenClaw transport should execute through the live runtime provider path"
+    );
+    assert!(
+        compat_provider.context_messages[0]
+            .iter()
+            .any(|message| message == "system:keep the compatibility layer protocol-shaped"),
+        "OpenClaw transport should seed protocol context into the shared runtime history"
+    );
+    assert!(
+        compat_provider.context_messages[0]
+            .iter()
+            .any(|message| message == "user:seed through the OpenClaw boundary"),
+        "OpenClaw transport should send the current protocol user turn through the live runtime"
     );
 
     let service = SessionBackedLiveRunService::new(&home);
-    let mut provider = RecordingProvider::default();
+    let mut provider = RecordingProvider::live();
     let outcome = service
         .run_with_provider(
             "moonshotai/kimi-k2.5",
@@ -82,7 +98,11 @@ fn openclaw_seeded_session_is_reused_by_shared_live_runtime() {
         outcome.session_id, conversation_id,
         "the shared runtime should continue the same persisted session"
     );
-    assert_eq!(provider.prompts.len(), 1, "the shared runtime should make one provider turn");
+    assert_eq!(
+        provider.prompts.len(),
+        1,
+        "the shared runtime should make one provider turn"
+    );
     assert_eq!(
         provider.context_messages.len(),
         1,
@@ -92,7 +112,7 @@ fn openclaw_seeded_session_is_reused_by_shared_live_runtime() {
         provider.context_messages[0]
             .iter()
             .any(|message| message == "assistant:compatibility answer"),
-        "the live runtime should see the assistant history seeded by OpenClaw persistence"
+        "the live runtime should see the assistant history seeded by the OpenClaw transport"
     );
     assert!(
         provider.context_messages[0]
@@ -106,15 +126,27 @@ fn openclaw_seeded_session_is_reused_by_shared_live_runtime() {
         .load_recovery_snapshot()
         .expect("load shared session snapshot");
     assert!(
-        snapshot
-            .history
-            .contains(&RuntimeMessage::Assistant("compatibility answer".to_string())),
+        snapshot.history.contains(&RuntimeMessage::RuntimeSummary(
+            "keep the compatibility layer protocol-shaped".to_string()
+        )),
+        "the OpenClaw system context should survive in the shared session history"
+    );
+    assert!(
+        snapshot.history.contains(&RuntimeMessage::User(
+            "seed through the OpenClaw boundary".to_string()
+        )),
+        "the OpenClaw prompt should be persisted into the shared session history"
+    );
+    assert!(
+        snapshot.history.contains(&RuntimeMessage::Assistant(
+            "compatibility answer".to_string()
+        )),
         "the OpenClaw-seeded assistant turn should survive in the shared session history"
     );
     assert!(
-        snapshot
-            .history
-            .contains(&RuntimeMessage::User("resume the same conversation".to_string())),
+        snapshot.history.contains(&RuntimeMessage::User(
+            "resume the same conversation".to_string()
+        )),
         "the live runtime should persist the resumed browser prompt into the same session"
     );
     assert!(
@@ -127,25 +159,28 @@ fn openclaw_seeded_session_is_reused_by_shared_live_runtime() {
     env::remove_var("HOME");
 }
 
-#[derive(Default)]
-struct RecordingRuntime {
-    seen_requests: Vec<ChatRequest>,
-}
-
-impl ChatRuntime for RecordingRuntime {
-    fn handle_chat(&mut self, request: ChatRequest) -> Vec<ChatEvent> {
-        self.seen_requests.push(request);
-        vec![
-            ChatEvent::AssistantChunk("compatibility answer".to_string()),
-            ChatEvent::Completed,
-        ]
-    }
-}
-
-#[derive(Default)]
 struct RecordingProvider {
     prompts: Vec<String>,
     context_messages: Vec<Vec<String>>,
+    response: String,
+}
+
+impl RecordingProvider {
+    fn live() -> Self {
+        Self {
+            prompts: Vec::new(),
+            context_messages: Vec::new(),
+            response: "Persisted hello".to_string(),
+        }
+    }
+
+    fn compat() -> Self {
+        Self {
+            prompts: Vec::new(),
+            context_messages: Vec::new(),
+            response: "compatibility answer".to_string(),
+        }
+    }
 }
 
 impl Provider for RecordingProvider {
@@ -171,11 +206,10 @@ impl Provider for RecordingProvider {
 
         on_event(AgentEvent::RunStarted);
         on_event(AgentEvent::MessageStarted);
-        on_event(AgentEvent::MessageDelta("Persisted ".to_string()));
-        on_event(AgentEvent::MessageDelta("hello".to_string()));
-        on_event(AgentEvent::MessageCompleted("Persisted hello".to_string()));
+        on_event(AgentEvent::MessageDelta(self.response.clone()));
+        on_event(AgentEvent::MessageCompleted(self.response.clone()));
 
-        Ok("Persisted hello".to_string())
+        Ok(self.response.clone())
     }
 }
 

@@ -595,6 +595,7 @@ name = "matrixclaw-app-host"
 version = "0.1.0"
 dependencies = [
  "matrixclaw-agent-core",
+ "matrixclaw-compat-openclaw",
  "matrixclaw-manifests",
  "matrixclaw-session-runtime",
  "reqwest",

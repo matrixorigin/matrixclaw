@@ -9,6 +9,7 @@ pub mod live_runtime;
 pub mod llm_smoke;
 pub mod local_command;
 pub mod openai_compatible;
+pub mod openclaw_transport;
 pub mod paths;
 pub mod plugin_launcher;
 pub mod sandbox_backend;
