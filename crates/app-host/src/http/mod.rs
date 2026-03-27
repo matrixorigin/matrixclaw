@@ -2,11 +2,14 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::ui_assets::{UiAssetKind, UiAssetLayout};
-
+pub mod execution_api;
+pub mod queue_api;
 pub mod routes;
 pub mod setup_api;
 pub mod skills_api;
+pub mod workspace_api;
+
+use crate::ui_assets::{UiAssetKind, UiAssetLayout};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HttpMethod {

@@ -1,6 +1,10 @@
 <script lang="ts">
     import { executionPriority, setupSteps } from "$lib/shell";
     import {
+        sandboxFailureMessage,
+        visibleExecutionBackends
+    } from "$lib/execution/index";
+    import {
         defaultSetupDraft,
         reviewChecklist,
         setupCopy
@@ -64,12 +68,19 @@
 
         <div class="execution-callout">
             <h4>Execution policy</h4>
+            <p class="support-copy">Visible backends:</p>
+            <div class="backend-chips">
+                {#each visibleExecutionBackends as backend}
+                    <span>{backend}</span>
+                {/each}
+            </div>
             <p>Preferred sandbox order:</p>
             <ul>
                 {#each executionPriority as backend, index}
                     <li>{index + 1}. {backend}</li>
                 {/each}
             </ul>
+            <p class="failure-copy">{sandboxFailureMessage}</p>
         </div>
 
         <div class="review-callout">
@@ -159,6 +170,34 @@
         padding: 1rem;
         border-radius: 1rem;
         background: rgba(2, 6, 23, 0.45);
+    }
+
+    .support-copy {
+        margin-bottom: 0.55rem;
+    }
+
+    .backend-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        margin-bottom: 0.85rem;
+    }
+
+    .backend-chips span {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.45rem 0.75rem;
+        border-radius: 999px;
+        background: rgba(59, 130, 246, 0.14);
+        color: #dbeafe;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    .failure-copy {
+        margin-top: 0.85rem;
+        color: #fde68a;
     }
 
     .form-preview {
