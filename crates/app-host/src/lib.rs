@@ -3,14 +3,18 @@ pub mod assets;
 pub mod commands;
 pub mod compat_registry;
 pub mod execution;
+pub mod http;
 pub mod install;
 pub mod local_command;
 pub mod paths;
 pub mod plugin_launcher;
 pub mod sandbox_backend;
 pub mod setup;
+pub mod ui_assets;
 
 pub const VERSION: &str = "0.1.0";
+
+pub use ui_assets::{UiAssetKind, UiAssetLayout, UiResolvedAsset};
 
 pub fn run(args: impl IntoIterator<Item = String>) -> i32 {
     let mut args = args.into_iter();
@@ -21,7 +25,11 @@ pub fn run(args: impl IntoIterator<Item = String>) -> i32 {
             0
         }
         None => match setup::ensure_first_launch() {
-            Ok(()) => 0,
+            Ok(setup::StartupMode::Ready) => 0,
+            Ok(setup::StartupMode::Setup(surface)) => {
+                println!("MatrixClaw setup available at {}", surface.setup_url());
+                0
+            }
             Err(error) => {
                 eprintln!("setup failed: {error}");
                 1

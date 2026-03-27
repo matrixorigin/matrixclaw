@@ -1,6 +1,4 @@
-use matrixclaw_compat_openclaw::stream_adapter::{
-    ChatFrame, LoopbackChatStreamAdapter,
-};
+use matrixclaw_compat_openclaw::stream_adapter::{ChatFrame, LoopbackChatStreamAdapter};
 use matrixclaw_compat_openclaw::translation::{
     translate_chat_request, OpenClawChatMessage, OpenClawChatRequest,
 };

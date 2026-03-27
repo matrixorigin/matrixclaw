@@ -26,7 +26,7 @@ The intended product shape is:
 /
 └── redirect
     ├── /setup        when config is missing
-    └── /workspace    when config exists
+└── /workspace    when config exists
 
 /setup
 ├── provider
@@ -41,6 +41,12 @@ The intended product shape is:
 ├── skills
 └── settings
 ```
+
+Task 001 scaffold mapping:
+- `ui/src/routes/+page.svelte` provides a developer landing surface for static preview builds
+- `ui/src/routes/setup/+page.svelte` establishes the onboarding shell
+- `ui/src/routes/workspace/+page.svelte` establishes the three-region workspace shell
+- `crates/app-host/src/ui_assets.rs` defines the Rust-side source/build path contract used by later embedding work
 
 ## Information Architecture
 

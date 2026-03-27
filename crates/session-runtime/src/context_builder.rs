@@ -12,7 +12,10 @@ pub struct ContinuationContext {
 pub struct ContextBuilder;
 
 impl ContextBuilder {
-    pub fn build_from_parts(history: &[RuntimeMessage], queue: &SessionQueue) -> ContinuationContext {
+    pub fn build_from_parts(
+        history: &[RuntimeMessage],
+        queue: &SessionQueue,
+    ) -> ContinuationContext {
         ContinuationContext {
             next_turn: message_projection::project_next_turn(history, queue),
             next_run: message_projection::project_next_run(history, queue),

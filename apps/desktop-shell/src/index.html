@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>MatrixClaw Desktop Shell</title>
+        <script type="module" src="./launcher.js"></script>
+        <style>
+            :root {
+                color-scheme: dark;
+                font-family:
+                    "IBM Plex Sans",
+                    "Avenir Next",
+                    sans-serif;
+                background:
+                    radial-gradient(circle at top, rgba(251, 191, 36, 0.16), transparent 38%),
+                    linear-gradient(180deg, #0f172a 0%, #111827 45%, #020617 100%);
+                color: #e5eef7;
+            }
+
+            body {
+                margin: 0;
+                min-height: 100vh;
+                display: grid;
+                place-items: center;
+            }
+
+            main {
+                width: min(32rem, calc(100vw - 2rem));
+                padding: 1.5rem;
+                border-radius: 1.25rem;
+                border: 1px solid rgba(148, 163, 184, 0.18);
+                background: rgba(15, 23, 42, 0.78);
+                box-shadow: 0 16px 40px rgba(2, 6, 23, 0.28);
+            }
+
+            p {
+                color: #cbd5e1;
+                line-height: 1.6;
+            }
+
+            code {
+                color: #fde68a;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <p>MatrixClaw desktop shell</p>
+            <h1>Attaching to the local UI boundary</h1>
+            <p>
+                This wrapper stays thin on purpose. It redirects the window to the existing
+                loopback surface served by <code>app-host</code> instead of reimplementing runtime
+                logic inside the shell.
+            </p>
+            <p id="status">Waiting for MatrixClaw setup surface…</p>
+        </main>
+    </body>
+</html>

@@ -1,15 +1,15 @@
-pub mod event_sink;
-pub mod error;
-pub mod context_builder;
 pub mod compaction;
 pub mod compaction_record;
+pub mod context_builder;
+pub mod error;
+pub mod event_sink;
 pub mod message_projection;
 pub mod queue;
 pub mod recovery;
 pub mod retry;
-pub mod sqlite;
 pub mod run_controller;
 pub mod session;
+pub mod sqlite;
 pub mod storage;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

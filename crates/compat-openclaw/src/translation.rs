@@ -1,8 +1,6 @@
 use crate::capabilities::AgentDescriptor;
 use crate::stream_adapter::{project_runtime_event, ChatStreamAdapter};
-use matrixclaw_session_runtime::{
-    ChatInputMessage, ChatInputRole, ChatRequest, ChatRuntime,
-};
+use matrixclaw_session_runtime::{ChatInputMessage, ChatInputRole, ChatRequest, ChatRuntime};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OpenClawChatRole {

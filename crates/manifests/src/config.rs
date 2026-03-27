@@ -71,6 +71,59 @@ pub struct SandboxPolicySettings {
     pub backend: ExecutionBackendSelection,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetupWizardSubmission {
+    pub provider: ProviderSettings,
+    pub workspace: WorkspaceSettings,
+    pub auth: AuthSettings,
+    pub execution: ExecutionSettings,
+}
+
+impl SetupWizardSubmission {
+    pub fn new(
+        provider: ProviderSettings,
+        workspace: WorkspaceSettings,
+        auth: AuthSettings,
+        execution: ExecutionSettings,
+    ) -> Self {
+        Self {
+            provider,
+            workspace,
+            auth,
+            execution,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), &'static str> {
+        if self.provider.provider_name.trim().is_empty() {
+            return Err("provider name is required");
+        }
+        if self.provider.model.trim().is_empty() {
+            return Err("model is required");
+        }
+        if self.workspace.name.trim().is_empty() {
+            return Err("workspace name is required");
+        }
+        if self.workspace.root.as_os_str().is_empty() {
+            return Err("workspace root is required");
+        }
+        if self.auth.token.trim().is_empty() {
+            return Err("auth token is required");
+        }
+        Ok(())
+    }
+
+    pub fn to_app_config(&self) -> AppConfig {
+        AppConfig::new(
+            self.provider.clone(),
+            self.workspace.clone(),
+            self.auth.clone(),
+            ManagedAssetsSettings::default(),
+        )
+    }
+}
+
 impl ExecutionSettings {
     pub fn local_default() -> Self {
         Self {
@@ -113,15 +166,19 @@ impl ExecutionSettings {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
+        let serialized = self.to_json_string()?;
+        fs::write(&path, serialized)?;
+        Ok(path)
+    }
+
+    pub fn to_json_string(&self) -> io::Result<String> {
         let body = serde_json::json!({
             "schemaVersion": "1",
             "mode": self.mode,
             "backend": self.backend,
         });
-        let serialized = serde_json::to_string_pretty(&body)
-            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-        fs::write(&path, serialized)?;
-        Ok(path)
+        serde_json::to_string_pretty(&body)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
     }
 
     pub fn load_from_home(home: impl AsRef<Path>) -> io::Result<Self> {
@@ -182,6 +239,12 @@ impl AppConfig {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
+        let serialized = self.to_json_string()?;
+        fs::write(&path, serialized)?;
+        Ok(path)
+    }
+
+    pub fn to_json_string(&self) -> io::Result<String> {
         let body = serde_json::json!({
             "schemaVersion": "1",
             "provider": self.provider,
@@ -189,12 +252,9 @@ impl AppConfig {
             "auth": self.auth,
             "managedAssets": self.managed_assets,
         });
-        let serialized = serde_json::to_string_pretty(&body)
-            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-        fs::write(&path, serialized)?;
-        Ok(path)
+        serde_json::to_string_pretty(&body)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
     }
-
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -4,12 +4,12 @@ use rusqlite::{params, Connection};
 
 use crate::compaction_record::CompactionRecord;
 use crate::message_projection::{DurableTranscriptEntry, DurableTranscriptKind};
+use crate::queue::QueueItem;
 use crate::queue::SessionQueue;
 use crate::recovery::{RecoveryError, RecoverySnapshot, SessionRecoveryStore};
+use crate::session::Session;
 use crate::storage::{project_visible_transcript, StorageError, TranscriptStore};
 use crate::RuntimeMessage;
-use crate::session::Session;
-use crate::queue::QueueItem;
 
 pub struct SqliteStorage {
     conn: Connection,

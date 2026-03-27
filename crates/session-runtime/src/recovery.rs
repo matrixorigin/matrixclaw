@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::compaction_record::CompactionRecord;
-use crate::context_builder::{ContinuationContext, ContextBuilder};
+use crate::context_builder::{ContextBuilder, ContinuationContext};
 use crate::queue::SessionQueue;
 use crate::session::Session;
 use crate::storage::{StorageError, TranscriptStore};
@@ -46,7 +46,11 @@ pub trait SessionRecoveryStore: TranscriptStore {
 }
 
 pub fn restore_session(snapshot: RecoverySnapshot) -> RecoveredSession {
-    let session = Session::from_parts(snapshot.history, snapshot.queue, snapshot.compaction_records);
+    let session = Session::from_parts(
+        snapshot.history,
+        snapshot.queue,
+        snapshot.compaction_records,
+    );
     let context = ContextBuilder::build(&session);
     RecoveredSession { session, context }
 }

@@ -8,10 +8,7 @@ pub struct HttpChatResponse {
     pub frames: Vec<ChatFrame>,
 }
 
-pub fn openclaw_chat_http<R>(
-    request: &OpenClawChatRequest,
-    runtime: &mut R,
-) -> HttpChatResponse
+pub fn openclaw_chat_http<R>(request: &OpenClawChatRequest, runtime: &mut R) -> HttpChatResponse
 where
     R: ChatRuntime,
 {
