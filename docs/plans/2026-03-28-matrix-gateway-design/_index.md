@@ -20,3 +20,4 @@
 **Design Files:**
 - [BDD Specs](./bdd-specs.md)
 - [Architecture](./architecture.md)
+- [Gateway and Node Model](./gateway-and-node-model.md)

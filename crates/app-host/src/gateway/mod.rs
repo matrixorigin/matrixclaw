@@ -1,3 +1,10 @@
+//! Gateway is the external communication boundary for MatrixClaw.
+//!
+//! Gateways receive messages from outside systems, normalize them into
+//! ingress envelopes, and project runtime replies back into channel-specific
+//! deliveries. They own routing, retry, and dedupe concerns, but they do not
+//! own host capabilities such as screenshots or browser automation.
+
 pub mod client;
 pub mod matrix;
 pub mod runtime;
