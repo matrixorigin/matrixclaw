@@ -20,34 +20,44 @@ Last updated: 2026-03-28
 
 ## Active Execution Policy
 1. Finish architectural vocabulary before adding more capability surface area.
-2. Keep Gateway work outside the runtime core.
-3. Keep Node work outside gateway code.
-4. Introduce generic boundaries only when they buy separation or testing value.
-5. Prefer one real vertical slice over broad placeholder abstractions.
+2. Treat the Tauri app as the real product boundary, not an optional wrapper.
+3. Keep Gateway work outside the runtime core.
+4. Keep Node work outside gateway code.
+5. Introduce generic boundaries only when they buy separation or testing value.
+6. Prefer one real vertical slice over broad placeholder abstractions.
 
 ## Current Active Milestone
-- Milestone 03 - Node Boundary and First Host Capability Slice
+- Milestone 03 - Tauri Product Boundary and Desktop App Shell
 
 ## Iteration Loop
-1. Write a Node design doc using the new Gateway/Node vocabulary.
-2. Decide the first concrete Node slice:
-   - screenshot/browser-oriented
-   - shell/filesystem-oriented
-3. Create a milestone execution plan under `docs/plans/` for that slice.
-4. Implement the active Node slice without mixing Gateway and Node concerns.
-5. Run focused milestone verification, then rerun the broader gateway/runtime checks.
-6. Reconcile any architectural or naming changes back into the long-horizon docs.
+1. Lock the Tauri-first product architecture and packaging assumptions in the long-horizon docs.
+2. Create a milestone execution plan under `docs/plans/` for the packaged desktop product slice.
+3. Execute the milestone with parallel agent lanes where write scopes are genuinely separable:
+   - packaging/runtime integration
+   - app-shell/layout architecture
+   - onboarding flow
+   - product verification
+4. Keep runtime, gateway, and future node semantics intact while the product boundary shifts to Tauri.
+5. Run focused packaged-product verification, then rerun the broader runtime/gateway checks.
+6. Reconcile architectural, packaging, and layout changes back into the long-horizon docs.
 
 Implementation rules for this milestone:
-- Do not bury Node semantics inside `execution.rs`, `sandbox_backend.rs`, or gateway modules without first naming the boundary explicitly.
-- Keep the first Node slice narrow and testable.
+- Do not keep repo-relative UI asset lookup as a product path.
+- Do not preserve the preview-style landing shell as the primary desktop experience.
+- Keep one single-window app shell for the first serious release.
 - Reuse the live runtime and existing policy hooks rather than inventing a second execution loop.
-- Preserve current green verification while refactoring toward the Node model.
+- Preserve current green runtime/gateway verification while shifting the product shell.
+- Stage Node work after the Tauri product boundary is stable again.
 
 ## Delegation Rules
 - Use parallel agents only for genuinely separate write scopes or verification tasks.
-- Keep architecture writing and final integration local.
-- Do not delegate the core boundary design itself; that is the mainline architectural decision.
+- Keep architecture writing, shell composition, and final integration local.
+- Use agent-team execution for milestone lanes that can proceed in parallel without write conflicts:
+  - Tauri packaging/runtime embedding
+  - UI shell and layout decomposition
+  - onboarding flow
+  - verification harnesses
+- Do not delegate the core product boundary decision itself; that is the mainline architectural decision.
 
 ## Bug Handling
 1. Reproduce with the narrowest meaningful test.

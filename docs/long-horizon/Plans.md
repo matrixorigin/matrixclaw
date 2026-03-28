@@ -12,6 +12,8 @@ Last updated: 2026-03-28
 - [ ] `./scripts/verify-live-runtime.sh`
 - [ ] `./scripts/verify-served-transports.sh`
 - [ ] `./scripts/verify-matrix-gateway.sh`
+- [ ] packaged Tauri app launch verification
+- [ ] clean-home product install verification
 
 ## Milestones
 
@@ -92,7 +94,53 @@ Status:
 - [ ] in progress
 - [x] complete
 
-### Milestone 03 - Node Boundary and First Host Capability Slice
+### Milestone 03 - Tauri Product Boundary and Desktop App Shell
+Scope:
+- [ ] Make Tauri the primary product boundary for MatrixClaw.
+- [ ] Bundle UI assets and runtime so the app launches without repo-relative paths.
+- [ ] Replace the preview-style web shell with a desktop-grade single-window app shell.
+- [ ] Turn setup into a real multi-step onboarding flow.
+- [ ] Establish product-grade verification for packaged launch and first run.
+
+Key files/modules:
+- [apps/desktop-shell/](/home/momo/src/matrixclaw/apps/desktop-shell)
+- [crates/app-host/src/ui_assets.rs](/home/momo/src/matrixclaw/crates/app-host/src/ui_assets.rs)
+- [crates/app-host/src/server.rs](/home/momo/src/matrixclaw/crates/app-host/src/server.rs)
+- [ui/src/routes/+layout.svelte](/home/momo/src/matrixclaw/ui/src/routes/+layout.svelte)
+- [ui/src/routes/setup/+page.svelte](/home/momo/src/matrixclaw/ui/src/routes/setup/+page.svelte)
+- [ui/src/routes/workspace/+page.svelte](/home/momo/src/matrixclaw/ui/src/routes/workspace/+page.svelte)
+- [ui/src/routes/skills/+page.svelte](/home/momo/src/matrixclaw/ui/src/routes/skills/+page.svelte)
+
+Acceptance criteria:
+- [ ] MatrixClaw launches as a self-contained single-window Tauri app with no repo checkout assumptions.
+- [ ] The app shell reads as a desktop workspace tool instead of a preview site.
+- [ ] Setup is a multi-step in-app flow.
+- [ ] Browser/runtime behavior remains aligned with the packaged product shell.
+- [ ] Product verification catches missing bundled assets before release.
+
+Verification commands:
+- `cargo fmt --all --check`
+- `cargo test -p matrixclaw-app-host`
+- `pnpm --dir ui check`
+- `pnpm --dir ui build`
+- packaged-product smoke script or test to be added during milestone planning
+
+Execution workflow:
+- [ ] Objective-first loop runner
+- [x] Superpowers writing-plans
+- [x] Superpowers subagent-driven-development
+- [ ] Superpowers executing-plans
+- [ ] Other: direct execution
+
+Execution artifact:
+- `docs/plans/2026-03-28-matrixclaw-tauri-product-plan/`
+
+Status:
+- [ ] not started
+- [x] in progress
+- [ ] complete
+
+### Milestone 04 - Node Boundary and First Host Capability Slice
 Scope:
 - [ ] Define the generic Node boundary for host/system abilities.
 - [ ] Choose the first concrete Node slice and integrate it through the runtime without mixing it with gateway concerns.
@@ -111,7 +159,6 @@ Acceptance criteria:
 - [ ] Gateway code remains free of host capability implementation details.
 
 Verification commands:
-- `cargo fmt --all --check`
 - `cargo test -p matrixclaw-app-host`
 - focused node smoke script or test to be added during milestone planning
 
@@ -127,11 +174,11 @@ Execution artifact:
 - `docs/plans/2026-03-28-execution-node-plan/`
 
 Status:
-- [ ] not started
-- [x] in progress
+- [x] not started
+- [ ] in progress
 - [ ] complete
 
-### Milestone 04 - Real External Connector Lifecycle
+### Milestone 05 - Real External Connector Lifecycle
 Scope:
 - [ ] Replace fixture-only gateway driving with a real external connector lifecycle for Matrix or another first-class channel.
 - [ ] Add startup/config wiring for a real gateway process lifecycle.
@@ -168,6 +215,9 @@ Status:
 - [ ] complete
 
 ## Risk Register
+- Risk: The product still ships as a repo-bound preview shell instead of a packaged app.
+  Impact: high
+  Mitigation: Make the Tauri product boundary the active milestone before more UI or connector polish lands.
 - Risk: Gateway terminology is clear, but the Node boundary is not yet backed by code.
   Impact: high
   Mitigation: Make Node the next milestone before more capability work lands.
@@ -177,25 +227,30 @@ Status:
 - Risk: Existing execution modules may not map cleanly into a Node model.
   Impact: medium
   Mitigation: Start with one concrete Node slice and refactor around working behavior rather than forcing a top-down rewrite.
+- Risk: Tauri, bundled assets, and current loopback assumptions may produce a split-brain product boundary.
+  Impact: high
+  Mitigation: Treat the Tauri app as the primary product and make packaging verification part of the milestone exit gate.
 
 ## Decision Log
 - 2026-03-28: MatrixClaw uses `Gateway` for external communication and `Node` for host abilities, reason: this cleanly separates messaging from powers and matches the desired product model.
 - 2026-03-28: The current gateway port layer is transitional and should not define the final product vocabulary, reason: protocol-specific naming in the abstraction layer would age badly.
 - 2026-03-28: Node boundary work is the next architectural milestone, reason: capability work should not continue as ad hoc execution helpers.
+- 2026-03-28: Tauri is now the primary MatrixClaw product shell, reason: the current browser-wrapper and repo-relative asset model are not acceptable final-product behavior.
+- 2026-03-28: The first Tauri product release will be single-window only, reason: app coherence and first-run quality matter more than multi-window ambition.
 
 ## Loop Status
 - Run ID: not started
 - Last updated: 2026-03-28
 - Iteration: 0
 - Status: planning baseline created
-- Work status: milestones 01 and 02 complete, milestone 03 selected next
+- Work status: milestones 01 and 02 complete, milestone 03 redefined around the Tauri product boundary
 - Review decision: continue
 - Validation: current gateway/runtime verification green at latest checkpoint
 - Progress gate: passed
-- Next step: write the Node boundary design and the first node-focused execution plan
-- Next step: execute `docs/plans/2026-03-28-execution-node-plan/`
+- Next step: write and execute the Tauri product milestone plan
+- Next step: stage agent-team execution lanes for packaging/runtime, shell/layout, onboarding, and product verification
 - Stop reason: none
 
 ## Next Milestone
-- Active milestone: Milestone 03 - Node Boundary and First Host Capability Slice
-- Next action: execute the `Execution Node` milestone plan before implementing new host capabilities
+- Active milestone: Milestone 03 - Tauri Product Boundary and Desktop App Shell
+- Next action: execute the Tauri product milestone plan before returning to Node or connector expansion
