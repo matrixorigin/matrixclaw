@@ -11,7 +11,7 @@ test("tauri bundle configuration includes the built UI assets", () => {
 
     assert.ok(Array.isArray(resources), "bundle.resources must remain an array");
     assert.ok(
-        resources.includes("../../ui/build/**/*"),
+        resources.includes("../../../ui/build/**/*"),
         "desktop bundle must include the built Svelte UI assets",
     );
 });

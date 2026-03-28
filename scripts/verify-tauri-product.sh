@@ -5,17 +5,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${REPO_ROOT}"
 
+if [[ "$(uname -s)" == "Linux" && -z "${PKG_CONFIG:-}" && -x /usr/bin/pkg-config ]]; then
+  export PKG_CONFIG=/usr/bin/pkg-config
+fi
+
 can_run_native_tauri_tests() {
+  local pkg_config_bin="${PKG_CONFIG:-pkg-config}"
+
   case "$(uname -s)" in
     Darwin)
       return 0
       ;;
     Linux)
-      if ! command -v pkg-config >/dev/null 2>&1; then
+      if ! command -v "${pkg_config_bin}" >/dev/null 2>&1; then
         return 1
       fi
 
-      pkg-config --exists gtk+-3.0 gdk-3.0 pango atk webkit2gtk-4.1
+      "${pkg_config_bin}" --exists gtk+-3.0 gdk-3.0 pango atk webkit2gtk-4.1
       ;;
     *)
       return 1

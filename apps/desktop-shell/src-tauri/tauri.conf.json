@@ -26,7 +26,7 @@
     "active": true,
     "targets": "app",
     "resources": [
-      "../../ui/build/**/*"
+      "../../../ui/build/**/*"
     ],
     "macOS": {
       "minimumSystemVersion": "13.0"
