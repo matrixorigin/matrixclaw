@@ -124,6 +124,7 @@ Execution workflow:
 
 Execution artifact:
 - `docs/plans/2026-03-28-node-design/`
+- `docs/plans/2026-03-28-execution-node-plan/`
 
 Status:
 - [ ] not started
@@ -192,9 +193,9 @@ Status:
 - Validation: current gateway/runtime verification green at latest checkpoint
 - Progress gate: passed
 - Next step: write the Node boundary design and the first node-focused execution plan
-- Next step: write the execution-node implementation plan on top of `docs/plans/2026-03-28-node-design/`
+- Next step: execute `docs/plans/2026-03-28-execution-node-plan/`
 - Stop reason: none
 
 ## Next Milestone
 - Active milestone: Milestone 03 - Node Boundary and First Host Capability Slice
-- Next action: create the execution-node milestone plan before implementing new host capabilities
+- Next action: execute the `Execution Node` milestone plan before implementing new host capabilities

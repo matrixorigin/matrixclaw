@@ -13,3 +13,4 @@ That means:
 
 **Design Files:**
 - [Architecture](./architecture.md)
+- [BDD Specs](./bdd-specs.md)
