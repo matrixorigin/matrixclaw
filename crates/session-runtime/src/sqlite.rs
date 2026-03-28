@@ -267,23 +267,23 @@ impl TranscriptStore for SqliteStorage {
 
 impl SessionRecoveryStore for SqliteStorage {
     fn load_recovery_snapshot(&self) -> Result<RecoverySnapshot, RecoveryError> {
-        let history = self
-            .load_recovery_history()
-            .unwrap_or_else(|_| {
-                self.load_transcript()
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|entry| match entry.kind {
-                        DurableTranscriptKind::Assistant => RuntimeMessage::Assistant(entry.content),
-                        DurableTranscriptKind::RuntimeSummary => {
-                            RuntimeMessage::RuntimeSummary(entry.content)
-                        }
-                        DurableTranscriptKind::ToolResult => RuntimeMessage::ToolResult(entry.content),
-                        DurableTranscriptKind::Warning => RuntimeMessage::Warning(entry.content),
-                        DurableTranscriptKind::RetryMarker => RuntimeMessage::RetryMarker(entry.content),
-                    })
-                    .collect()
-            });
+        let history = self.load_recovery_history().unwrap_or_else(|_| {
+            self.load_transcript()
+                .unwrap_or_default()
+                .into_iter()
+                .map(|entry| match entry.kind {
+                    DurableTranscriptKind::Assistant => RuntimeMessage::Assistant(entry.content),
+                    DurableTranscriptKind::RuntimeSummary => {
+                        RuntimeMessage::RuntimeSummary(entry.content)
+                    }
+                    DurableTranscriptKind::ToolResult => RuntimeMessage::ToolResult(entry.content),
+                    DurableTranscriptKind::Warning => RuntimeMessage::Warning(entry.content),
+                    DurableTranscriptKind::RetryMarker => {
+                        RuntimeMessage::RetryMarker(entry.content)
+                    }
+                })
+                .collect()
+        });
 
         let mut stmt = self
             .conn

@@ -114,7 +114,8 @@ fn map_request(
     let mut body = Vec::new();
     request.as_reader().read_to_end(&mut body)?;
 
-    if method == HttpMethod::Post && crate::http::agent_api::is_agent_run_stream_route(request.url())
+    if method == HttpMethod::Post
+        && crate::http::agent_api::is_agent_run_stream_route(request.url())
     {
         let response = build_streaming_agent_response(surface.clone(), body)?;
         return Ok((request, response));
@@ -144,11 +145,11 @@ fn build_streaming_agent_response(
         };
 
         if let Err(error) = crate::http::agent_api::stream_agent_run(&surface, &body, &mut writer) {
-            let _ = tx.send(
-                crate::http::agent_api::sse_frame(&crate::http::agent_api::AgentRunStreamFrame::Error {
+            let _ = tx.send(crate::http::agent_api::sse_frame(
+                &crate::http::agent_api::AgentRunStreamFrame::Error {
                     error: error.to_string(),
-                }),
-            );
+                },
+            ));
         }
     });
 

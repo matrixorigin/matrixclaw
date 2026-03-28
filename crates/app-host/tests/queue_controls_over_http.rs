@@ -35,7 +35,10 @@ fn queue_controls_over_http_share_the_live_session() {
         })
         .to_string(),
     ));
-    assert_eq!(steering_response.status_code, 200, "queueing steering should succeed");
+    assert_eq!(
+        steering_response.status_code, 200,
+        "queueing steering should succeed"
+    );
     let steering_body: Value =
         serde_json::from_slice(&steering_response.body).expect("steering response JSON");
     let session_id = steering_body
@@ -54,12 +57,18 @@ fn queue_controls_over_http_share_the_live_session() {
         })
         .to_string(),
     ));
-    assert_eq!(follow_up_response.status_code, 200, "queueing follow-up should succeed");
+    assert_eq!(
+        follow_up_response.status_code, 200,
+        "queueing follow-up should succeed"
+    );
 
     let queue_state_response = surface.handle(HttpRequest::get(format!(
         "/api/queue/state?session_id={session_id}"
     )));
-    assert_eq!(queue_state_response.status_code, 200, "queue state should load for the session");
+    assert_eq!(
+        queue_state_response.status_code, 200,
+        "queue state should load for the session"
+    );
     let queue_state: Value =
         serde_json::from_slice(&queue_state_response.body).expect("queue state JSON");
     assert_eq!(
@@ -79,7 +88,10 @@ fn queue_controls_over_http_share_the_live_session() {
         })
         .to_string(),
     ));
-    assert_eq!(first_run_response.status_code, 200, "first run should succeed");
+    assert_eq!(
+        first_run_response.status_code, 200,
+        "first run should succeed"
+    );
 
     let second_run_response = surface.handle(HttpRequest::post(
         AGENT_RUN_ROUTE,
@@ -89,7 +101,10 @@ fn queue_controls_over_http_share_the_live_session() {
         })
         .to_string(),
     ));
-    assert_eq!(second_run_response.status_code, 200, "second run should succeed");
+    assert_eq!(
+        second_run_response.status_code, 200,
+        "second run should succeed"
+    );
 
     env::remove_var("OPENROUTER_API_KEY");
     env::remove_var("MATRIXCLAW_OPENAI_BASE_URL");
@@ -102,7 +117,11 @@ fn queue_controls_over_http_share_the_live_session() {
     );
 
     let captured = request_bodies.lock().expect("request bodies lock");
-    assert_eq!(captured.len(), 2, "two upstream requests should have been recorded");
+    assert_eq!(
+        captured.len(),
+        2,
+        "two upstream requests should have been recorded"
+    );
 
     let first_messages = extract_message_contents(&captured[0]);
     assert!(first_messages.contains(&"prefer the file reference".to_string()));

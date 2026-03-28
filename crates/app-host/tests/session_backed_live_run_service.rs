@@ -84,7 +84,11 @@ fn session_backed_live_run_service() {
     let transcript = storage
         .load_transcript()
         .expect("load persisted transcript");
-    assert_eq!(transcript.len(), 1, "assistant completion should persist visibly once");
+    assert_eq!(
+        transcript.len(),
+        1,
+        "assistant completion should persist visibly once"
+    );
     assert_eq!(transcript[0].kind, DurableTranscriptKind::Assistant);
     assert_eq!(transcript[0].content, "Persisted hello");
 }

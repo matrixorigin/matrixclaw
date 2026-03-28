@@ -25,7 +25,10 @@ fn agent_run_stream_over_http() {
     let surface = SetupSurface::new(&home, UiAssetLayout::discover());
     let test_server = spawn_test_server(surface).expect("spawn test server");
     let response = reqwest::blocking::Client::new()
-        .post(format!("http://{}/api/agent/run/stream", test_server.address))
+        .post(format!(
+            "http://{}/api/agent/run/stream",
+            test_server.address
+        ))
         .header("content-type", "application/json")
         .body(r#"{"prompt":"stream the assistant reply","session_id":"stream-http-session"}"#)
         .send()

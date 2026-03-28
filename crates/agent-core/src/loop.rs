@@ -104,9 +104,7 @@ fn run_prompt_inner(
             emit_event(
                 &mut events,
                 on_event_sink,
-                AgentEvent::ToolExecutionStarted(
-                request.call.tool_name.clone(),
-                ),
+                AgentEvent::ToolExecutionStarted(request.call.tool_name.clone()),
             );
 
             let response = tool_executor.execute(&request);
