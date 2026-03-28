@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 
 pub mod agent_api;
 pub mod execution_api;
+pub mod openclaw_api;
 pub mod queue_api;
 pub mod routes;
 pub mod setup_api;
@@ -163,6 +164,12 @@ impl SetupSurface {
 
         if agent_api::is_agent_run_route(&request.path) && request.method == HttpMethod::Post {
             return agent_api::agent_run_response(self, request);
+        }
+
+        if openclaw_api::is_openclaw_chat_route(&request.path)
+            && request.method == HttpMethod::Post
+        {
+            return openclaw_api::openclaw_chat_response(self, request);
         }
 
         if skills_api::is_skills_inventory_route(&request.path) && request.method == HttpMethod::Get

@@ -85,6 +85,17 @@ fn run_server(server: Server, surface: SetupSurface, shutdown_rx: &Receiver<()>)
 
         match server.recv_timeout(Duration::from_millis(100)) {
             Ok(Some(request)) => {
+                if method_is_websocket_upgrade(&request)
+                    && crate::http::openclaw_api::is_openclaw_websocket_route(request.url())
+                {
+                    let surface = surface.clone();
+                    thread::spawn(move || {
+                        let _ = crate::http::openclaw_api::serve_openclaw_websocket(
+                            surface, request,
+                        );
+                    });
+                    continue;
+                }
                 let response = map_request(&surface, request)?;
                 let _ = response.0.respond(response.1);
             }
@@ -92,6 +103,10 @@ fn run_server(server: Server, surface: SetupSurface, shutdown_rx: &Receiver<()>)
             Err(error) => return Err(io::Error::new(io::ErrorKind::ConnectionAborted, error)),
         }
     }
+}
+
+fn method_is_websocket_upgrade(request: &tiny_http::Request) -> bool {
+    request.method() == &Method::Get && crate::http::openclaw_api::is_websocket_upgrade(request)
 }
 
 fn map_request(

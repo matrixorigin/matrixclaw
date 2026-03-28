@@ -1,6 +1,9 @@
+use serde::Serialize;
+
 use matrixclaw_session_runtime::ChatEvent;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum ChatFrame {
     AssistantChunk { content: String },
     ToolCall { name: String, arguments: String },

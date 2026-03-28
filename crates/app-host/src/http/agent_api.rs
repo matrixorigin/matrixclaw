@@ -164,7 +164,7 @@ fn parse_agent_run_request(body: &[u8]) -> Result<AgentRunRequest, HttpResponse>
     Ok(payload)
 }
 
-fn resolve_model(surface: &SetupSurface) -> String {
+pub(crate) fn resolve_model(surface: &SetupSurface) -> String {
     env::var("MATRIXCLAW_LLM_MODEL")
         .ok()
         .filter(|value| !value.trim().is_empty())
@@ -177,7 +177,7 @@ fn resolve_model(surface: &SetupSurface) -> String {
         .unwrap_or_else(|| "moonshotai/kimi-k2.5".to_string())
 }
 
-fn build_provider_from_env(
+pub(crate) fn build_provider_from_env(
     surface: &SetupSurface,
     model: &str,
 ) -> Result<OpenAiCompatibleProvider, HttpResponse> {

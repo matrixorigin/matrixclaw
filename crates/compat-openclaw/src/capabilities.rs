@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, PartialEq, Eq)]
+use serde::Serialize;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CapabilityDescriptor {
     pub protocol: &'static str,
     pub version: &'static str,
@@ -15,7 +17,7 @@ impl Default for CapabilityDescriptor {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct AgentDescriptor {
     pub id: String,
     pub name: String,

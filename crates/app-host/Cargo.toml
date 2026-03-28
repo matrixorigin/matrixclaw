@@ -12,6 +12,7 @@ name = "matrixclaw"
 path = "src/main.rs"
 
 [dependencies]
+base64 = "0.22"
 matrixclaw-agent-core = { path = "../agent-core" }
 matrixclaw-compat-openclaw = { path = "../compat-openclaw" }
 matrixclaw-manifests = { path = "../manifests" }
@@ -19,6 +20,7 @@ matrixclaw-session-runtime = { path = "../session-runtime" }
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha1 = "0.10"
 tiny_http = "0.12"
 
 [package.metadata.matrixclaw.ui]
