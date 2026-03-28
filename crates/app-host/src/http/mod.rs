@@ -166,8 +166,7 @@ impl SetupSurface {
             return agent_api::agent_run_response(self, request);
         }
 
-        if openclaw_api::is_openclaw_chat_route(&request.path)
-            && request.method == HttpMethod::Post
+        if openclaw_api::is_openclaw_chat_route(&request.path) && request.method == HttpMethod::Post
         {
             return openclaw_api::openclaw_chat_response(self, request);
         }

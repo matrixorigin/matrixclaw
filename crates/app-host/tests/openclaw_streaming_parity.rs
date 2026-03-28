@@ -4,8 +4,8 @@ use std::net::{TcpListener, TcpStream};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use matrixclaw_app_host::server::spawn_test_server;
 use matrixclaw_app_host::http::SetupSurface;
+use matrixclaw_app_host::server::spawn_test_server;
 use matrixclaw_app_host::ui_assets::UiAssetLayout;
 use serde_json::{json, Value};
 
@@ -51,11 +51,23 @@ fn openclaw_streaming_parity() {
         "first assistant frame should arrive before the upstream stream finishes, got {:?}",
         first_elapsed
     );
-    assert_eq!(first.get("type").and_then(Value::as_str), Some("assistant_chunk"));
+    assert_eq!(
+        first.get("type").and_then(Value::as_str),
+        Some("assistant_chunk")
+    );
     assert_eq!(first.get("content").and_then(Value::as_str), Some("first "));
-    assert_eq!(second.get("type").and_then(Value::as_str), Some("assistant_chunk"));
-    assert_eq!(second.get("content").and_then(Value::as_str), Some("second"));
-    assert_eq!(completed.get("type").and_then(Value::as_str), Some("completed"));
+    assert_eq!(
+        second.get("type").and_then(Value::as_str),
+        Some("assistant_chunk")
+    );
+    assert_eq!(
+        second.get("content").and_then(Value::as_str),
+        Some("second")
+    );
+    assert_eq!(
+        completed.get("type").and_then(Value::as_str),
+        Some("completed")
+    );
 
     test_server.shutdown().expect("shutdown server");
 }
@@ -148,11 +160,11 @@ fn read_http_response_head(stream: &mut TcpStream) -> String {
         let read = stream.read(&mut chunk).expect("read handshake response");
         assert!(read > 0, "handshake closed before response head completed");
         buffer.extend_from_slice(&chunk[..read]);
-        if buffer.windows(4).any(|window| window == b"\r\n\r\n") {
-            break;
+        if let Some(end) = find_header_end(&buffer) {
+            return String::from_utf8(buffer[..end].to_vec())
+                .expect("handshake response should be utf-8");
         }
     }
-    String::from_utf8(buffer).expect("handshake response should be utf-8")
 }
 
 fn write_text_frame(stream: &mut TcpStream, payload: &str) {
@@ -191,6 +203,13 @@ fn read_text_frame(stream: &mut TcpStream) -> Value {
     serde_json::from_slice(&payload).expect("parse websocket JSON frame")
 }
 
+fn find_header_end(buffer: &[u8]) -> Option<usize> {
+    buffer
+        .windows(4)
+        .position(|window| window == b"\r\n\r\n")
+        .map(|position| position + 4)
+}
+
 fn read_http_request(stream: &mut TcpStream) -> String {
     let mut buffer = Vec::new();
     let mut chunk = [0_u8; 4096];
@@ -218,13 +237,6 @@ fn read_http_request(stream: &mut TcpStream) -> String {
     }
 
     String::from_utf8(buffer).expect("fixture request should be utf-8")
-}
-
-fn find_header_end(buffer: &[u8]) -> Option<usize> {
-    buffer
-        .windows(4)
-        .position(|window| window == b"\r\n\r\n")
-        .map(|position| position + 4)
 }
 
 fn parse_content_length(headers: &[u8]) -> usize {

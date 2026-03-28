@@ -5,9 +5,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+use matrixclaw_app_host::http::SetupSurface;
 use matrixclaw_app_host::live_runtime::session_db_path;
 use matrixclaw_app_host::server::spawn_test_server;
-use matrixclaw_app_host::http::SetupSurface;
 use matrixclaw_app_host::ui_assets::UiAssetLayout;
 use serde_json::{json, Value};
 
@@ -113,8 +113,7 @@ fn openclaw_websocket_over_server() {
     );
     assert!(
         messages.iter().any(|message| {
-            message.get("content").and_then(Value::as_str)
-                == Some("route over served websocket")
+            message.get("content").and_then(Value::as_str) == Some("route over served websocket")
         }),
         "user message should reach the shared runtime over websocket"
     );

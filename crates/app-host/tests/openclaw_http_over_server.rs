@@ -5,9 +5,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+use matrixclaw_app_host::http::SetupSurface;
 use matrixclaw_app_host::live_runtime::session_db_path;
 use matrixclaw_app_host::server::spawn_test_server;
-use matrixclaw_app_host::http::SetupSurface;
 use matrixclaw_app_host::ui_assets::UiAssetLayout;
 use serde_json::{json, Value};
 
@@ -27,10 +27,7 @@ fn openclaw_http_over_server() {
     let test_server = spawn_test_server(surface).expect("spawn test server");
     let conversation_id = "openclaw-http-session";
     let response = reqwest::blocking::Client::new()
-        .post(format!(
-            "http://{}/api/openclaw/chat",
-            test_server.address
-        ))
+        .post(format!("http://{}/api/openclaw/chat", test_server.address))
         .header("content-type", "application/json")
         .body(
             json!({
@@ -49,7 +46,11 @@ fn openclaw_http_over_server() {
     env::remove_var("MATRIXCLAW_OPENAI_BASE_URL");
     env::remove_var("MATRIXCLAW_LLM_MODEL");
 
-    assert_eq!(response.status(), 200, "served OpenClaw HTTP endpoint should succeed");
+    assert_eq!(
+        response.status(),
+        200,
+        "served OpenClaw HTTP endpoint should succeed"
+    );
 
     let body: Value = response.json().expect("response JSON");
     assert_eq!(
@@ -90,8 +91,7 @@ fn openclaw_http_over_server() {
         .expect("provider request should contain messages");
     assert!(
         messages.iter().any(|message| {
-            message.get("content").and_then(Value::as_str)
-                == Some("keep transport protocol-shaped")
+            message.get("content").and_then(Value::as_str) == Some("keep transport protocol-shaped")
         }),
         "served OpenClaw system context should enter the shared runtime request"
     );

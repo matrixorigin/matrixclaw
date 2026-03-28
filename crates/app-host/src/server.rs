@@ -90,9 +90,8 @@ fn run_server(server: Server, surface: SetupSurface, shutdown_rx: &Receiver<()>)
                 {
                     let surface = surface.clone();
                     thread::spawn(move || {
-                        let _ = crate::http::openclaw_api::serve_openclaw_websocket(
-                            surface, request,
-                        );
+                        let _ =
+                            crate::http::openclaw_api::serve_openclaw_websocket(surface, request);
                     });
                     continue;
                 }

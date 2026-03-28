@@ -5,7 +5,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::http::{HttpRequest, HttpResponse, SetupSurface};
-use crate::live_runtime::{LiveRunEvent, LiveRunRequest, SessionBackedLiveRunService};
+use crate::ingress::{
+    normalize_browser_request, run_ingress_with_provider, run_ingress_with_provider_stream,
+};
+use crate::live_runtime::LiveRunEvent;
 use crate::openai_compatible::OpenAiCompatibleProvider;
 
 pub const AGENT_RUN_ROUTE: &str = "/api/agent/run";
@@ -64,27 +67,27 @@ pub fn agent_run_response(surface: &SetupSurface, request: HttpRequest) -> HttpR
         Err(response) => return response,
     };
 
-    let service = SessionBackedLiveRunService::new(surface.home());
-    let outcome = match service.run_with_provider(
-        model.clone(),
-        LiveRunRequest {
-            prompt: payload.prompt,
-            session_id: payload.session_id,
-        },
-        &mut provider,
-    ) {
-        Ok(outcome) => outcome,
+    let envelope = match normalize_browser_request(&payload) {
+        Ok(envelope) => envelope,
         Err(error) => {
-            return HttpResponse::json(502, json!({ "error": error }).to_string());
+            return HttpResponse::json(400, json!({ "error": error }).to_string());
         }
     };
 
+    let outcome =
+        match run_ingress_with_provider(surface.home(), model.clone(), &envelope, &mut provider) {
+            Ok(outcome) => outcome,
+            Err(error) => {
+                return HttpResponse::json(502, json!({ "error": error }).to_string());
+            }
+        };
+
     let body = serde_json::to_string_pretty(&AgentRunResponse {
-        session_id: outcome.session_id,
+        session_id: outcome.live_run.session_id,
         model,
-        streamed_message: outcome.streamed_message,
-        final_message: outcome.final_message,
-        events: outcome.events,
+        streamed_message: outcome.live_run.streamed_message,
+        final_message: outcome.live_run.final_message,
+        events: outcome.live_run.events,
     })
     .expect("serialize agent run response");
     HttpResponse::json(200, body)
@@ -114,14 +117,17 @@ pub fn stream_agent_run(
         }
     };
 
-    let service = SessionBackedLiveRunService::new(surface.home());
-    let outcome = match service.run_with_provider_and_queue_stream(
+    let envelope = match normalize_browser_request(&payload) {
+        Ok(envelope) => envelope,
+        Err(error) => {
+            return on_frame(sse_frame(&AgentRunStreamFrame::Error { error }));
+        }
+    };
+
+    let outcome = match run_ingress_with_provider_stream(
+        surface.home(),
         model.clone(),
-        LiveRunRequest {
-            prompt: payload.prompt,
-            session_id: payload.session_id,
-        },
-        None,
+        &envelope,
         &mut provider,
         &mut |event| {
             let _ = on_frame(sse_frame(&AgentRunStreamFrame::Event { event }));
@@ -134,10 +140,10 @@ pub fn stream_agent_run(
     };
 
     on_frame(sse_frame(&AgentRunStreamFrame::Complete {
-        session_id: outcome.session_id,
-        model: outcome.model,
-        streamed_message: outcome.streamed_message,
-        final_message: outcome.final_message,
+        session_id: outcome.live_run.session_id,
+        model: outcome.live_run.model,
+        streamed_message: outcome.live_run.streamed_message,
+        final_message: outcome.live_run.final_message,
     }))
 }
 

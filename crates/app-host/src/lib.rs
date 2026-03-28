@@ -4,6 +4,7 @@ pub mod commands;
 pub mod compat_registry;
 pub mod execution;
 pub mod http;
+pub mod ingress;
 pub mod install;
 pub mod live_runtime;
 pub mod llm_smoke;

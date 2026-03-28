@@ -4,14 +4,14 @@ use matrixclaw_agent_core::provider::Provider;
 use matrixclaw_compat_openclaw::capabilities::CapabilityDescriptor;
 use matrixclaw_compat_openclaw::http::HttpChatResponse;
 use matrixclaw_compat_openclaw::stream_adapter::ChatFrame;
-use matrixclaw_compat_openclaw::translation::{split_openclaw_request, OpenClawChatRequest};
+use matrixclaw_compat_openclaw::translation::OpenClawChatRequest;
 use matrixclaw_compat_openclaw::websocket::ChatWebSocketConversation;
-use matrixclaw_session_runtime::RuntimeMessage;
 
-use crate::live_runtime::{
-    load_or_create_session_for_request, persist_session_for_id, LiveRunEvent, LiveRunOutcome,
-    LiveRunRequest, SessionBackedLiveRunService,
+pub use crate::ingress::{normalize_openclaw_request, OpenClawIngressMetadata};
+use crate::ingress::{
+    run_ingress_with_provider, run_ingress_with_provider_stream, IngressRunOutcome,
 };
+use crate::live_runtime::LiveRunEvent;
 
 pub fn openclaw_chat_http_with_provider(
     home: impl AsRef<Path>,
@@ -19,9 +19,26 @@ pub fn openclaw_chat_http_with_provider(
     request: &OpenClawChatRequest,
     provider: &mut dyn Provider,
 ) -> Result<HttpChatResponse, String> {
-    let outcome = run_openclaw_with_provider(home, model, request, provider)?;
+    openclaw_chat_http_with_provider_and_metadata(
+        home,
+        model,
+        request,
+        &OpenClawIngressMetadata::default(),
+        provider,
+    )
+}
+
+pub fn openclaw_chat_http_with_provider_and_metadata(
+    home: impl AsRef<Path>,
+    model: impl Into<String>,
+    request: &OpenClawChatRequest,
+    metadata: &OpenClawIngressMetadata,
+    provider: &mut dyn Provider,
+) -> Result<HttpChatResponse, String> {
+    let envelope = normalize_openclaw_request(request, metadata)?;
+    let outcome = run_ingress_with_provider(home, model, &envelope, provider)?;
     Ok(HttpChatResponse {
-        conversation_id: outcome.session_id.clone(),
+        conversation_id: envelope.reply.conversation_id.clone(),
         frames: frames_from_outcome(&outcome),
     })
 }
@@ -30,9 +47,10 @@ pub fn openclaw_chat_http(
     home: impl AsRef<Path>,
     model: impl Into<String>,
     request: &OpenClawChatRequest,
+    metadata: &OpenClawIngressMetadata,
     provider: &mut dyn Provider,
 ) -> Result<HttpChatResponse, String> {
-    openclaw_chat_http_with_provider(home, model, request, provider)
+    openclaw_chat_http_with_provider_and_metadata(home, model, request, metadata, provider)
 }
 
 pub fn openclaw_chat_websocket_with_provider(
@@ -41,7 +59,24 @@ pub fn openclaw_chat_websocket_with_provider(
     request: &OpenClawChatRequest,
     provider: &mut dyn Provider,
 ) -> Result<ChatWebSocketConversation, String> {
-    let outcome = run_openclaw_with_provider(home, model, request, provider)?;
+    openclaw_chat_websocket_with_provider_and_metadata(
+        home,
+        model,
+        request,
+        &OpenClawIngressMetadata::default(),
+        provider,
+    )
+}
+
+pub fn openclaw_chat_websocket_with_provider_and_metadata(
+    home: impl AsRef<Path>,
+    model: impl Into<String>,
+    request: &OpenClawChatRequest,
+    metadata: &OpenClawIngressMetadata,
+    provider: &mut dyn Provider,
+) -> Result<ChatWebSocketConversation, String> {
+    let envelope = normalize_openclaw_request(request, metadata)?;
+    let outcome = run_ingress_with_provider(home, model, &envelope, provider)?;
     Ok(ChatWebSocketConversation {
         capability: CapabilityDescriptor {
             agent_listing_supported: true,
@@ -55,9 +90,10 @@ pub fn openclaw_chat_websocket(
     home: impl AsRef<Path>,
     model: impl Into<String>,
     request: &OpenClawChatRequest,
+    metadata: &OpenClawIngressMetadata,
     provider: &mut dyn Provider,
 ) -> Result<ChatWebSocketConversation, String> {
-    openclaw_chat_websocket_with_provider(home, model, request, provider)
+    openclaw_chat_websocket_with_provider_and_metadata(home, model, request, metadata, provider)
 }
 
 pub fn stream_openclaw_chat_websocket(
@@ -67,56 +103,40 @@ pub fn stream_openclaw_chat_websocket(
     provider: &mut dyn Provider,
     on_frame: &mut dyn FnMut(ChatFrame),
 ) -> Result<ChatWebSocketConversation, String> {
-    let home = home.as_ref();
-    let model = model.into();
-    let (seed_history, prompt) = split_openclaw_request(request)?;
-    let session_id =
-        seed_session_from_openclaw_request(home, request.conversation_id.as_str(), seed_history)?;
-    let service = SessionBackedLiveRunService::new(home);
-    let mut projector = ChatFrameProjector::default();
-    let outcome = service.run_with_provider_and_queue_stream(
+    stream_openclaw_chat_websocket_with_metadata(
+        home,
         model,
-        LiveRunRequest {
-            prompt,
-            session_id: Some(session_id),
-        },
-        None,
+        request,
+        &OpenClawIngressMetadata::default(),
         provider,
-        &mut |event| {
+        on_frame,
+    )
+}
+
+pub fn stream_openclaw_chat_websocket_with_metadata(
+    home: impl AsRef<Path>,
+    model: impl Into<String>,
+    request: &OpenClawChatRequest,
+    metadata: &OpenClawIngressMetadata,
+    provider: &mut dyn Provider,
+    on_frame: &mut dyn FnMut(ChatFrame),
+) -> Result<ChatWebSocketConversation, String> {
+    let envelope = normalize_openclaw_request(request, metadata)?;
+    let mut projector = ChatFrameProjector::default();
+    let outcome =
+        run_ingress_with_provider_stream(home, model, &envelope, provider, &mut |event| {
             if let Some(frame) = projector.on_event(&event) {
                 on_frame(frame);
             }
-        },
-    )?;
+        })?;
 
     Ok(ChatWebSocketConversation {
         capability: CapabilityDescriptor {
             agent_listing_supported: true,
             ..CapabilityDescriptor::default()
         },
-        frames: projector.finish_into_frames(outcome.final_message),
+        frames: projector.finish_into_frames(outcome.live_run.final_message),
     })
-}
-
-fn run_openclaw_with_provider(
-    home: impl AsRef<Path>,
-    model: impl Into<String>,
-    request: &OpenClawChatRequest,
-    provider: &mut dyn Provider,
-) -> Result<LiveRunOutcome, String> {
-    let home = home.as_ref();
-    let (seed_history, prompt) = split_openclaw_request(request)?;
-    let session_id =
-        seed_session_from_openclaw_request(home, request.conversation_id.as_str(), seed_history)?;
-    let service = SessionBackedLiveRunService::new(home);
-    service.run_with_provider(
-        model,
-        LiveRunRequest {
-            prompt,
-            session_id: Some(session_id),
-        },
-        provider,
-    )
 }
 
 #[derive(Debug, Default)]
@@ -185,24 +205,10 @@ impl ChatFrameProjector {
     }
 }
 
-fn seed_session_from_openclaw_request(
-    home: &Path,
-    conversation_id: &str,
-    seed_history: Vec<RuntimeMessage>,
-) -> Result<String, String> {
-    let (session_id, mut session) =
-        load_or_create_session_for_request(home, Some(conversation_id))?;
-    if session.history().is_empty() && !seed_history.is_empty() {
-        session.history_mut().extend(seed_history);
-        persist_session_for_id(home, &session_id, &session)?;
-    }
-    Ok(session_id)
-}
-
-fn frames_from_outcome(outcome: &LiveRunOutcome) -> Vec<ChatFrame> {
+fn frames_from_outcome(outcome: &IngressRunOutcome) -> Vec<ChatFrame> {
     let mut projector = ChatFrameProjector::default();
-    for event in &outcome.events {
+    for event in &outcome.live_run.events {
         let _ = projector.on_event(event);
     }
-    projector.finish_into_frames(outcome.final_message.clone())
+    projector.finish_into_frames(outcome.live_run.final_message.clone())
 }

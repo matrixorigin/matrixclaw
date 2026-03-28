@@ -8,11 +8,12 @@ use tiny_http::{Header, Request, Response, StatusCode};
 
 use crate::http::agent_api::{build_provider_from_env, resolve_model};
 use crate::http::{HttpRequest, HttpResponse, SetupSurface};
+use crate::ingress::OpenClawIngressMetadata;
 use crate::openclaw_transport;
-use matrixclaw_compat_openclaw::websocket::openclaw_agents_list;
 use matrixclaw_compat_openclaw::translation::{
     OpenClawChatMessage, OpenClawChatRequest, OpenClawChatRole,
 };
+use matrixclaw_compat_openclaw::websocket::openclaw_agents_list;
 
 pub const OPENCLAW_CHAT_ROUTE: &str = "/api/openclaw/chat";
 pub const OPENCLAW_WEBSOCKET_ROUTE: &str = "/api/openclaw/ws";
@@ -21,12 +22,30 @@ pub const OPENCLAW_WEBSOCKET_ROUTE: &str = "/api/openclaw/ws";
 pub struct OpenClawHttpRequest {
     pub conversation_id: String,
     pub messages: Vec<OpenClawHttpMessage>,
+    #[serde(default)]
+    pub sender_id: Option<String>,
+    #[serde(default)]
+    pub sender_display_name: Option<String>,
+    #[serde(default)]
+    pub channel_id: Option<String>,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub reply_to: Option<String>,
+    #[serde(default)]
+    pub target_agent: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct OpenClawHttpMessage {
     pub role: String,
     pub content: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedOpenClawRequest {
+    request: OpenClawChatRequest,
+    metadata: OpenClawIngressMetadata,
 }
 
 pub fn is_openclaw_chat_route(path: &str) -> bool {
@@ -52,7 +71,8 @@ pub fn openclaw_chat_response(surface: &SetupSurface, request: HttpRequest) -> H
     let response = match openclaw_transport::openclaw_chat_http(
         surface.home(),
         model,
-        &payload,
+        &payload.request,
+        &payload.metadata,
         &mut provider,
     ) {
         Ok(response) => response,
@@ -107,15 +127,17 @@ pub fn serve_openclaw_websocket(surface: SetupSurface, request: Request) -> io::
     }
 
     let payload = read_websocket_text_frame(&mut stream)?;
-    let request = parse_openclaw_request(&payload).map_err(|response| io_error_from_response(&response))?;
+    let request =
+        parse_openclaw_request(&payload).map_err(|response| io_error_from_response(&response))?;
     let model = resolve_model(&surface);
-    let mut provider =
-        build_provider_from_env(&surface, &model).map_err(|response| io_error_from_response(&response))?;
+    let mut provider = build_provider_from_env(&surface, &model)
+        .map_err(|response| io_error_from_response(&response))?;
     let mut write_error = None;
-    let conversation = openclaw_transport::stream_openclaw_chat_websocket(
+    let conversation = openclaw_transport::stream_openclaw_chat_websocket_with_metadata(
         surface.home(),
         model,
-        &request,
+        &request.request,
+        &request.metadata,
         &mut provider,
         &mut |frame| {
             if write_error.is_none() {
@@ -144,7 +166,7 @@ pub fn serve_openclaw_websocket(surface: SetupSurface, request: Request) -> io::
     Ok(())
 }
 
-fn parse_openclaw_request(body: &[u8]) -> Result<OpenClawChatRequest, HttpResponse> {
+fn parse_openclaw_request(body: &[u8]) -> Result<ParsedOpenClawRequest, HttpResponse> {
     let Ok(payload) = serde_json::from_slice::<OpenClawHttpRequest>(body) else {
         return Err(HttpResponse::json(
             400,
@@ -165,7 +187,9 @@ fn parse_role(role: &str) -> Option<OpenClawChatRole> {
     }
 }
 
-fn parse_openclaw_payload(payload: OpenClawHttpRequest) -> Result<OpenClawChatRequest, HttpResponse> {
+fn parse_openclaw_payload(
+    payload: OpenClawHttpRequest,
+) -> Result<ParsedOpenClawRequest, HttpResponse> {
     let conversation_id = payload.conversation_id.trim().to_string();
     if conversation_id.is_empty() {
         return Err(HttpResponse::json(
@@ -204,9 +228,19 @@ fn parse_openclaw_payload(payload: OpenClawHttpRequest) -> Result<OpenClawChatRe
         });
     }
 
-    Ok(OpenClawChatRequest {
-        conversation_id,
-        messages,
+    Ok(ParsedOpenClawRequest {
+        request: OpenClawChatRequest {
+            conversation_id: conversation_id.clone(),
+            messages,
+        },
+        metadata: OpenClawIngressMetadata {
+            sender_id: payload.sender_id,
+            sender_display_name: payload.sender_display_name,
+            channel_id: payload.channel_id,
+            thread_id: payload.thread_id,
+            reply_to: payload.reply_to,
+            target_agent: payload.target_agent,
+        },
     })
 }
 
