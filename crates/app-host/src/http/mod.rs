@@ -162,6 +162,12 @@ impl SetupSurface {
             return execution_api::execution_visibility_response();
         }
 
+        if execution_api::is_execution_node_route(&request.path)
+            && request.method == HttpMethod::Post
+        {
+            return execution_api::execution_node_response(&request.body);
+        }
+
         if agent_api::is_agent_run_route(&request.path) && request.method == HttpMethod::Post {
             return agent_api::agent_run_response(self, request);
         }

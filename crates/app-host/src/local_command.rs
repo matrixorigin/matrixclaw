@@ -84,6 +84,13 @@ pub fn execute_local_command(request: &LocalCommandRequest) -> io::Result<LocalC
     default_backend().execute(request)
 }
 
+pub fn execute_local_command_with_settings(
+    settings: &ExecutionSettings,
+    request: &LocalCommandRequest,
+) -> io::Result<LocalCommandResult> {
+    LocalCommandBackend::from_settings(settings).execute(request)
+}
+
 pub fn local_command_settings() -> ExecutionSettings {
     ExecutionSettings::local_default()
 }

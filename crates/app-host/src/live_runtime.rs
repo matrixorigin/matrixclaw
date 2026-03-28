@@ -16,6 +16,7 @@ use matrixclaw_session_runtime::sqlite::SqliteStorage;
 use matrixclaw_session_runtime::RuntimeMessage;
 use serde::{Deserialize, Serialize};
 
+use crate::node::execution::ExecutionNodeCapabilityRequest;
 use crate::paths;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -93,7 +94,7 @@ impl SessionBackedLiveRunService {
         let projection_kind = projection_kind_for_session(&session);
         let provider_prompt = build_provider_prompt(&session, projection_kind, &request.prompt);
         let context_messages = build_context_messages(&session, projection_kind, &request.prompt);
-        let mut tool_executor = AppToolExecutor;
+        let mut tool_executor = AppToolExecutor::new(self.home.clone());
         let mut policy = AppToolPolicy;
         let mut sequence = 0_u64;
         let mut on_agent_event = |event: AgentEvent| {
@@ -147,6 +148,32 @@ enum PromptProjectionKind {
 struct AppToolExecutor;
 struct AppToolPolicy;
 
+impl AppToolExecutor {
+    fn new(_: PathBuf) -> Self {
+        Self
+    }
+
+    fn execute_host_command(&self, request: &ToolExecutionRequest) -> ToolExecutionResponse {
+        let response = ExecutionNodeCapabilityRequest::host_command_from_tool_arguments(
+            &request.call.arguments,
+            None,
+        )
+        .and_then(|request| request.execute())
+        .and_then(|response| response.into_tool_output());
+
+        match response {
+            Ok(output) => ToolExecutionResponse::new(ToolResultMessage::new(
+                request.call.tool_name.clone(),
+                output,
+            )),
+            Err(error) => ToolExecutionResponse::new(ToolResultMessage::new(
+                request.call.tool_name.clone(),
+                error.to_string(),
+            )),
+        }
+    }
+}
+
 impl ToolExecutor for AppToolExecutor {
     fn execute(&mut self, request: &ToolExecutionRequest) -> ToolExecutionResponse {
         match request.call.tool_name.as_str() {
@@ -159,6 +186,7 @@ impl ToolExecutor for AppToolExecutor {
                     .sum::<i64>();
                 ToolExecutionResponse::new(ToolResultMessage::new("add", sum.to_string()))
             }
+            "host.command" => self.execute_host_command(request),
             other => ToolExecutionResponse::new(ToolResultMessage::new(
                 other,
                 format!("unsupported tool: {other}"),

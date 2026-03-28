@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use matrixclaw_agent_core::tool::{StructuredExecutionResult, ToolExecutionBackendSelection};
 use matrixclaw_manifests::config::{ExecutionBackendSelection, ExecutionMode, ExecutionSettings};
 
-use crate::local_command::LocalCommandRequest;
+use crate::local_command::{execute_local_command_with_settings, LocalCommandRequest};
 use crate::sandbox_backend::{SandboxBackend, SandboxExecutionRequest};
 
 pub trait ExecutionBackendProbe {
@@ -105,7 +105,7 @@ pub fn route_isolated_command<B: SandboxBackend>(
             if let Some(cwd) = &request.cwd {
                 local_request = local_request.with_cwd(cwd.clone());
             }
-            let local_result = crate::local_command::execute_local_command(&local_request)?;
+            let local_result = execute_local_command_with_settings(settings, &local_request)?;
             Ok(StructuredExecutionResult::new(
                 local_result.backend,
                 local_result.exit_code,

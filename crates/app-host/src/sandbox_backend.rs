@@ -2,7 +2,9 @@ use std::io;
 use std::path::PathBuf;
 
 use matrixclaw_agent_core::tool::StructuredExecutionResult;
-use matrixclaw_manifests::config::ExecutionBackendSelection;
+use matrixclaw_manifests::config::{ExecutionBackendSelection, ExecutionSettings};
+
+use crate::local_command::{execute_local_command, LocalCommandRequest};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SandboxExecutionRequest {
@@ -34,6 +36,44 @@ pub fn execute_via_sandbox_backend<B: SandboxBackend>(
     request: &SandboxExecutionRequest,
 ) -> io::Result<StructuredExecutionResult> {
     backend.execute(request)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalSandboxBackend {
+    selection: ExecutionBackendSelection,
+}
+
+impl LocalSandboxBackend {
+    pub fn from_settings(settings: &ExecutionSettings) -> Self {
+        Self {
+            selection: settings.backend.clone(),
+        }
+    }
+}
+
+impl SandboxBackend for LocalSandboxBackend {
+    fn backend_selection(&self) -> ExecutionBackendSelection {
+        self.selection.clone()
+    }
+
+    fn execute(
+        &mut self,
+        request: &SandboxExecutionRequest,
+    ) -> io::Result<StructuredExecutionResult> {
+        let mut local_request =
+            LocalCommandRequest::new(request.command.clone(), request.args.clone());
+        if let Some(cwd) = &request.cwd {
+            local_request = local_request.with_cwd(cwd.clone());
+        }
+
+        let local_result = execute_local_command(&local_request)?;
+        Ok(StructuredExecutionResult::new(
+            self.selection.clone(),
+            local_result.exit_code,
+            local_result.stdout,
+            local_result.stderr,
+        ))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

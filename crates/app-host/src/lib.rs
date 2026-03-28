@@ -10,6 +10,7 @@ pub mod install;
 pub mod live_runtime;
 pub mod llm_smoke;
 pub mod local_command;
+pub mod node;
 pub mod openai_compatible;
 pub mod openclaw_transport;
 pub mod paths;

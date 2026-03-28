@@ -31,6 +31,7 @@ Last updated: 2026-03-28
   - `pnpm --dir ui build`
 - Scenario and smoke verification:
   - `pnpm --dir ui test:e2e`
+  - `./scripts/verify-execution-node.sh`
   - `./scripts/verify-live-runtime.sh`
   - `./scripts/verify-served-transports.sh`
   - `./scripts/verify-matrix-gateway.sh`
@@ -55,7 +56,7 @@ Last updated: 2026-03-28
 - Milestone 02:
   - Gateway model and Matrix gateway baseline complete
 - Milestone 03:
-  - Node boundary and first host capability slice not yet implemented
+  - Execution Node milestone in progress with a dedicated smoke harness: `./scripts/verify-execution-node.sh`
 - Milestone 04:
   - real external connector lifecycle not yet implemented
 
