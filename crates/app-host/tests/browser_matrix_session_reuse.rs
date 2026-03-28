@@ -42,7 +42,10 @@ fn browser_matrix_session_reuse() {
         })
         .to_string(),
     ));
-    assert_eq!(browser_response.status_code, 200, "browser run should succeed");
+    assert_eq!(
+        browser_response.status_code, 200,
+        "browser run should succeed"
+    );
 
     let steering_response = surface.handle(HttpRequest::post(
         "/api/queue/steering",

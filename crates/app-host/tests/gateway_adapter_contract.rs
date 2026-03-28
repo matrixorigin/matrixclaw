@@ -62,15 +62,15 @@ fn gateway_adapter_contract() {
     assert_eq!(adapter.kind(), "fake-gateway");
     assert_eq!(envelope.transport.kind, "fake-gateway");
     assert_eq!(envelope.sender.id.as_deref(), Some("user-7"));
-    assert_eq!(
-        envelope.sender.display_name.as_deref(),
-        Some("Matrix User")
-    );
+    assert_eq!(envelope.sender.display_name.as_deref(), Some("Matrix User"));
     assert_eq!(envelope.conversation.session_id, "session-1");
     assert_eq!(envelope.conversation.thread_id.as_deref(), Some("$thread"));
     assert_eq!(envelope.target_agent.as_deref(), Some("planner"));
     assert_eq!(envelope.payload.prompt, "summarize the project status");
-    assert_eq!(envelope.reply.channel_id.as_deref(), Some("!room:example.org"));
+    assert_eq!(
+        envelope.reply.channel_id.as_deref(),
+        Some("!room:example.org")
+    );
     assert_eq!(envelope.reply.thread_id.as_deref(), Some("$thread"));
     assert_eq!(envelope.reply.reply_to.as_deref(), Some("$event"));
 

@@ -1,12 +1,15 @@
+pub mod client;
 pub mod matrix;
 pub mod runtime;
 pub mod store;
+pub mod transport;
 
 use crate::ingress::{
     IngressConversation, IngressEnvelope, IngressPayload, IngressSender, IngressTransport,
     ReplyRouting,
 };
 use crate::live_runtime::LiveRunEvent;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GatewaySender {
@@ -49,7 +52,10 @@ impl GatewayInboundEvent {
             },
             conversation: IngressConversation {
                 session_id: session_id.clone(),
-                thread_id: self.thread.as_ref().and_then(|thread| thread.thread_id.clone()),
+                thread_id: self
+                    .thread
+                    .as_ref()
+                    .and_then(|thread| thread.thread_id.clone()),
             },
             target_agent: self.target_agent.clone(),
             payload: IngressPayload {
@@ -59,7 +65,10 @@ impl GatewayInboundEvent {
             reply: ReplyRouting {
                 conversation_id: session_id,
                 channel_id: Some(self.channel_id.clone()),
-                thread_id: self.thread.as_ref().and_then(|thread| thread.thread_id.clone()),
+                thread_id: self
+                    .thread
+                    .as_ref()
+                    .and_then(|thread| thread.thread_id.clone()),
                 reply_to: self.reply_to.clone(),
             },
         }
@@ -73,7 +82,7 @@ pub struct GatewayReplyRoute {
     pub reply_to: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OutboundDeliveryKind {
     AssistantChunk,
     AssistantFinal,

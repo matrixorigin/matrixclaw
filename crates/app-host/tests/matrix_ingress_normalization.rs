@@ -44,12 +44,16 @@ fn matrix_ingress_normalization() {
     assert_eq!(envelope.conversation.session_id, session_id);
     assert_eq!(envelope.conversation.thread_id.as_deref(), Some("$thread"));
     assert_eq!(envelope.target_agent.as_deref(), Some("planner"));
-    assert_eq!(envelope.reply.channel_id.as_deref(), Some("!room:example.org"));
+    assert_eq!(
+        envelope.reply.channel_id.as_deref(),
+        Some("!room:example.org")
+    );
     assert_eq!(envelope.reply.reply_to.as_deref(), Some("$event"));
 
     let mut provider = RecordingProvider::new("matrix resumed");
-    let outcome = run_ingress_with_provider(&home, "moonshotai/kimi-k2.5", &envelope, &mut provider)
-        .expect("resume mapped Matrix session through shared runtime");
+    let outcome =
+        run_ingress_with_provider(&home, "moonshotai/kimi-k2.5", &envelope, &mut provider)
+            .expect("resume mapped Matrix session through shared runtime");
 
     assert_eq!(outcome.live_run.session_id, session_id);
     assert!(
@@ -69,16 +73,12 @@ fn matrix_ingress_normalization() {
     let snapshot = storage
         .load_recovery_snapshot()
         .expect("load session snapshot");
-    assert!(
-        snapshot
-            .history
-            .contains(&RuntimeMessage::User("continue from Matrix".to_string()))
-    );
-    assert!(
-        snapshot
-            .history
-            .contains(&RuntimeMessage::Assistant("matrix resumed".to_string()))
-    );
+    assert!(snapshot
+        .history
+        .contains(&RuntimeMessage::User("continue from Matrix".to_string())));
+    assert!(snapshot
+        .history
+        .contains(&RuntimeMessage::Assistant("matrix resumed".to_string())));
 }
 
 struct RecordingProvider {

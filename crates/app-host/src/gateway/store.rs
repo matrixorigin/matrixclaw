@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use super::OutboundDeliveryKind;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct GatewaySessionStore {
     pub matrix_threads: Vec<MatrixThreadBinding>,
@@ -21,6 +23,8 @@ pub struct MatrixThreadBinding {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GatewayDeliveryRetryRecord {
     pub gateway_kind: String,
+    #[serde(default = "default_retry_kind")]
+    pub kind: OutboundDeliveryKind,
     pub channel_id: String,
     pub thread_id: Option<String>,
     pub reply_to: Option<String>,
@@ -83,11 +87,7 @@ impl GatewaySessionStore {
         Ok(())
     }
 
-    pub fn resolve_matrix_thread(
-        &self,
-        room_id: &str,
-        thread_id: Option<&str>,
-    ) -> Option<&str> {
+    pub fn resolve_matrix_thread(&self, room_id: &str, thread_id: Option<&str>) -> Option<&str> {
         let thread_id = normalized_optional(thread_id);
         self.matrix_threads
             .iter()
@@ -109,4 +109,8 @@ fn normalized_optional(value: Option<&str>) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
+}
+
+fn default_retry_kind() -> OutboundDeliveryKind {
+    OutboundDeliveryKind::AssistantFinal
 }

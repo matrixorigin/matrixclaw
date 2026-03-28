@@ -9,9 +9,10 @@ use matrixclaw_agent_core::provider::{Provider, ProviderError};
 use matrixclaw_agent_core::RunRequest;
 use matrixclaw_app_host::gateway::matrix::MatrixInboundEvent;
 use matrixclaw_app_host::gateway::runtime::{
-    GatewayDeliveryRetry, GatewayRuntime, GatewayRunStatus,
+    GatewayDeliveryRetry, GatewayRunStatus, GatewayRuntime,
 };
 use matrixclaw_app_host::gateway::store::GatewaySessionStore;
+use matrixclaw_app_host::gateway::OutboundDeliveryKind;
 
 #[test]
 fn gateway_dedupe_retry_boundary() {
@@ -55,6 +56,7 @@ fn gateway_dedupe_retry_boundary() {
     runtime
         .record_retry(GatewayDeliveryRetry {
             gateway_kind: "matrix".to_string(),
+            kind: OutboundDeliveryKind::AssistantFinal,
             channel_id: "!room:example.org".to_string(),
             thread_id: Some("$thread".to_string()),
             reply_to: Some("$event".to_string()),
