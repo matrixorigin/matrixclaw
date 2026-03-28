@@ -3,6 +3,7 @@ pub mod assets;
 pub mod commands;
 pub mod compat_registry;
 pub mod execution;
+pub mod gateway;
 pub mod http;
 pub mod ingress;
 pub mod install;
@@ -93,6 +94,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> i32 {
             Ok(setup::StartupMode::Ready) => 0,
             Ok(setup::StartupMode::Setup(surface)) => {
                 println!("MatrixClaw setup available at {}", surface.setup_url());
+                println!("{}", gateway::matrix::matrix_gateway_status_message());
                 0
             }
             Err(error) => {
