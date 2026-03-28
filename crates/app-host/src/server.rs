@@ -20,7 +20,7 @@ use crate::ui_assets::UiAssetLayout;
 const LOOPBACK_BIND: &str = "127.0.0.1:38495";
 
 pub fn serve_for_home(home: impl AsRef<Path>) -> io::Result<()> {
-    let surface = SetupSurface::new(home.as_ref(), UiAssetLayout::discover());
+    let surface = SetupSurface::new(home.as_ref(), UiAssetLayout::discover_for_home(&home));
     serve_surface(surface, LOOPBACK_BIND)
 }
 
@@ -28,7 +28,7 @@ pub fn serve_with_demo_fixture(home: impl AsRef<Path>) -> io::Result<()> {
     let fixture = ensure_demo_fixture(home.as_ref())?;
     let surface = SetupSurface::with_state(
         home.as_ref(),
-        UiAssetLayout::discover(),
+        UiAssetLayout::discover_for_home(&home),
         fixture.agent_name,
         fixture.queue,
     );

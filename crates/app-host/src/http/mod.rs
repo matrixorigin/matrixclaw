@@ -247,7 +247,11 @@ impl SetupSurface {
 }
 
 pub fn setup_surface_for_home(home: impl AsRef<Path>) -> io::Result<SetupSurface> {
-    Ok(SetupSurface::new(home, UiAssetLayout::discover()))
+    let home = home.as_ref().to_path_buf();
+    Ok(SetupSurface::new(
+        &home,
+        UiAssetLayout::discover_for_home(&home),
+    ))
 }
 
 fn content_type_for_asset(kind: UiAssetKind, path: &Path) -> &'static str {

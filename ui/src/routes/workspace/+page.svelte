@@ -6,17 +6,17 @@
         type QueueControlKind,
         type QueueControlsView
     } from "$lib/queue";
-    import type { ExecutionBackendLabel } from "$lib/execution";
-    import { workspaceExplorerContract, type WorkspaceEntry } from "$lib/workspace";
+    import {
+        workspaceExplorerContract,
+        type WorkspaceEntry
+    } from "$lib/workspace";
+    import type {
+        QueueControlsPanelView,
+        WorkspaceExecutionSnapshot,
+        WorkspaceShellDiagnostics
+    } from "$lib/workspace/shell";
+    import { buildWorkspaceShellDiagnostics } from "$lib/workspace/shell";
     import { onMount, tick } from "svelte";
-
-    type ExecutionSnapshot = {
-        modeLabel: string;
-        visibleBackends: ExecutionBackendLabel[];
-        sandboxPriority: ExecutionBackendLabel[];
-        sandboxFailureMessage: string;
-        fallbackPolicy: string;
-    };
 
     type TranscriptEntry = {
         role: "assistant" | "tool" | "warning";
@@ -53,13 +53,7 @@
         state: ApiQueueControlState;
     };
 
-    type ApiExecutionSnapshot = {
-        modeLabel: string;
-        visibleBackends: ExecutionBackendLabel[];
-        sandboxPriority: ExecutionBackendLabel[];
-        sandboxFailureMessage: string;
-        fallbackPolicy: string;
-    };
+    type ApiExecutionSnapshot = WorkspaceExecutionSnapshot;
 
     type AgentRunEvent = {
         sequence: number;
@@ -86,7 +80,8 @@
 
     let workspaceEntries: WorkspaceEntry[] = [];
     let queueView: QueueControlsView | null = null;
-    let executionSnapshot: ExecutionSnapshot | null = null;
+    let executionSnapshot: WorkspaceExecutionSnapshot | null = null;
+    let shellDiagnostics: WorkspaceShellDiagnostics | null = null;
     let transcriptEntries: TranscriptEntry[] = [];
     let composerReferences: string[] = [];
     let steeringDraft =
@@ -146,20 +141,11 @@
         };
     }
 
-    function setInitialTranscript(view: QueueControlsView, execution: ExecutionSnapshot) {
+    function setInitialTranscript() {
         transcriptEntries = [
             {
                 role: "assistant",
-                text: `Workspace shell is connected. ${view.steering.summary}`
-            },
-            {
-                role: "tool",
-                text: `Execution policy is ${execution.fallbackPolicy}. Preferred sandbox order is ${execution.sandboxPriority.join(", ")}.`,
-                backend: execution.visibleBackends[0]
-            },
-            {
-                role: "warning",
-                text: execution.sandboxFailureMessage
+                text: "Workspace shell is connected. Use the side rails for queueing, execution status, and file references."
             }
         ];
     }
@@ -311,6 +297,7 @@
             workspaceEntries = entryPayload.map(normalizeWorkspaceEntry);
             queueView = normalizeQueueView(queuePayload);
             executionSnapshot = executionPayload;
+            shellDiagnostics = buildWorkspaceShellDiagnostics(queueView, executionSnapshot);
             composerReferences = workspaceEntries
                 .filter((entry) => entry.kind === "file")
                 .slice(0, 2)
@@ -319,7 +306,7 @@
                 composerReferences.length >= 2
                     ? `Review ${composerReferences[0]} before touching ${composerReferences[1]}.`
                     : "";
-            setInitialTranscript(queueView, executionSnapshot);
+            setInitialTranscript();
         } catch (error) {
             pageError = errorMessage(error);
         } finally {
@@ -379,6 +366,9 @@
 
             const queuePayload = await fetchJson<ApiQueueControlsView>(queueStateRoute());
             queueView = normalizeQueueView(queuePayload);
+            if (executionSnapshot) {
+                shellDiagnostics = buildWorkspaceShellDiagnostics(queueView, executionSnapshot);
+            }
             transcriptEntries = [
                 {
                     role: "assistant",
@@ -416,6 +406,9 @@
             });
             await consumeStreamResponse(response);
             queueView = normalizeQueueView(await fetchJson<ApiQueueControlsView>(queueStateRoute()));
+            if (executionSnapshot) {
+                shellDiagnostics = buildWorkspaceShellDiagnostics(queueView, executionSnapshot);
+            }
         } catch (error) {
             pageError = errorMessage(error);
         } finally {
@@ -427,15 +420,17 @@
 <section class="workspace-shell">
     <aside class="left-rail">
         <div class="panel-heading">
-            <p class="section-label">Workspace</p>
-            <h2>Files and references</h2>
+            <p class="section-label">Project files</p>
+            <h2>Workspace browser</h2>
         </div>
 
-        <div class="contract-card">
-            <span>List route</span>
-            <code>{workspaceExplorerContract.filesRoute}</code>
-            <span>Reference route</span>
-            <code>{workspaceExplorerContract.referenceRoute}</code>
+        <div class="summary-card">
+            <span class="card-title">Working set</span>
+            <strong>{workspaceEntries.length} visible items</strong>
+            <p>
+                Browse the workspace on the left, run the agent in the center, and inspect queue
+                or execution posture on the right.
+            </p>
         </div>
 
         {#if loading}
@@ -449,7 +444,7 @@
                         <div>
                             <strong>{entry.relativePath}</strong>
                             <small>
-                                {entry.kind === "directory" ? "Directory" : entry.referenceToken}
+                                {entry.kind === "directory" ? "Directory" : "Attachable file"}
                             </small>
                         </div>
                         <button
@@ -468,8 +463,8 @@
     <div class="main-column">
         <div class="transcript">
             <div class="panel-heading">
-                <p class="section-label">Transcript</p>
-                <h2>Loopback run stream</h2>
+                <p class="section-label">Run stream</p>
+                <h2>Assistant stream</h2>
             </div>
 
             {#each transcriptEntries as item}
@@ -488,48 +483,6 @@
                 {/if}
             {/each}
         </div>
-
-        {#if queueView}
-            <section class="queue-strip">
-                <div class="queue-card">
-                    <p class="section-label">Steering</p>
-                    <h3>{queueDeliveryLabels[queueView.steering.deliveryTiming]}</h3>
-                    <p>{queueControlsCopy.steering}</p>
-                    <small>{queueView.steering.summary}</small>
-                    <textarea
-                        rows="3"
-                        bind:value={steeringDraft}
-                        placeholder="Queue the next-turn steering instruction."
-                    ></textarea>
-                    <button
-                        type="button"
-                        disabled={busy || !steeringDraft.trim()}
-                        on:click={() => submitQueue("steering", steeringDraft.trim())}
-                    >
-                        Queue steering
-                    </button>
-                </div>
-
-                <div class="queue-card">
-                    <p class="section-label">Follow-up</p>
-                    <h3>{queueDeliveryLabels[queueView.followUp.deliveryTiming]}</h3>
-                    <p>{queueControlsCopy.followUp}</p>
-                    <small>{queueView.followUp.summary}</small>
-                    <textarea
-                        rows="3"
-                        bind:value={followUpDraft}
-                        placeholder="Queue the post-run follow-up instruction."
-                    ></textarea>
-                    <button
-                        type="button"
-                        disabled={busy || !followUpDraft.trim()}
-                        on:click={() => submitQueue("follow-up", followUpDraft.trim())}
-                    >
-                        Queue follow-up
-                    </button>
-                </div>
-            </section>
-        {/if}
 
         <form class="composer">
             <label for="prompt">Composer</label>
@@ -554,38 +507,74 @@
 
     <aside class="right-rail">
         <div class="panel-heading">
-            <p class="section-label">Run state</p>
+            <p class="section-label">Run inspector</p>
             <h2>Queue and execution detail</h2>
         </div>
 
-        <div class="execution-card">
-            <span class="card-title">Visible backends</span>
-            <div class="backend-stack">
-                {#each executionSnapshot?.visibleBackends ?? [] as backend}
-                    <span class="backend-badge">{backend}</span>
-                {/each}
-            </div>
-            <p>Sandbox priority</p>
-            <ol>
-                {#each executionSnapshot?.sandboxPriority ?? [] as backend, index}
-                    <li>{index + 1}. {backend}</li>
-                {/each}
-            </ol>
+        <div class="summary-card">
+            <span class="card-title">Reference tray</span>
+            {#if composerReferences.length > 0}
+                <div class="reference-chips compact">
+                    {#each composerReferences as reference}
+                        <span>{reference}</span>
+                    {/each}
+                </div>
+            {:else}
+                <p>No references attached yet.</p>
+            {/if}
         </div>
 
-        <div class="execution-card failure">
-            <span class="card-title">Sandbox policy</span>
-            <strong>{executionSnapshot?.sandboxFailureMessage ?? "loading execution policy"}</strong>
-            <p>
-                Required-sandbox failures stay explicit instead of silently falling back to local.
-            </p>
-        </div>
+        {#if queueView && shellDiagnostics}
+            <section class="queue-strip">
+                <div class="queue-card">
+                    <p class="section-label">{shellDiagnostics.queueCards[0].title}</p>
+                    <h3>{queueDeliveryLabels[queueView.steering.deliveryTiming]}</h3>
+                    <p>{queueControlsCopy.steering}</p>
+                    <small>{shellDiagnostics.queueCards[0].body}</small>
+                    <textarea
+                        rows="3"
+                        bind:value={steeringDraft}
+                        placeholder="Queue the next-turn steering instruction."
+                    ></textarea>
+                    <button
+                        type="button"
+                        disabled={busy || !steeringDraft.trim()}
+                        on:click={() => submitQueue("steering", steeringDraft.trim())}
+                    >
+                        Queue steering
+                    </button>
+                </div>
 
-        <div class="execution-card">
-            <span class="card-title">Runtime contract</span>
-            <p>Mode: <code>{executionSnapshot?.modeLabel ?? "loading"}</code></p>
-            <p>Fallback: <code>{executionSnapshot?.fallbackPolicy ?? "loading"}</code></p>
-        </div>
+                <div class="queue-card">
+                    <p class="section-label">{shellDiagnostics.queueCards[1].title}</p>
+                    <h3>{queueDeliveryLabels[queueView.followUp.deliveryTiming]}</h3>
+                    <p>{queueControlsCopy.followUp}</p>
+                    <small>{shellDiagnostics.queueCards[1].body}</small>
+                    <textarea
+                        rows="3"
+                        bind:value={followUpDraft}
+                        placeholder="Queue the post-run follow-up instruction."
+                    ></textarea>
+                    <button
+                        type="button"
+                        disabled={busy || !followUpDraft.trim()}
+                        on:click={() => submitQueue("follow-up", followUpDraft.trim())}
+                    >
+                        Queue follow-up
+                    </button>
+                </div>
+            </section>
+        {/if}
+
+        {#if shellDiagnostics}
+            {#each shellDiagnostics.executionCards as card}
+                <div class:failure={card.tone === "warning"} class="execution-card">
+                    <span class="card-title">{card.title}</span>
+                    <strong>{card.label}</strong>
+                    <p>{card.body}</p>
+                </div>
+            {/each}
+        {/if}
     </aside>
 </section>
 
@@ -602,7 +591,7 @@
     .composer,
     .queue-card,
     .execution-card,
-    .contract-card {
+    .summary-card {
         padding: 1.1rem;
         border-radius: 1.25rem;
         border: 1px solid rgba(148, 163, 184, 0.16);
@@ -631,13 +620,13 @@
         margin: 0;
     }
 
-    .contract-card {
+    .summary-card {
         display: grid;
-        gap: 0.3rem;
+        gap: 0.35rem;
         margin-bottom: 1rem;
     }
 
-    .contract-card span,
+    .summary-card span,
     .execution-card p,
     .queue-card p,
     .queue-card small,
@@ -652,15 +641,8 @@
         line-height: 1.55;
     }
 
-    code {
-        color: #fde68a;
-        font-family:
-            "IBM Plex Mono",
-            monospace;
-    }
-
     .file-list,
-    ol {
+    .queue-strip {
         margin: 0;
         padding: 0;
         list-style: none;
@@ -676,7 +658,8 @@
     }
 
     .file-list strong,
-    .execution-card strong {
+    .execution-card strong,
+    .summary-card strong {
         color: #f8fafc;
     }
 
@@ -782,6 +765,10 @@
         gap: 0.5rem;
     }
 
+    .reference-chips.compact {
+        gap: 0.35rem;
+    }
+
     .reference-chips span {
         padding: 0.35rem 0.6rem;
         border-radius: 999px;
@@ -804,13 +791,6 @@
         font-size: 0.8rem;
         text-transform: uppercase;
         letter-spacing: 0.12em;
-    }
-
-    .backend-stack {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        margin-bottom: 0.75rem;
     }
 
     .failure {

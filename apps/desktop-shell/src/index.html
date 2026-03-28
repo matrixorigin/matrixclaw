@@ -12,48 +12,263 @@
                     "IBM Plex Sans",
                     "Avenir Next",
                     sans-serif;
+                --bg-top: #10203d;
+                --bg-mid: #08101f;
+                --bg-bottom: #04070d;
+                --panel: rgba(6, 14, 28, 0.82);
+                --panel-border: rgba(125, 211, 252, 0.16);
+                --text-main: #e5eef7;
+                --text-muted: #afc3d8;
+                --accent: #7dd3fc;
+                --accent-strong: #f59e0b;
+                --ok: #67e8f9;
+                --idle: rgba(148, 163, 184, 0.28);
                 background:
-                    radial-gradient(circle at top, rgba(251, 191, 36, 0.16), transparent 38%),
-                    linear-gradient(180deg, #0f172a 0%, #111827 45%, #020617 100%);
-                color: #e5eef7;
+                    radial-gradient(circle at top, rgba(125, 211, 252, 0.18), transparent 32%),
+                    radial-gradient(circle at 18% 20%, rgba(245, 158, 11, 0.12), transparent 28%),
+                    linear-gradient(180deg, var(--bg-top) 0%, var(--bg-mid) 42%, var(--bg-bottom) 100%);
+                color: var(--text-main);
             }
 
             body {
                 margin: 0;
                 min-height: 100vh;
-                display: grid;
-                place-items: center;
+                display: flex;
+                align-items: stretch;
             }
 
             main {
-                width: min(32rem, calc(100vw - 2rem));
+                width: min(58rem, calc(100vw - 3rem));
+                margin: auto;
                 padding: 1.5rem;
-                border-radius: 1.25rem;
-                border: 1px solid rgba(148, 163, 184, 0.18);
-                background: rgba(15, 23, 42, 0.78);
-                box-shadow: 0 16px 40px rgba(2, 6, 23, 0.28);
+            }
+
+            .shell {
+                display: grid;
+                gap: 1.1rem;
+                padding: 1.3rem;
+                border-radius: 1.4rem;
+                border: 1px solid var(--panel-border);
+                background: var(--panel);
+                box-shadow: 0 22px 60px rgba(2, 6, 23, 0.34);
+                backdrop-filter: blur(18px);
+            }
+
+            .shell-header,
+            .shell-status,
+            .shell-footer {
+                display: grid;
+                gap: 0.6rem;
+            }
+
+            .eyebrow,
+            .meta-label {
+                margin: 0;
+                text-transform: uppercase;
+                letter-spacing: 0.18em;
+                font-size: 0.76rem;
+                color: var(--accent);
+            }
+
+            .hero {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 1rem;
+            }
+
+            .hero h1,
+            .shell-status h2 {
+                margin: 0;
+                font-size: clamp(1.8rem, 4vw, 2.5rem);
+                line-height: 1.05;
+            }
+
+            .stage-badge {
+                align-self: flex-start;
+                padding: 0.35rem 0.75rem;
+                border-radius: 999px;
+                background: rgba(125, 211, 252, 0.12);
+                border: 1px solid rgba(125, 211, 252, 0.25);
+                color: var(--accent);
+                font-size: 0.78rem;
+                text-transform: uppercase;
+                letter-spacing: 0.12em;
+            }
+
+            .shell-grid {
+                display: grid;
+                grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 0.8fr);
+                gap: 1rem;
+            }
+
+            .shell-status,
+            .shell-meta {
+                padding: 1rem;
+                border-radius: 1rem;
+                border: 1px solid rgba(125, 211, 252, 0.12);
+                background: rgba(15, 23, 42, 0.56);
             }
 
             p {
-                color: #cbd5e1;
+                margin: 0;
+                color: var(--text-muted);
                 line-height: 1.6;
             }
 
             code {
                 color: #fde68a;
             }
+
+            ol {
+                margin: 0;
+                padding-left: 1.15rem;
+                display: grid;
+                gap: 0.8rem;
+            }
+
+            li {
+                color: var(--text-main);
+            }
+
+            li::marker {
+                color: var(--accent);
+            }
+
+            li[data-status="done"] {
+                color: var(--ok);
+            }
+
+            li[data-status="active"] {
+                color: #f8fafc;
+            }
+
+            li[data-status="error"] {
+                color: #fca5a5;
+            }
+
+            .shell-actions {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.8rem;
+                align-items: center;
+            }
+
+            button {
+                border: 0;
+                border-radius: 999px;
+                padding: 0.8rem 1.1rem;
+                font: inherit;
+                font-weight: 600;
+                color: #0b1220;
+                background: linear-gradient(135deg, #7dd3fc, #f59e0b);
+                cursor: pointer;
+            }
+
+            button[hidden] {
+                display: none;
+            }
+
+            button:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+
+            .shell-footer {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 0.9rem;
+            }
+
+            .footer-card {
+                padding: 0.95rem 1rem;
+                border-radius: 0.95rem;
+                background: rgba(8, 15, 28, 0.68);
+                border: 1px solid rgba(148, 163, 184, 0.14);
+            }
+
+            @media (max-width: 820px) {
+                .shell-grid,
+                .shell-footer {
+                    grid-template-columns: 1fr;
+                }
+
+                .hero {
+                    flex-direction: column;
+                }
+            }
         </style>
     </head>
     <body>
         <main>
-            <p>MatrixClaw desktop shell</p>
-            <h1>Attaching to the local UI boundary</h1>
-            <p>
-                This wrapper stays thin on purpose. It redirects the window to the existing
-                loopback surface served by <code>app-host</code> instead of reimplementing runtime
-                logic inside the shell.
-            </p>
-            <p id="status">Waiting for MatrixClaw setup surface…</p>
+            <section id="shell-root" class="shell" data-phase="checking">
+                <header class="shell-header">
+                    <p class="eyebrow">MatrixClaw Desktop</p>
+                    <div class="hero">
+                        <div>
+                            <h1>One window. One product shell.</h1>
+                            <p>
+                                The desktop shell stays outside runtime logic, but it now owns a
+                                real startup experience instead of dropping straight into a redirect
+                                wrapper.
+                            </p>
+                        </div>
+                        <span id="stage-badge" class="stage-badge">Bootstrapping</span>
+                    </div>
+                </header>
+
+                <div class="shell-grid">
+                    <section class="shell-status">
+                        <p class="meta-label">Startup state</p>
+                        <h2 id="status-title">Starting the MatrixClaw product shell</h2>
+                        <p id="status-detail">
+                            The shell is checking the local runtime, deciding whether setup or
+                            workspace should open, and keeping startup inside one window.
+                        </p>
+                        <div class="shell-actions">
+                            <button id="retry-button" type="button" hidden disabled>
+                                Retry runtime attach
+                            </button>
+                            <p id="attempt-copy">Attach attempt 1 of 5.</p>
+                        </div>
+                    </section>
+
+                    <aside class="shell-meta">
+                        <p class="meta-label">Bootstrap contract</p>
+                        <p id="target-copy">
+                            Target surface: http://127.0.0.1:38495/setup or
+                            http://127.0.0.1:38495/workspace
+                        </p>
+                        <ol id="bootstrap-steps">
+                            <li data-status="active">
+                                <span>Reach the local runtime boundary</span>
+                            </li>
+                            <li data-status="idle">
+                                <span>Decide whether setup or workspace should open</span>
+                            </li>
+                            <li data-status="idle">
+                                <span>Hand the same app window to MatrixClaw</span>
+                            </li>
+                        </ol>
+                    </aside>
+                </div>
+
+                <footer class="shell-footer">
+                    <section class="footer-card">
+                        <p class="meta-label">Product boundary</p>
+                        <p>
+                            The shell owns startup polish, window continuity, and attach feedback.
+                            The runtime still owns setup, sessions, tools, and execution behavior.
+                        </p>
+                    </section>
+                    <section class="footer-card">
+                        <p class="meta-label">Failure posture</p>
+                        <p>
+                            If the loopback surface is unavailable, the window stays in a readable
+                            bootstrap state instead of dumping the user into a raw network error.
+                        </p>
+                    </section>
+                </footer>
+            </section>
         </main>
     </body>
 </html>

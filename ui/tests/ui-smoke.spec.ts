@@ -196,14 +196,14 @@ test("browser smoke verifies live workspace and skills flows", async ({ page }) 
     });
 
     await page.goto("/setup");
-    await expect(page.getByRole("heading", { name: "First-launch wizard scaffold" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Desktop first-launch setup" })).toBeVisible();
     await page.screenshot({ path: path.join(artifactDir, "setup.png"), fullPage: true });
 
     await page.goto("/workspace");
-    await expect(page.getByRole("heading", { name: "Files and references" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Workspace browser" })).toBeVisible();
     expect(queueSessionId).toBeTruthy();
     await page.getByRole("button", { name: "Reference" }).first().click();
-    await expect(page.locator(".reference-chips span").filter({ hasText: "[[workspace:src/main.rs]]" })).toBeVisible();
+    await expect(page.getByText("[[workspace:src/main.rs]]").first()).toBeVisible();
 
     const steeringMessage = "Playwright steering smoke message";
     const steeringArea = page.getByPlaceholder("Queue the next-turn steering instruction.");

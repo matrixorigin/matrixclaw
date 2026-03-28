@@ -1,5 +1,8 @@
 /target/
+/apps/desktop-shell/src-tauri/target/
+/apps/desktop-shell/src-tauri/Cargo.lock
 /ui/node_modules/
 /ui/.svelte-kit/
 /ui/build/
+/ui/test-results/
 /output/playwright/

@@ -56,7 +56,7 @@ test("workspace composer reaches live LLM provider", async ({ page }) => {
     });
 
     await page.goto("/workspace");
-    await expect(page.getByRole("heading", { name: "Files and references" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Workspace browser" })).toBeVisible();
 
     await page
         .getByLabel("Composer")

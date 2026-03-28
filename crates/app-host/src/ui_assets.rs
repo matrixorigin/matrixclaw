@@ -1,6 +1,8 @@
 use std::env;
 use std::path::{Path, PathBuf};
 
+use crate::paths;
+
 pub const UI_WORKSPACE_DIR: &str = "ui";
 pub const UI_BUILD_DIR: &str = "build";
 pub const UI_ENTRY_HTML: &str = "index.html";
@@ -29,11 +31,40 @@ pub struct UiAssetLayout {
 
 impl UiAssetLayout {
     pub fn discover() -> Self {
+        if let Some(build_dir) = env::var_os("MATRIXCLAW_UI_BUILD_DIR") {
+            return Self::from_build_dir(build_dir);
+        }
+
         if let Some(root) = env::var_os("MATRIXCLAW_REPO_ROOT") {
             return Self::from_repo_root(root);
         }
 
         Self::from_manifest_dir(env!("CARGO_MANIFEST_DIR"))
+    }
+
+    pub fn discover_for_home(home: impl AsRef<Path>) -> Self {
+        if let Some(build_dir) = env::var_os("MATRIXCLAW_UI_BUILD_DIR") {
+            return Self::from_build_dir(build_dir);
+        }
+
+        let bundled = Self::bundled_for_home(home);
+        if bundled.entry_html().is_file() {
+            return bundled;
+        }
+
+        Self::discover()
+    }
+
+    pub fn from_build_dir(build_dir: impl AsRef<Path>) -> Self {
+        let build_dir = build_dir.as_ref().to_path_buf();
+        let workspace_dir = build_dir
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| build_dir.clone());
+        Self {
+            workspace_dir,
+            build_dir,
+        }
     }
 
     pub fn from_manifest_dir(manifest_dir: impl AsRef<Path>) -> Self {
@@ -53,6 +84,14 @@ impl UiAssetLayout {
             workspace_dir,
             build_dir,
         }
+    }
+
+    pub fn bundled_for_home(home: impl AsRef<Path>) -> Self {
+        Self::from_build_dir(
+            paths::managed_assets_dir(home)
+                .join(UI_WORKSPACE_DIR)
+                .join(UI_BUILD_DIR),
+        )
     }
 
     pub fn entry_html(&self) -> PathBuf {
@@ -173,6 +212,7 @@ mod tests {
         is_client_route, UiAssetKind, UiAssetLayout, UI_BUILD_DIR, UI_ENTRY_HTML, UI_SETUP_HTML,
         UI_SKILLS_HTML, UI_WORKSPACE_DIR, UI_WORKSPACE_HTML,
     };
+    use crate::paths;
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -226,6 +266,20 @@ mod tests {
         )
         .expect("write static asset");
         root
+    }
+
+    fn temp_home() -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock before unix epoch")
+            .as_nanos();
+        let home = std::env::temp_dir().join(format!(
+            "matrixclaw-ui-home-{}-{}",
+            std::process::id(),
+            nanos
+        ));
+        fs::create_dir_all(&home).expect("create temp home");
+        home
     }
 
     #[test]
@@ -290,6 +344,29 @@ mod tests {
             resolved.file_path,
             layout.build_dir.join("_app").join("app.js")
         );
+    }
+
+    #[test]
+    fn discover_for_home_prefers_bundled_runtime_assets() {
+        let home = temp_home();
+        let bundled_layout = UiAssetLayout::bundled_for_home(&home);
+        fs::create_dir_all(bundled_layout.build_dir.join("_app"))
+            .expect("create bundled ui fixture");
+        fs::write(
+            bundled_layout.build_dir.join(UI_ENTRY_HTML),
+            "<html><body>bundled shell</body></html>",
+        )
+        .expect("write bundled shell");
+
+        let discovered = UiAssetLayout::discover_for_home(&home);
+
+        assert_eq!(
+            discovered.build_dir,
+            paths::managed_assets_dir(&home)
+                .join(UI_WORKSPACE_DIR)
+                .join(UI_BUILD_DIR)
+        );
+        assert_eq!(discovered.entry_html(), bundled_layout.entry_html());
     }
 
     #[test]

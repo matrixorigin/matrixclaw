@@ -8,12 +8,12 @@ export const shellRoutes: ShellRoute[] = [
     {
         href: "/workspace",
         label: "Workspace",
-        description: "Chat, files, queue state, and execution details."
+        description: "Chat, files, queue state, and runtime details."
     },
     {
         href: "/skills",
         label: "Skills",
-        description: "Installed inventory and per-agent enablement."
+        description: "Installed inventory and agent enablement."
     },
     {
         href: "/setup",
@@ -31,3 +31,19 @@ export const setupSteps = [
 ];
 
 export const executionPriority = ["docker", "boxlite"] as const;
+
+export function sectionTitleForPath(pathname: string): string {
+    if (pathname.startsWith("/setup")) {
+        return "Setup";
+    }
+
+    if (pathname.startsWith("/skills")) {
+        return "Skills";
+    }
+
+    if (pathname.startsWith("/workspace")) {
+        return "Workspace";
+    }
+
+    return "Home";
+}

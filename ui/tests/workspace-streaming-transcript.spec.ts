@@ -141,9 +141,9 @@ test("workspace transcript streams deltas without duplicating the final assistan
 
     await page.goto("/workspace");
 
-    await expect(page.getByRole("heading", { name: "Files and references" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Workspace browser" })).toBeVisible();
     await expect(page.getByText("Visible backends")).toBeVisible();
-    await expect(page.getByText("Runtime contract")).toBeVisible();
+    await expect(page.getByText("Sandbox policy")).toBeVisible();
     expect(queueStateSeenSessionId).toBeTruthy();
 
     await page.getByLabel("Composer").fill("Stream the answer in two deltas.");
@@ -164,5 +164,5 @@ test("workspace transcript streams deltas without duplicating the final assistan
     ).toBeVisible();
 
     await expect(page.getByText("Visible backends")).toBeVisible();
-    await expect(page.getByText("Runtime contract")).toBeVisible();
+    await expect(page.getByText("Sandbox policy")).toBeVisible();
 });

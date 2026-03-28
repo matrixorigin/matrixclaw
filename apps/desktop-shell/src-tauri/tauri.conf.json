@@ -25,6 +25,9 @@
   "bundle": {
     "active": true,
     "targets": "app",
+    "resources": [
+      "../../ui/build/**/*"
+    ],
     "macOS": {
       "minimumSystemVersion": "13.0"
     }
