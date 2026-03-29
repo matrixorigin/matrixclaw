@@ -11,10 +11,10 @@ Current state:
 Developer commands:
 
 ```bash
-pnpm --dir apps/desktop-shell install
-pnpm --dir apps/desktop-shell dev
-pnpm --dir apps/desktop-shell build
-pnpm --dir apps/desktop-shell test
+bun install --cwd apps/desktop-shell
+bun run --cwd apps/desktop-shell dev
+bun run --cwd apps/desktop-shell build
+bun run --cwd apps/desktop-shell test
 ```
 
 Launch model:

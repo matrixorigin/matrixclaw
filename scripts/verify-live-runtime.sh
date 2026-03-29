@@ -52,7 +52,10 @@ HTTP_RESPONSE="$(
 
 printf '%s' "${HTTP_RESPONSE}" | rg -q "\"final_message\": \"${HTTP_SENTINEL}\""
 
-MATRIXCLAW_BASE_URL="${BASE_URL}" \
-MATRIXCLAW_LIVE_E2E=1 \
-MATRIXCLAW_LIVE_SENTINEL="${UI_SENTINEL}" \
-pnpm --dir ui exec playwright test ui/tests/live-llm.spec.ts
+(
+  cd ui
+  MATRIXCLAW_BASE_URL="${BASE_URL}" \
+  MATRIXCLAW_LIVE_E2E=1 \
+  MATRIXCLAW_LIVE_SENTINEL="${UI_SENTINEL}" \
+    bunx playwright test tests/live-llm.spec.ts
+)

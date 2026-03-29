@@ -30,13 +30,13 @@ can_run_native_tauri_tests() {
 }
 
 echo "Building bundled UI assets"
-pnpm --dir ui build
+bun run --cwd ui build
 
 echo "Running bundled asset packaging test"
 cargo test -p matrixclaw-app-host bundled_asset_packaging -- --exact
 
 echo "Running desktop shell bootstrap tests"
-pnpm --dir apps/desktop-shell test
+bun run --cwd apps/desktop-shell test
 
 if can_run_native_tauri_tests; then
   cargo test --manifest-path apps/desktop-shell/src-tauri/Cargo.toml
@@ -45,7 +45,10 @@ else
 fi
 
 echo "Running desktop UI contract tests"
-pnpm --dir ui exec playwright test \
-  ui/tests/desktop_app_shell.spec.ts \
-  ui/tests/setup_onboarding_flow.spec.ts \
-  ui/tests/workspace_pane_layout.spec.ts
+(
+  cd ui
+  bunx playwright test \
+    tests/desktop_app_shell.spec.ts \
+    tests/setup_onboarding_flow.spec.ts \
+    tests/workspace_pane_layout.spec.ts
+)

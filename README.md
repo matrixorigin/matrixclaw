@@ -21,15 +21,15 @@ The browser UI lives under [`ui/`](./ui) and is designed to build static assets 
 Development commands:
 
 ```bash
-pnpm --dir ui install
-pnpm --dir ui dev
-pnpm --dir ui build
-pnpm --dir ui check
+bun install --cwd ui
+bun run --cwd ui dev
+bun run --cwd ui build
+bun run --cwd ui check
 ```
 
 Runtime note:
 
-- `pnpm` and Node.js are acceptable at build time for developers
+- `bun` and Node.js-compatible tooling are acceptable at build time for developers
 - the installed MatrixClaw binary must not require a Node.js process at runtime
 
 ## Optional Desktop Shell
