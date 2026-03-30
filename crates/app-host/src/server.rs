@@ -12,6 +12,7 @@ use matrixclaw_manifests::config::{
 use matrixclaw_session_runtime::queue::SessionQueue;
 use tiny_http::{Header, Method, Response, Server, StatusCode};
 
+use crate::agent_store::{save_agent_profile, AgentProfile};
 use crate::compat_registry::CompatRegistryEntry;
 use crate::http::{HttpMethod, HttpRequest, SetupSurface};
 use crate::paths;
@@ -389,15 +390,92 @@ fn ensure_demo_fixture(home: &Path) -> io::Result<DemoFixture> {
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?,
     )?;
 
-    let enabled_dir = runtime_home.join("agents").join("default");
-    fs::create_dir_all(&enabled_dir)?;
+    save_agent_profile(
+        home,
+        &AgentProfile {
+            agent_name: "atlas".to_string(),
+            title: "Atlas".to_string(),
+            crown_job: "Research topics and synthesize findings for the active workspace.".to_string(),
+            memory_summary: "Keeps long-running workspace context and remembers project landmarks."
+                .to_string(),
+            memory_signal_count: 14,
+            pinned_memory_count: 3,
+            enabled_skills: vec!["research".to_string()],
+            enabled_mcp_servers: vec!["search-01".to_string()],
+            enabled_gateways: vec!["matrix".to_string()],
+        },
+    )?;
+    save_agent_profile(
+        home,
+        &AgentProfile {
+            agent_name: "scribe".to_string(),
+            title: "Scribe".to_string(),
+            crown_job: "Shape polished drafts and summarize active work threads.".to_string(),
+            memory_summary: "Prefers short-lived writing context with a small pinned brief."
+                .to_string(),
+            memory_signal_count: 6,
+            pinned_memory_count: 1,
+            enabled_skills: vec!["lint-bridge".to_string()],
+            enabled_mcp_servers: vec!["search-02".to_string()],
+            enabled_gateways: vec!["openclaw".to_string()],
+        },
+    )?;
+
+    let atlas_dir = runtime_home.join("agents").join("atlas");
+    fs::create_dir_all(&atlas_dir)?;
     fs::write(
-        enabled_dir.join("enabled-skills.json"),
+        atlas_dir.join("enabled-skills.json"),
         serde_json::json!({
             "schemaVersion": "1",
-            "agentName": "default",
+            "agentName": "atlas",
             "enabled": ["research"]
         })
+        .to_string(),
+    )?;
+    let scribe_dir = runtime_home.join("agents").join("scribe");
+    fs::create_dir_all(&scribe_dir)?;
+    fs::write(
+        scribe_dir.join("enabled-skills.json"),
+        serde_json::json!({
+            "schemaVersion": "1",
+            "agentName": "scribe",
+            "enabled": ["lint-bridge"]
+        })
+        .to_string(),
+    )?;
+
+    let catalogs_dir = state_dir.join("catalogs");
+    fs::create_dir_all(&catalogs_dir)?;
+    fs::write(
+        catalogs_dir.join("mcp-catalog.json"),
+        serde_json::json!([
+            {
+                "name": "search-01",
+                "health": "healthy",
+                "enabled_by_agent_count": 0
+            },
+            {
+                "name": "search-02",
+                "health": "degraded",
+                "enabled_by_agent_count": 0
+            }
+        ])
+        .to_string(),
+    )?;
+    fs::write(
+        catalogs_dir.join("gateway-catalog.json"),
+        serde_json::json!([
+            {
+                "name": "matrix",
+                "health": "healthy",
+                "enabled_by_agent_count": 0
+            },
+            {
+                "name": "openclaw",
+                "health": "healthy",
+                "enabled_by_agent_count": 0
+            }
+        ])
         .to_string(),
     )?;
 
@@ -406,12 +484,13 @@ fn ensure_demo_fixture(home: &Path) -> io::Result<DemoFixture> {
             "Prefer [[workspace:README.md]] before editing files.".to_string(),
         ),
         matrixclaw_session_runtime::queue::QueueItem::FollowUp(
-            "After this run, enable lint-bridge for the default agent.".to_string(),
+            "After this run, open Agent Detail for Atlas and review the lint-bridge binding."
+                .to_string(),
         ),
     ]);
 
     Ok(DemoFixture {
-        agent_name: "default".to_string(),
+        agent_name: "atlas".to_string(),
         queue,
     })
 }

@@ -1,5 +1,10 @@
 # MatrixClaw Figma Design Handoff
 
+Implementation note:
+- This handoff captures the route model, frame structure, and ownership boundaries that still matter.
+- The final visual source of truth is now the newer light Figma design system and `MatrixClaw — Product Shell v2` design file.
+- The earlier dark visual direction and dark token suggestions below are historical context only and should not override the newer light-system decisions.
+
 ## Goal
 Create a new Figma **design** file for the MatrixClaw product shell and build the first high-level application frames for:
 

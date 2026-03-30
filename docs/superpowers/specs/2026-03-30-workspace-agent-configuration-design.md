@@ -6,6 +6,11 @@ MatrixClaw should move from a mixed dashboard workspace toward a chat-first prod
 
 The workspace becomes the place where a user talks to the currently selected agent. Global systems such as Skills, MCP servers, and Messaging Gateway are managed on their own dedicated pages. Per-agent decisions such as crown job, memory, and enabled bindings live on a dedicated agent detail page.
 
+Implementation note:
+- The light Figma design system and `MatrixClaw — Product Shell v2` file are the visual source of truth for this work.
+- The route and ownership model in this spec remains valid.
+- Any earlier dark token appendix or dark visual direction should be treated as superseded by the newer light Figma files.
+
 ## Problem
 
 The current UI is confusing because multiple mental models compete on the same screen:
