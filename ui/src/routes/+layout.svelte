@@ -1,4 +1,5 @@
 <script lang="ts">
+    import "$lib/theme/product-shell.css";
     import { page } from "$app/stores";
     import {
         appShellNav,
@@ -14,48 +15,52 @@
     <title>MatrixClaw</title>
 </svelte:head>
 
-<div class="desktop-shell">
-    <div class="desktop-frame">
-        <header class="windowbar">
+<div class="product-shell">
+    <div class="product-shell__frame">
+        <header class="shell-topbar">
             <div class="window-controls" aria-hidden="true">
                 <span class="danger"></span>
                 <span class="warn"></span>
                 <span class="ok"></span>
             </div>
 
-            <div class="window-meta">
-                <p class="eyebrow">Tauri desktop shell</p>
+            <div class="shell-brand">
+                <p class="eyebrow">Product shell</p>
                 <strong>{brand}</strong>
+                <span>Workspace, agents, skills, MCP, and gateway.</span>
             </div>
 
-            <div class="window-route">
-                <span>Surface</span>
+            <div class="shell-route">
+                <span>Current route</span>
                 <strong>{describeRoute($page.url.pathname)}</strong>
             </div>
         </header>
 
-        <div class="frame-body">
+        <div class="shell-body">
             <aside class="sidebar">
                 <div class="brand-block">
-                    <p class="eyebrow">Agent runtime</p>
+                    <p class="eyebrow">Unified surface</p>
                     <h1>{brand}</h1>
                     <p class="brand-copy">
-                        A desktop shell for setup, workspace handoff, and runtime visibility.
+                        A light desktop shell for workspace execution, agent control, skills
+                        management, MCP inspection, and gateway routing.
                     </p>
                 </div>
 
                 <nav aria-label="Primary">
                     {#each appShellNav as route}
-                        <a
+                        <button
+                            type="button"
+                            role="link"
                             class:active={isActiveRoute($page.url.pathname, route.href)}
-                            href={route.href}
+                            data-route={route.href}
                         >
                             <div class="nav-header">
                                 <strong>{route.label}</strong>
                                 <span>{route.shortcut}</span>
                             </div>
                             <small>{route.caption}</small>
-                        </a>
+                        </button>
                     {/each}
                 </nav>
 
@@ -75,12 +80,12 @@
             <section class="content-column">
                 <div class="content-header">
                     <div>
-                        <p class="panel-label">Current route</p>
+                        <p class="panel-label">Current surface</p>
                         <h2>{describeRoute($page.url.pathname)}</h2>
                     </div>
                     <p class="content-copy">
-                        Desktop app framing replaces the preview-site shell while preserving route
-                        ownership boundaries.
+                        The product shell keeps the active route visible while the inner surface
+                        owns its own workflow and data.
                     </p>
                 </div>
 
@@ -93,27 +98,14 @@
 </div>
 
 <style>
-    :global(:root) {
-        color-scheme: dark;
-        --shell-bg: #09111f;
-        --shell-panel: rgba(9, 18, 33, 0.84);
-        --shell-panel-strong: rgba(14, 26, 48, 0.92);
-        --shell-border: rgba(148, 163, 184, 0.16);
-        --shell-copy: #b5c4d8;
-        --shell-bright: #eef4ff;
-        --shell-accent: #7dd3fc;
-        --shell-accent-2: #f59e0b;
-        --shell-danger: #fb7185;
-    }
-
     :global(body) {
         margin: 0;
         min-height: 100vh;
         background:
-            radial-gradient(circle at top left, rgba(125, 211, 252, 0.18), transparent 24%),
-            radial-gradient(circle at top right, rgba(245, 158, 11, 0.16), transparent 22%),
-            linear-gradient(180deg, #060b14 0%, #08111f 48%, #030712 100%);
-        color: var(--shell-bright);
+            radial-gradient(circle at top left, rgba(99, 89, 243, 0.08), transparent 26%),
+            radial-gradient(circle at top right, rgba(245, 72, 64, 0.05), transparent 22%),
+            linear-gradient(180deg, var(--mc-bg) 0%, #f3f4f8 54%, #eceef4 100%);
+        color: var(--mc-text);
         font-family:
             "Space Grotesk",
             "IBM Plex Sans",
@@ -130,33 +122,32 @@
         text-decoration: none;
     }
 
-    .desktop-shell {
+    .product-shell {
         min-height: 100vh;
         padding: 1rem;
     }
 
-    .desktop-frame {
+    .product-shell__frame {
         min-height: calc(100vh - 2rem);
-        border: 1px solid var(--shell-border);
-        border-radius: 1.6rem;
+        border: 1px solid var(--mc-border);
+        border-radius: var(--mc-radius-panel);
         background:
-            linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 16%),
-            rgba(3, 8, 18, 0.72);
+            linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 249, 252, 0.96));
         box-shadow:
-            0 30px 80px rgba(2, 6, 23, 0.55),
-            inset 0 1px 0 rgba(255, 255, 255, 0.04);
-        backdrop-filter: blur(18px);
+            0 24px 60px rgba(44, 52, 72, 0.12),
+            inset 0 1px 0 rgba(255, 255, 255, 0.75);
         overflow: hidden;
     }
 
-    .windowbar {
+    .shell-topbar {
         display: grid;
         grid-template-columns: auto 1fr auto;
         gap: 1rem;
         align-items: center;
-        padding: 0.9rem 1.15rem;
-        border-bottom: 1px solid var(--shell-border);
-        background: rgba(6, 13, 24, 0.86);
+        padding: 0.95rem 1.2rem;
+        border-bottom: 1px solid var(--mc-border);
+        background: rgba(255, 255, 255, 0.82);
+        backdrop-filter: blur(14px);
     }
 
     .window-controls {
@@ -168,60 +159,63 @@
         width: 0.78rem;
         height: 0.78rem;
         border-radius: 999px;
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
     }
 
     .danger {
-        background: #fb7185;
+        background: var(--mc-accent);
     }
 
     .warn {
-        background: #f59e0b;
+        background: var(--mc-warning);
     }
 
     .ok {
-        background: #34d399;
+        background: var(--mc-success);
     }
 
-    .window-meta,
-    .window-route {
+    .shell-brand,
+    .shell-route {
         display: grid;
         gap: 0.15rem;
     }
 
-    .eyebrow {
-        margin: 0 0 0.35rem;
-        color: var(--shell-accent);
-        font-size: 0.78rem;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
+    .shell-brand strong,
+    .shell-route strong {
+        color: var(--mc-text);
     }
 
-    .window-meta strong,
-    .window-route strong {
-        color: var(--shell-bright);
-    }
-
-    .window-route {
+    .shell-route {
         justify-items: end;
     }
 
-    .window-route span,
+    .shell-brand span,
+    .shell-route span,
     .brand-copy,
     .content-copy,
-    nav small {
-        color: var(--shell-copy);
+    nav small,
+    .panel-label {
+        color: var(--mc-text-secondary);
+    }
+
+    .eyebrow {
+        margin: 0 0 0.35rem;
+        color: var(--mc-primary);
+        font-size: 0.78rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
     }
 
     h1 {
         margin: 0;
         font-size: clamp(2rem, 3vw, 2.8rem);
         line-height: 0.95;
+        color: var(--mc-text);
     }
 
-    .frame-body {
+    .shell-body {
         display: grid;
-        grid-template-columns: minmax(17rem, 20rem) 1fr;
+        grid-template-columns: minmax(18rem, 22rem) 1fr;
         min-height: calc(100vh - 6.25rem);
     }
 
@@ -229,19 +223,20 @@
         display: grid;
         gap: 1.25rem;
         padding: 1.25rem;
-        border-right: 1px solid var(--shell-border);
+        border-right: 1px solid var(--mc-border);
         background:
-            radial-gradient(circle at top, rgba(125, 211, 252, 0.08), transparent 30%),
-            rgba(7, 13, 24, 0.9);
+            radial-gradient(circle at top, rgba(99, 89, 243, 0.06), transparent 30%),
+            linear-gradient(180deg, rgba(248, 248, 250, 0.96), rgba(243, 244, 247, 0.96));
     }
 
     .brand-block {
         display: grid;
         gap: 0.7rem;
         padding: 1.1rem;
-        border: 1px solid rgba(125, 211, 252, 0.14);
-        border-radius: 1.25rem;
-        background: rgba(10, 19, 35, 0.72);
+        border: 1px solid var(--mc-border);
+        border-radius: var(--mc-radius-card);
+        background: var(--mc-surface);
+        box-shadow: 0 10px 20px rgba(30, 36, 48, 0.05);
     }
 
     nav {
@@ -249,13 +244,20 @@
         gap: 0.8rem;
     }
 
-    nav a {
+    nav [role="link"] {
+        width: 100%;
+        text-align: left;
+        appearance: none;
         display: grid;
         gap: 0.45rem;
         padding: 0.95rem 1rem;
-        border: 1px solid rgba(148, 163, 184, 0.14);
-        border-radius: 1.1rem;
-        background: rgba(10, 18, 32, 0.72);
+        border: 1px solid var(--mc-border);
+        border-radius: var(--mc-radius-button);
+        background: var(--mc-surface);
+        box-shadow: 0 6px 12px rgba(18, 22, 33, 0.03);
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
         transition:
             transform 180ms ease,
             border-color 180ms ease,
@@ -263,12 +265,12 @@
             box-shadow 180ms ease;
     }
 
-    nav a.active,
-    nav a:hover {
-        transform: translateX(0.15rem);
-        border-color: rgba(125, 211, 252, 0.35);
-        background: rgba(17, 30, 51, 0.96);
-        box-shadow: 0 16px 32px rgba(2, 6, 23, 0.2);
+    nav [role="link"].active,
+    nav [role="link"]:hover {
+        transform: translateY(-1px);
+        border-color: var(--mc-border-strong);
+        background: var(--mc-hover);
+        box-shadow: 0 14px 24px rgba(18, 22, 33, 0.08);
     }
 
     .nav-header {
@@ -280,10 +282,11 @@
 
     .nav-header strong {
         font-size: 1rem;
+        color: var(--mc-text);
     }
 
     .nav-header span {
-        color: rgba(181, 196, 216, 0.78);
+        color: var(--mc-text-muted);
         font-size: 0.76rem;
         letter-spacing: 0.08em;
         text-transform: uppercase;
@@ -296,7 +299,6 @@
 
     .panel-label {
         margin: 0;
-        color: rgba(181, 196, 216, 0.82);
         font-size: 0.78rem;
         letter-spacing: 0.14em;
         text-transform: uppercase;
@@ -311,30 +313,35 @@
         display: grid;
         gap: 0.25rem;
         padding: 0.9rem 1rem;
-        border-radius: 1rem;
-        border: 1px solid rgba(148, 163, 184, 0.12);
-        background: rgba(8, 15, 28, 0.8);
+        border-radius: var(--mc-radius-card);
+        border: 1px solid var(--mc-border);
+        background: var(--mc-raised);
     }
 
     .signal-card span {
-        color: var(--shell-copy);
+        color: var(--mc-text-muted);
         font-size: 0.8rem;
         text-transform: uppercase;
         letter-spacing: 0.1em;
     }
 
+    .signal-card strong {
+        color: var(--mc-text);
+    }
+
     .signal-card.accent {
-        border-color: rgba(125, 211, 252, 0.22);
+        border-color: rgba(99, 89, 243, 0.2);
     }
 
     .signal-card.warn {
-        border-color: rgba(245, 158, 11, 0.22);
+        border-color: rgba(245, 199, 43, 0.36);
     }
 
     .content-column {
         display: grid;
         grid-template-rows: auto 1fr;
         min-width: 0;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.24), transparent);
     }
 
     .content-header {
@@ -349,6 +356,7 @@
     h2 {
         margin: 0.2rem 0 0;
         font-size: clamp(1.35rem, 2.3vw, 2rem);
+        color: var(--mc-text);
     }
 
     .content-copy {
@@ -363,38 +371,38 @@
     }
 
     @media (max-width: 920px) {
-        .frame-body {
+        .shell-body {
             grid-template-columns: 1fr;
         }
 
         .sidebar {
             border-right: 0;
-            border-bottom: 1px solid var(--shell-border);
+            border-bottom: 1px solid var(--mc-border);
         }
 
-        .windowbar {
+        .shell-topbar {
             grid-template-columns: 1fr;
         }
 
-        .window-route {
+        .shell-route {
             justify-items: start;
         }
     }
 
     @media (max-width: 720px) {
-        .desktop-shell {
+        .product-shell {
             padding: 0.65rem;
         }
 
-        .desktop-frame {
+        .product-shell__frame {
             min-height: calc(100vh - 1.3rem);
-            border-radius: 1.2rem;
+            border-radius: var(--mc-radius-card);
         }
 
         .content-header,
         .viewport,
         .sidebar,
-        .windowbar {
+        .shell-topbar {
             padding-left: 1rem;
             padding-right: 1rem;
         }

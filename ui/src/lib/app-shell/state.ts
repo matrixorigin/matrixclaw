@@ -18,22 +18,34 @@ export type BootNote = {
 
 export const appShellNav: AppShellNavItem[] = [
     {
-        href: "/setup",
-        label: "Setup",
-        caption: "Provider handshake, workspace binding, and runtime defaults.",
+        href: "/workspace",
+        label: "Workspace",
+        caption: "Talk to the selected agent and monitor the current run.",
         shortcut: "Cmd-1"
     },
     {
-        href: "/workspace",
-        label: "Workspace",
-        caption: "Conversation surface, file references, and live runtime state.",
+        href: "/agents",
+        label: "Agents",
+        caption: "Browse agents and open per-agent configuration.",
         shortcut: "Cmd-2"
     },
     {
         href: "/skills",
         label: "Skills",
-        caption: "Installed capabilities and per-agent switches.",
+        caption: "Manage the global skills catalog.",
         shortcut: "Cmd-3"
+    },
+    {
+        href: "/mcp",
+        label: "MCP",
+        caption: "Inspect shared MCP servers and connection health.",
+        shortcut: "Cmd-4"
+    },
+    {
+        href: "/gateway",
+        label: "Gateway",
+        caption: "Inspect global messaging gateways and routing posture.",
+        shortcut: "Cmd-5"
     }
 ];
 
@@ -50,7 +62,7 @@ export const bootNotes: BootNote[] = [
     },
     {
         label: "State path",
-        detail: "Configuration decides whether launch continues into setup or hands off to the workspace."
+        detail: "Configuration decides whether launch continues into the product shell or hands off to the workspace."
     },
     {
         label: "Fallback",
@@ -59,16 +71,28 @@ export const bootNotes: BootNote[] = [
 ];
 
 export function describeRoute(pathname: string): string {
-    if (pathname.startsWith("/setup")) {
-        return "Onboarding";
-    }
-
     if (pathname.startsWith("/workspace")) {
         return "Workspace";
     }
 
+    if (pathname.startsWith("/agents")) {
+        return "Agents";
+    }
+
     if (pathname.startsWith("/skills")) {
         return "Skills";
+    }
+
+    if (pathname.startsWith("/mcp")) {
+        return "MCP";
+    }
+
+    if (pathname.startsWith("/gateway")) {
+        return "Gateway";
+    }
+
+    if (pathname.startsWith("/setup")) {
+        return "Setup";
     }
 
     return "Launch";

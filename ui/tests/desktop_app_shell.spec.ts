@@ -31,7 +31,7 @@ const executionVisibility = {
     fallbackPolicy: "prefer-sandbox"
 };
 
-test("desktop app shell keeps navigation and workspace framing inside one window", async ({
+test("desktop shell exposes the full product navigation", async ({
     page
 }) => {
     await page.route("**/api/workspace/files", async (route) => {
@@ -58,9 +58,11 @@ test("desktop app shell keeps navigation and workspace framing inside one window
     await page.goto("/workspace");
 
     await expect(page.getByRole("heading", { name: "MatrixClaw" }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /Setup Cmd-1/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Workspace Cmd-2/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Workspace Cmd-1/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Agents Cmd-2/i })).toBeVisible();
     await expect(page.getByRole("link", { name: /Skills Cmd-3/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /MCP Cmd-4/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Gateway Cmd-5/i })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Workspace browser" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Assistant stream" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Queue and execution detail" })).toBeVisible();
