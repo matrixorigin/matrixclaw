@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount, tick } from "svelte";
 
-    import { agentRoute, fetchAgent, type AgentSummary } from "$lib/agents";
+    import { agentRoute, fetchAgent } from "$lib/agents";
     import { createSelectedAgentSession, displaySelectedAgentName, type SelectedAgentSession } from "$lib/agents/session";
     import { errorMessage, fetchJson } from "$lib/http";
     import {
@@ -11,6 +11,10 @@
         type QueueControlsView
     } from "$lib/queue";
     import { workspaceExplorerContract, type WorkspaceEntry } from "$lib/workspace";
+    import {
+        buildWorkspaceDockModel,
+        type WorkspaceDockModel
+    } from "$lib/workspace/dock";
     import {
         buildWorkspaceAgentSurface,
         buildWorkspaceShellDiagnostics,
@@ -78,8 +82,11 @@
           };
 
     let selectedAgentSession: SelectedAgentSession = createSelectedAgentSession();
-    let activeAgentDetails: AgentSummary | null = null;
     let activeAgentSurface: WorkspaceAgentSurface | null = null;
+    let workspaceDock: WorkspaceDockModel = buildWorkspaceDockModel(
+        selectedAgentSession.agentName,
+        activeAgentSurface
+    );
     let workspaceEntries: WorkspaceEntry[] = [];
     let queueView: QueueControlsView | null = null;
     let executionSnapshot: WorkspaceExecutionSnapshot | null = null;
@@ -107,6 +114,10 @@
 
     $: activeAgentLabel = displaySelectedAgentName(selectedAgentSession.agentName);
     $: composerPlaceholder = `Message ${activeAgentLabel}...`;
+    $: workspaceDock = buildWorkspaceDockModel(
+        selectedAgentSession.agentName,
+        activeAgentSurface
+    );
 
     function createSessionId() {
         if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -318,8 +329,11 @@
             ]);
 
             workspaceEntries = workspacePayload.map(normalizeWorkspaceEntry);
-            activeAgentDetails = agentPayload;
             activeAgentSurface = buildWorkspaceAgentSurface(agentPayload);
+            workspaceDock = buildWorkspaceDockModel(
+                selectedAgentSession.agentName,
+                activeAgentSurface
+            );
             queueView = normalizeQueueView(queuePayload);
             executionSnapshot = executionPayload;
             shellDiagnostics = buildWorkspaceShellDiagnostics(queueView, executionSnapshot);
@@ -448,14 +462,12 @@
         <section class="surface-card agent-card">
             <p class="section-label">Active Agent</p>
             <h2>{activeAgentSurface?.heading ?? activeAgentLabel}</h2>
-            <p class="lead">
-                {activeAgentDetails?.crown_job ?? "Loading the active agent profile..."}
-            </p>
+            <p class="lead">{workspaceDock.crownJobSummary}</p>
 
             <div class="detail-grid">
                 <article class="detail-card">
                     <p class="section-label">Crown Job</p>
-                    <p>{activeAgentSurface?.crownJob ?? "Loading crown job..."}</p>
+                    <p>{workspaceDock.crownJobSummary}</p>
                 </article>
 
                 <article class="detail-card">
@@ -465,26 +477,18 @@
             </div>
 
             <dl class="metric-grid">
-                <div>
-                    <dt>Signals</dt>
-                    <dd>{activeAgentSurface?.memorySignalCount ?? 0}</dd>
-                </div>
-                <div>
-                    <dt>Bindings</dt>
-                    <dd>{activeAgentSurface?.bindingCount ?? 0}</dd>
-                </div>
-                <div>
-                    <dt>Skills</dt>
-                    <dd>{activeAgentSurface?.enabledSkills.length ?? 0}</dd>
-                </div>
-                <div>
-                    <dt>MCP</dt>
-                    <dd>{activeAgentSurface?.enabledMcpServers.length ?? 0}</dd>
-                </div>
-                <div>
-                    <dt>Gateways</dt>
-                    <dd>{activeAgentSurface?.enabledGateways.length ?? 0}</dd>
-                </div>
+                {#each workspaceDock.agentState as row}
+                    <div>
+                        <dt>{row.label}</dt>
+                        <dd>{row.value}</dd>
+                    </div>
+                {/each}
+                {#each workspaceDock.capabilityState as row}
+                    <div>
+                        <dt>{row.label}</dt>
+                        <dd>{row.value}</dd>
+                    </div>
+                {/each}
                 <div>
                     <dt>Session</dt>
                     <dd>{selectedAgentSession.sessionId || "new session"}</dd>
