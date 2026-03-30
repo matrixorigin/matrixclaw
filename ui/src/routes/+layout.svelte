@@ -49,18 +49,16 @@
 
                 <nav aria-label="Primary">
                     {#each appShellNav as route}
-                        <button
-                            type="button"
-                            role="link"
+                        <a
                             class:active={isActiveRoute($page.url.pathname, route.href)}
-                            data-route={route.href}
+                            href={route.href}
                         >
                             <div class="nav-header">
                                 <strong>{route.label}</strong>
                                 <span>{route.shortcut}</span>
                             </div>
                             <small>{route.caption}</small>
-                        </button>
+                        </a>
                     {/each}
                 </nav>
 
@@ -244,10 +242,9 @@
         gap: 0.8rem;
     }
 
-    nav [role="link"] {
+    nav a {
         width: 100%;
         text-align: left;
-        appearance: none;
         display: grid;
         gap: 0.45rem;
         padding: 0.95rem 1rem;
@@ -256,8 +253,6 @@
         background: var(--mc-surface);
         box-shadow: 0 6px 12px rgba(18, 22, 33, 0.03);
         color: inherit;
-        font: inherit;
-        cursor: pointer;
         transition:
             transform 180ms ease,
             border-color 180ms ease,
@@ -265,8 +260,8 @@
             box-shadow 180ms ease;
     }
 
-    nav [role="link"].active,
-    nav [role="link"]:hover {
+    nav a.active,
+    nav a:hover {
         transform: translateY(-1px);
         border-color: var(--mc-border-strong);
         background: var(--mc-hover);
