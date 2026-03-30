@@ -64,30 +64,22 @@ const executionVisibility = {
     fallbackPolicy: "prefer-sandbox"
 };
 
-const skillsInventory = {
-    installed: [
-        {
-            name: "research",
-            source_root: "/imports/research",
-            installed_root: "/runtime/skills/research",
-            manifest_path: "/runtime/skills/research/matrixclaw.skill.json",
-            provenance_path: "/runtime/skills/research/provenance.json"
-        },
-        {
-            name: "lint-bridge",
-            source_root: "/imports/lint-bridge",
-            installed_root: "/runtime/skills/lint-bridge",
-            manifest_path: "/runtime/skills/lint-bridge/matrixclaw.skill.json",
-            provenance_path: "/runtime/skills/lint-bridge/provenance.json"
-        }
-    ],
-    enabled: [
-        {
-            agent_name: "default",
-            enabled: []
-        }
-    ]
-};
+const skillsCatalog = [
+    {
+        name: "research",
+        source_root: "/imports/research",
+        installed_root: "/runtime/skills/research",
+        enabled_by_agent_count: 2,
+        enabled_by_agents: ["atlas", "scribe"]
+    },
+    {
+        name: "lint-bridge",
+        source_root: "/imports/lint-bridge",
+        installed_root: "/runtime/skills/lint-bridge",
+        enabled_by_agent_count: 0,
+        enabled_by_agents: []
+    }
+];
 
 test("browser smoke verifies live workspace and skills flows", async ({ page }) => {
     let queueSessionId = "";
@@ -195,26 +187,10 @@ test("browser smoke verifies live workspace and skills flows", async ({ page }) 
         });
     });
 
-    await page.route("**/api/skills?agent=default", async (route) => {
+    await page.route("**/api/skills/catalog", async (route) => {
         await route.fulfill({
             contentType: "application/json",
-            body: JSON.stringify(skillsInventory)
-        });
-    });
-
-    await page.route("**/api/skills/toggle", async (route) => {
-        const payload = route.request().postDataJSON() as {
-            agent_name?: string;
-            skill_name?: string;
-            enabled?: boolean;
-        };
-
-        await route.fulfill({
-            contentType: "application/json",
-            body: JSON.stringify({
-                agent_name: payload.agent_name ?? "default",
-                enabled: payload.enabled ? [payload.skill_name ?? "lint-bridge"] : []
-            })
+            body: JSON.stringify(skillsCatalog)
         });
     });
 
@@ -239,11 +215,11 @@ test("browser smoke verifies live workspace and skills flows", async ({ page }) 
     await page.screenshot({ path: path.join(artifactDir, "workspace.png"), fullPage: true });
 
     await page.goto("/skills");
-    await expect(page.getByRole("heading", { name: "Global inventory" })).toBeVisible();
+    await expect(page.getByRole("main").getByRole("heading", { name: "Skills", level: 1 })).toBeVisible();
     await expect(page.getByRole("button", { name: /research/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /lint-bridge/i })).toBeVisible();
     await page.getByRole("button", { name: /lint-bridge/i }).click();
-    await page.getByRole("button", { name: "Enable for default" }).click();
-    await expect(page.getByText("Enabled for default")).toBeVisible();
+    await expect(page.getByText("No agents are currently using this skill.")).toBeVisible();
+    await expect(page.getByText("Agent Detail", { exact: true })).toBeVisible();
     await page.screenshot({ path: path.join(artifactDir, "skills.png"), fullPage: true });
 });

@@ -1,326 +1,313 @@
 <script lang="ts">
-    import { errorMessage, fetchJson } from "$lib/http";
     import { onMount } from "svelte";
 
-    type InstalledSkillRecord = {
+    import { errorMessage, fetchJson } from "$lib/http";
+
+    type SkillCatalogRecord = {
         name: string;
         source_root: string;
         installed_root: string;
-        manifest_path: string;
-        provenance_path: string;
+        enabled_by_agent_count: number;
+        enabled_by_agents: string[];
     };
 
-    type EnabledSkillsRecord = {
-        agent_name: string;
-        enabled: string[];
-    };
-
-    type SkillsInventory = {
-        installed: InstalledSkillRecord[];
-        enabled: EnabledSkillsRecord[];
-    };
-
-    const agentName = "default";
-
-    let inventory: InstalledSkillRecord[] = [];
-    let enabledState: EnabledSkillsRecord = {
-        agent_name: agentName,
-        enabled: []
-    };
-    let selectedSkill: InstalledSkillRecord | null = null;
+    let catalog: SkillCatalogRecord[] = [];
+    let selectedSkill: SkillCatalogRecord | null = null;
+    let loading = true;
     let pageError = "";
-    let busy = false;
 
-    onMount(async () => {
-        await loadInventory();
-    });
-
-    function isSkillEnabled(skillName: string): boolean {
-        return enabledState.enabled.includes(skillName);
-    }
-
-    function supportTier(skill: InstalledSkillRecord): "native" | "shimmed" {
-        return skill.name.includes("bridge") ? "shimmed" : "native";
-    }
-
-    function descriptionFor(skill: InstalledSkillRecord): string {
-        return supportTier(skill) === "native"
-            ? "Imported as a native MatrixClaw skill package."
-            : "Imported through a shimmed compatibility boundary.";
-    }
-
-    async function loadInventory() {
+    async function loadCatalog() {
+        loading = true;
         pageError = "";
 
         try {
-            const response = await fetchJson<SkillsInventory>(`/api/skills?agent=${agentName}`);
-            inventory = response.installed;
-            enabledState = response.enabled[0] ?? {
-                agent_name: agentName,
-                enabled: []
-            };
-            selectedSkill = inventory[0] ?? null;
-        } catch (error) {
-            pageError = errorMessage(error);
-        }
-    }
-
-    async function toggleSelectedSkill() {
-        if (!selectedSkill) {
-            return;
-        }
-
-        busy = true;
-        pageError = "";
-
-        try {
-            enabledState = await fetchJson<EnabledSkillsRecord>("/api/skills/toggle", {
-                method: "POST",
-                body: JSON.stringify({
-                    agent_name: enabledState.agent_name,
-                    skill_name: selectedSkill.name,
-                    enabled: !isSkillEnabled(selectedSkill.name)
-                })
-            });
+            catalog = await fetchJson<SkillCatalogRecord[]>("/api/skills/catalog");
+            selectedSkill = catalog[0] ?? null;
         } catch (error) {
             pageError = errorMessage(error);
         } finally {
-            busy = false;
+            loading = false;
         }
     }
+
+    function enabledByLabel(skill: SkillCatalogRecord): string {
+        return skill.enabled_by_agent_count === 1
+            ? "Enabled by 1 agent"
+            : `Enabled by ${skill.enabled_by_agent_count} agents`;
+    }
+
+    onMount(() => {
+        void loadCatalog();
+    });
 </script>
 
-<section class="skills-shell">
-    <aside class="inventory">
-        <p class="section-label">Installed skills</p>
-        <h2>Global inventory</h2>
+<svelte:head>
+    <title>Skills | MatrixClaw</title>
+</svelte:head>
+
+<section class="catalog-shell">
+    <header class="route-header">
+        <p class="section-label">Skills</p>
+        <h1>Skills</h1>
         <p class="lead">
-            Installed skill packages stay immutable. Agent-local enablement is tracked separately
-            so operators can reuse the same imports safely.
+            Global skill catalog with per-agent usage counts. Per-agent enablement is managed from
+            Agent Detail.
         </p>
+        <span class="status-pill">Managed globally, enabled per agent.</span>
+    </header>
 
-        {#if pageError}
-            <p class="error-copy">{pageError}</p>
-        {/if}
+    {#if pageError}
+        <p class="error-copy" role="alert">{pageError}</p>
+    {/if}
 
-        <div class="skill-list">
-            {#each inventory as skill}
-                <button
-                    type="button"
-                    class:selected={skill.name === selectedSkill?.name}
-                    on:click={() => (selectedSkill = skill)}
-                >
-                    <strong>{skill.name}</strong>
-                    <span>{supportTier(skill)}</span>
-                    <small>{skill.source_root}</small>
-                </button>
-            {/each}
+    {#if loading}
+        <p class="state-copy">Loading skills catalog...</p>
+    {:else if catalog.length > 0}
+        <div class="catalog-grid">
+            <aside class="catalog-list-panel">
+                <p class="section-label">Installed skills</p>
+                <div class="catalog-list">
+                    {#each catalog as skill}
+                        <button
+                            type="button"
+                            class:selected={skill.name === selectedSkill?.name}
+                            on:click={() => (selectedSkill = skill)}
+                        >
+                            <div class="catalog-list__copy">
+                                <strong>{skill.name}</strong>
+                                <small>{skill.source_root}</small>
+                            </div>
+                            <span>{enabledByLabel(skill)}</span>
+                        </button>
+                    {/each}
+                </div>
+            </aside>
+
+            {#if selectedSkill}
+                <article class="detail-panel">
+                    <p class="section-label">Selected skill</p>
+                    <div class="detail-header">
+                        <div>
+                            <h2>{selectedSkill.name}</h2>
+                            <p>
+                                Global imports stay immutable. Per-agent enablement is managed from
+                                the agent cockpit.
+                            </p>
+                        </div>
+                        <span class="status-pill">{enabledByLabel(selectedSkill)}</span>
+                    </div>
+
+                    <dl class="meta-grid">
+                        <div>
+                            <dt>Source root</dt>
+                            <dd>{selectedSkill.source_root}</dd>
+                        </div>
+                        <div>
+                            <dt>Installed root</dt>
+                            <dd>{selectedSkill.installed_root}</dd>
+                        </div>
+                        <div>
+                            <dt>Enablement</dt>
+                            <dd>{selectedSkill.enabled_by_agent_count}</dd>
+                        </div>
+                        <div>
+                            <dt>Boundary</dt>
+                            <dd>Agent Detail</dd>
+                        </div>
+                    </dl>
+
+                    <div class="binding-cloud">
+                        {#if selectedSkill.enabled_by_agents.length > 0}
+                            {#each selectedSkill.enabled_by_agents as agent}
+                                <span>{agent}</span>
+                            {/each}
+                        {:else}
+                            <p class="state-copy">No agents are currently using this skill.</p>
+                        {/if}
+                    </div>
+                </article>
+            {/if}
         </div>
-    </aside>
-
-    <article class="detail">
-        {#if selectedSkill}
-            <p class="section-label">Selected skill</p>
-            <div class="title-row">
-                <div>
-                    <h2>{selectedSkill.name}</h2>
-                    <p>{descriptionFor(selectedSkill)}</p>
-                </div>
-                <span class:enabled={isSkillEnabled(selectedSkill.name)} class="status-pill">
-                    {#if isSkillEnabled(selectedSkill.name)}
-                        Enabled for {enabledState.agent_name}
-                    {:else}
-                        Installed only
-                    {/if}
-                </span>
-            </div>
-
-            <dl class="meta-grid">
-                <div>
-                    <dt>Compatibility</dt>
-                    <dd>{supportTier(selectedSkill)}</dd>
-                </div>
-                <div>
-                    <dt>Agent-local state</dt>
-                    <dd>{enabledState.agent_name}</dd>
-                </div>
-                <div>
-                    <dt>Manifest</dt>
-                    <dd>{selectedSkill.manifest_path}</dd>
-                </div>
-                <div>
-                    <dt>Provenance</dt>
-                    <dd>{selectedSkill.provenance_path}</dd>
-                </div>
-                <div>
-                    <dt>Installed root</dt>
-                    <dd>{selectedSkill.installed_root}</dd>
-                </div>
-                <div>
-                    <dt>Mutation boundary</dt>
-                    <dd>`enabled-skills.json` only</dd>
-                </div>
-            </dl>
-
-            <div class="callout">
-                <h3>Enablement safety</h3>
-                <p>
-                    Toggling enablement updates only agent metadata. Imported packages and upstream
-                    source files are left untouched.
-                </p>
-            </div>
-
-            <button type="button" class="toggle" on:click={toggleSelectedSkill} disabled={busy}>
-                {#if isSkillEnabled(selectedSkill.name)}
-                    Disable for {enabledState.agent_name}
-                {:else}
-                    Enable for {enabledState.agent_name}
-                {/if}
-            </button>
-        {:else}
-            <p class="lead">No installed skills were found for this agent yet.</p>
-        {/if}
-    </article>
+    {:else}
+        <p class="state-copy">No installed skills were returned by the catalog.</p>
+    {/if}
 </section>
 
 <style>
-    .skills-shell {
+    .catalog-shell {
         display: grid;
-        grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr);
         gap: 1rem;
     }
 
-    .inventory,
-    .detail {
-        padding: 1.2rem;
-        border-radius: 1.25rem;
-        border: 1px solid rgba(148, 163, 184, 0.16);
-        background: rgba(15, 23, 42, 0.72);
+    .route-header {
+        display: grid;
+        gap: 0.5rem;
     }
 
     .section-label {
-        margin: 0 0 0.45rem;
-        color: #c4b5fd;
+        margin: 0;
+        color: var(--mc-primary);
+        font-size: 0.78rem;
         letter-spacing: 0.16em;
         text-transform: uppercase;
-        font-size: 0.78rem;
+    }
+
+    h1,
+    h2,
+    p,
+    dl {
+        margin: 0;
+    }
+
+    h1 {
+        color: var(--mc-text);
+        font-size: clamp(1.8rem, 3vw, 2.4rem);
+        line-height: 1;
+    }
+
+    h2 {
+        color: var(--mc-text);
+        font-size: 1.2rem;
     }
 
     .lead,
-    p,
-    dd,
-    small {
-        color: #cbd5e1;
+    .state-copy,
+    .error-copy,
+    .catalog-list__copy small,
+    .detail-panel p,
+    dd {
+        color: var(--mc-text-secondary);
         line-height: 1.55;
     }
 
-    .error-copy {
-        color: #fecaca;
+    .status-pill {
+        width: fit-content;
+        padding: 0.34rem 0.62rem;
+        border-radius: 999px;
+        border: 1px solid var(--mc-border);
+        background: rgba(91, 192, 235, 0.12);
+        color: var(--mc-text);
+        font-size: 0.85rem;
+        font-weight: 500;
     }
 
-    h2,
-    h3 {
-        margin: 0 0 0.7rem;
+    .catalog-grid {
+        display: grid;
+        grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr);
+        gap: 1rem;
+        align-items: start;
     }
 
-    .skill-list {
+    .catalog-list-panel,
+    .detail-panel {
+        padding: 1.1rem;
+        border: 1px solid var(--mc-border);
+        border-radius: var(--mc-radius-card);
+        background: var(--mc-surface);
+        box-shadow: 0 10px 18px rgba(30, 36, 48, 0.05);
+    }
+
+    .catalog-list {
         display: grid;
         gap: 0.75rem;
-        margin-top: 1rem;
+        margin-top: 0.9rem;
     }
 
-    .skill-list button {
-        display: grid;
-        gap: 0.25rem;
-        padding: 0.95rem;
+    .catalog-list button {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.95rem 1rem;
         text-align: left;
-        border-radius: 1rem;
-        border: 1px solid rgba(148, 163, 184, 0.16);
-        background: rgba(30, 41, 59, 0.66);
+        border-radius: var(--mc-radius-card);
+        border: 1px solid var(--mc-border);
+        background: var(--mc-raised);
         color: inherit;
         cursor: pointer;
     }
 
-    .skill-list button.selected {
-        border-color: rgba(196, 181, 253, 0.55);
-        background: rgba(49, 46, 129, 0.42);
+    .catalog-list button.selected {
+        border-color: rgba(91, 192, 235, 0.4);
+        background: rgba(91, 192, 235, 0.08);
     }
 
-    .skill-list span {
+    .catalog-list__copy {
+        display: grid;
+        gap: 0.2rem;
+    }
+
+    .catalog-list__copy strong {
+        color: var(--mc-text);
+        font-size: 1rem;
+    }
+
+    .catalog-list__copy small {
+        display: block;
+    }
+
+    .catalog-list button span,
+    .binding-cloud span {
         width: fit-content;
-        padding: 0.15rem 0.55rem;
+        padding: 0.25rem 0.55rem;
         border-radius: 999px;
-        background: rgba(196, 181, 253, 0.14);
-        color: #ddd6fe;
-        font-size: 0.82rem;
-        text-transform: capitalize;
+        background: rgba(91, 192, 235, 0.12);
+        color: var(--mc-text);
+        font-size: 0.83rem;
     }
 
-    .title-row {
+    .detail-header {
         display: flex;
-        gap: 1rem;
         justify-content: space-between;
-        align-items: flex-start;
-    }
-
-    .status-pill {
-        padding: 0.45rem 0.75rem;
-        border-radius: 999px;
-        background: rgba(148, 163, 184, 0.18);
-        color: #cbd5e1;
-        white-space: nowrap;
-    }
-
-    .status-pill.enabled {
-        background: rgba(74, 222, 128, 0.18);
-        color: #bbf7d0;
+        align-items: start;
+        gap: 1rem;
+        margin: 0.7rem 0 1rem;
     }
 
     .meta-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-        gap: 0.85rem;
-        margin: 1.2rem 0;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+        margin-top: 1rem;
+    }
+
+    .meta-grid div {
+        display: grid;
+        gap: 0.18rem;
+        padding: 0.8rem 0.9rem;
+        border: 1px solid var(--mc-border);
+        border-radius: var(--mc-radius-input);
+        background: var(--mc-raised);
     }
 
     dt {
-        margin-bottom: 0.3rem;
-        color: #94a3b8;
-        font-size: 0.82rem;
-        text-transform: uppercase;
+        color: var(--mc-text-muted);
+        font-size: 0.75rem;
         letter-spacing: 0.08em;
+        text-transform: uppercase;
     }
 
     dd {
         margin: 0;
-        overflow-wrap: anywhere;
+        color: var(--mc-text);
+        word-break: break-word;
     }
 
-    .callout {
-        margin-bottom: 1rem;
-        padding: 1rem;
-        border-radius: 1rem;
-        background: rgba(2, 6, 23, 0.45);
+    .binding-cloud {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1rem;
     }
 
-    .toggle {
-        padding: 0.75rem 1rem;
-        border: 0;
-        border-radius: 999px;
-        background: #ddd6fe;
-        color: #1e1b4b;
-        font-weight: 700;
-        cursor: pointer;
-    }
-
-    .toggle:disabled {
-        opacity: 0.55;
-        cursor: not-allowed;
-    }
-
-    @media (max-width: 860px) {
-        .skills-shell {
+    @media (max-width: 960px) {
+        .catalog-grid,
+        .meta-grid {
             grid-template-columns: 1fr;
+        }
+
+        .detail-header {
+            flex-direction: column;
         }
     }
 </style>

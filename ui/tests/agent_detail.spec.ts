@@ -26,6 +26,7 @@ test("agent detail renders crown job, memory, and capability bindings", async ({
     await expect(
         page.getByRole("main").getByRole("heading", { name: "Agent Detail", level: 1 })
     ).toBeVisible();
+    await expect(page.getByText("Identity", { exact: true })).toBeVisible();
     await expect(page.getByRole("main").getByRole("heading", { name: "Crown Job", level: 2 })).toBeVisible();
     await expect(page.getByText(agentDetail.crown_job)).toBeVisible();
     await expect(page.getByRole("main").getByRole("heading", { name: "Memory", level: 2 })).toBeVisible();

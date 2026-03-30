@@ -38,6 +38,7 @@
         <a class="quick-action" href={agentRoute(defaultSelectedAgentSession.agentName)}>
             Open {defaultSelectedAgentSession.agentName}
         </a>
+        <span class="status-pill">Per-agent configuration lives on the detail page.</span>
     </header>
 
     {#if pageError}
@@ -149,5 +150,16 @@
         background: rgba(91, 192, 235, 0.12);
         color: var(--mc-text);
         font-size: 0.84rem;
+    }
+
+    .status-pill {
+        width: fit-content;
+        padding: 0.34rem 0.62rem;
+        border-radius: 999px;
+        border: 1px solid var(--mc-border);
+        background: rgba(91, 192, 235, 0.12);
+        color: var(--mc-text);
+        font-size: 0.85rem;
+        font-weight: 500;
     }
 </style>

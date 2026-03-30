@@ -34,6 +34,7 @@
         <p class="section-label">Gateway</p>
         <h1>Gateway</h1>
         <p class="lead">Global messaging gateway catalog and live usage counts.</p>
+        <span class="status-pill">Managed centrally, enabled per agent.</span>
     </header>
 
     {#if pageError}
@@ -46,11 +47,11 @@
         <div class="catalog-list">
             {#each catalog as item}
                 <article class="catalog-card">
-                    <div>
+                    <div class="catalog-card__copy">
                         <strong>{item.name}</strong>
                         <p>{item.health}</p>
                     </div>
-                    <span>Enabled by {item.enabled_by_agent_count} agents</span>
+                    <span class="status-pill">{item.enabled_by_agent_count === 1 ? "Enabled by 1 agent" : `Enabled by ${item.enabled_by_agent_count} agents`}</span>
                 </article>
             {/each}
         </div>
@@ -97,6 +98,17 @@
         line-height: 1.55;
     }
 
+    .status-pill {
+        width: fit-content;
+        padding: 0.34rem 0.62rem;
+        border-radius: 999px;
+        border: 1px solid var(--mc-border);
+        background: rgba(91, 192, 235, 0.12);
+        color: var(--mc-text);
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
     .catalog-list {
         display: grid;
         gap: 0.75rem;
@@ -114,6 +126,11 @@
         box-shadow: 0 10px 18px rgba(30, 36, 48, 0.05);
     }
 
+    .catalog-card__copy {
+        display: grid;
+        gap: 0.2rem;
+    }
+
     .catalog-card strong {
         color: var(--mc-text);
     }
@@ -121,5 +138,6 @@
     .catalog-card span {
         color: var(--mc-text);
         font-size: 0.88rem;
+        white-space: nowrap;
     }
 </style>

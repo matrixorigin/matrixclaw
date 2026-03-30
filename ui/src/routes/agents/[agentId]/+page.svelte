@@ -50,6 +50,7 @@
         <h1>Agent Detail</h1>
         {#if detail}
             <p class="lead">{detail.title}</p>
+            <span class="status-pill">Agent {detail.agent_name} · {detail.binding_count} bindings</span>
         {:else}
             <p class="lead">Per-agent crown job, memory, and bindings live here.</p>
         {/if}
@@ -63,9 +64,15 @@
         <p class="state-copy">Loading agent detail...</p>
     {:else if detail}
         <div class="detail-grid">
-            <article class="detail-card">
+            <article class="detail-card detail-card--summary">
                 <p class="section-label">Identity</p>
-                <h2>{detail.title}</h2>
+                <div class="summary-row">
+                    <div>
+                        <h2>{detail.title}</h2>
+                        <p>Agent name: {detail.agent_name}</p>
+                    </div>
+                    <span class="status-pill">Memory {detail.memory_signal_count}</span>
+                </div>
                 <dl class="meta-list">
                     <div>
                         <dt>Agent</dt>
@@ -97,31 +104,43 @@
             <article class="detail-card">
                 <p class="section-label">Enabled Skills</p>
                 <h2>Enabled Skills</h2>
-                <ul>
-                    {#each detail.enabled_skills as skill}
-                        <li>{skill}</li>
-                    {/each}
-                </ul>
+                <div class="binding-cloud">
+                    {#if detail.enabled_skills.length > 0}
+                        {#each detail.enabled_skills as skill}
+                            <span>{skill}</span>
+                        {/each}
+                    {:else}
+                        <p class="state-copy">No skills are enabled for this agent.</p>
+                    {/if}
+                </div>
             </article>
 
             <article class="detail-card">
                 <p class="section-label">Enabled MCP Servers</p>
                 <h2>Enabled MCP Servers</h2>
-                <ul>
-                    {#each detail.enabled_mcp_servers as server}
-                        <li>{server}</li>
-                    {/each}
-                </ul>
+                <div class="binding-cloud">
+                    {#if detail.enabled_mcp_servers.length > 0}
+                        {#each detail.enabled_mcp_servers as server}
+                            <span>{server}</span>
+                        {/each}
+                    {:else}
+                        <p class="state-copy">No MCP servers are enabled for this agent.</p>
+                    {/if}
+                </div>
             </article>
 
             <article class="detail-card">
                 <p class="section-label">Enabled Gateways</p>
                 <h2>Enabled Gateways</h2>
-                <ul>
-                    {#each detail.enabled_gateways as gateway}
-                        <li>{gateway}</li>
-                    {/each}
-                </ul>
+                <div class="binding-cloud">
+                    {#if detail.enabled_gateways.length > 0}
+                        {#each detail.enabled_gateways as gateway}
+                            <span>{gateway}</span>
+                        {/each}
+                    {:else}
+                        <p class="state-copy">No gateways are enabled for this agent.</p>
+                    {/if}
+                </div>
             </article>
         </div>
     {:else}
@@ -151,7 +170,6 @@
     h1,
     h2,
     p,
-    ul,
     dl {
         margin: 0;
     }
@@ -171,7 +189,6 @@
     .state-copy,
     .error-copy,
     .detail-card p,
-    .detail-card li,
     dd {
         color: var(--mc-text-secondary);
         line-height: 1.55;
@@ -190,6 +207,17 @@
         border-radius: var(--mc-radius-card);
         background: var(--mc-surface);
         box-shadow: 0 10px 18px rgba(30, 36, 48, 0.05);
+    }
+
+    .detail-card--summary {
+        gap: 0.85rem;
+    }
+
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        gap: 1rem;
     }
 
     .meta-list {
@@ -213,7 +241,39 @@
         margin: 0;
     }
 
-    ul {
-        padding-left: 1.2rem;
+    .status-pill {
+        width: fit-content;
+        padding: 0.34rem 0.62rem;
+        border-radius: 999px;
+        border: 1px solid var(--mc-border);
+        background: rgba(91, 192, 235, 0.12);
+        color: var(--mc-text);
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .binding-cloud {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .binding-cloud span {
+        width: fit-content;
+        padding: 0.25rem 0.55rem;
+        border-radius: 999px;
+        background: rgba(91, 192, 235, 0.12);
+        color: var(--mc-text);
+        font-size: 0.83rem;
+    }
+
+    .binding-cloud .state-copy {
+        width: 100%;
+    }
+
+    @media (max-width: 960px) {
+        .summary-row {
+            flex-direction: column;
+        }
     }
 </style>
