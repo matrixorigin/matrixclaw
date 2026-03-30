@@ -7,7 +7,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::agent_store::list_agent_profiles;
+use crate::agent_store::load_agent_profiles;
 use crate::http::{HttpResponse, SetupSurface};
 use crate::paths;
 
@@ -85,7 +85,7 @@ where
 
 fn count_enabled_mcp_servers(home: impl AsRef<Path>) -> io::Result<BTreeMap<String, usize>> {
     let mut counts = BTreeMap::<String, usize>::new();
-    for agent in list_agent_profiles(home)? {
+    for agent in load_agent_profiles(home)? {
         for server in agent
             .enabled_mcp_servers
             .into_iter()

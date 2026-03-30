@@ -44,15 +44,29 @@ pub fn agent_profile_path(home: impl AsRef<Path>, agent_name: impl AsRef<str>) -
 
 pub fn list_agent_profiles(home: impl AsRef<Path>) -> io::Result<Vec<AgentProfileSummary>> {
     let home = home.as_ref();
-    let root = agent_profiles_dir(home);
-    if !root.exists() {
-        return Ok(Vec::new());
-    }
-
     let bindings = load_session_bindings(home)?;
     let mut binding_counts = std::collections::HashMap::<String, usize>::new();
     for binding in bindings {
         *binding_counts.entry(binding.agent_name).or_insert(0) += 1;
+    }
+
+    let mut profiles = Vec::new();
+    for profile in load_agent_profiles(home)? {
+        let binding_count = binding_counts
+            .get(&profile.agent_name)
+            .copied()
+            .unwrap_or(0);
+        profiles.push(AgentProfileSummary::from((profile, binding_count)));
+    }
+
+    profiles.sort_by(|left, right| left.agent_name.cmp(&right.agent_name));
+    Ok(profiles)
+}
+
+pub fn load_agent_profiles(home: impl AsRef<Path>) -> io::Result<Vec<AgentProfile>> {
+    let root = agent_profiles_dir(home);
+    if !root.exists() {
+        return Ok(Vec::new());
     }
 
     let mut profiles = Vec::new();
@@ -70,21 +84,14 @@ pub fn list_agent_profiles(home: impl AsRef<Path>) -> io::Result<Vec<AgentProfil
         let body = fs::read_to_string(&profile_path)?;
         let profile: AgentProfile = serde_json::from_str(&body)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-        let binding_count = binding_counts
-            .get(&profile.agent_name)
-            .copied()
-            .unwrap_or(0);
-        profiles.push(AgentProfileSummary::from((profile, binding_count)));
+        profiles.push(profile);
     }
 
     profiles.sort_by(|left, right| left.agent_name.cmp(&right.agent_name));
     Ok(profiles)
 }
 
-pub fn save_agent_profile(
-    home: impl AsRef<Path>,
-    profile: &AgentProfile,
-) -> io::Result<PathBuf> {
+pub fn save_agent_profile(home: impl AsRef<Path>, profile: &AgentProfile) -> io::Result<PathBuf> {
     let path = agent_profile_path(home, &profile.agent_name);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
