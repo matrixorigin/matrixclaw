@@ -23,3 +23,14 @@ export function normalizeSelectedAgentSession(
 ): SelectedAgentSession {
     return createSelectedAgentSession(value?.agentName, value?.sessionId);
 }
+
+export function displaySelectedAgentName(agentName: string): string {
+    const normalized = agentName.trim();
+    if (!normalized) {
+        return defaultSelectedAgentSession.agentName;
+    }
+
+    return normalized
+        .replace(/[_-]+/g, " ")
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}

@@ -28,6 +28,19 @@ const workspaceFiles = [
     }
 ];
 
+const activeAgent = {
+    agent_name: "atlas",
+    title: "Atlas",
+    crown_job: "Research topics and synthesize findings.",
+    memory_summary: "Keeps long-running workspace context.",
+    memory_signal_count: 14,
+    pinned_memory_count: 3,
+    enabled_skills: ["web_search"],
+    enabled_mcp_servers: ["search-01"],
+    enabled_gateways: ["matrix"],
+    binding_count: 2
+};
+
 const queueState = {
     steering: {
         kind: "steering",
@@ -116,6 +129,13 @@ test("browser smoke verifies live workspace and skills flows", async ({ page }) 
         });
     });
 
+    await page.route("**/api/agents/detail**", async (route) => {
+        await route.fulfill({
+            contentType: "application/json",
+            body: JSON.stringify(activeAgent)
+        });
+    });
+
     await page.route("**/api/workspace/reference", async (route) => {
         const body = route.request().postDataJSON() as { relative_path?: string };
         const referenceToken =
@@ -150,16 +170,19 @@ test("browser smoke verifies live workspace and skills flows", async ({ page }) 
             contentType: "application/json",
             body: JSON.stringify({
                 accepted: true,
+                session_id: payload.session_id ?? queueSessionId ?? "workspace-session",
                 state: queueState.steering
             })
         });
     });
 
     await page.route("**/api/queue/follow-up", async (route) => {
+        const payload = route.request().postDataJSON() as { session_id?: string };
         await route.fulfill({
             contentType: "application/json",
             body: JSON.stringify({
                 accepted: true,
+                session_id: payload.session_id ?? queueSessionId ?? "workspace-session",
                 state: queueState.follow_up
             })
         });
@@ -200,9 +223,12 @@ test("browser smoke verifies live workspace and skills flows", async ({ page }) 
     await page.screenshot({ path: path.join(artifactDir, "setup.png"), fullPage: true });
 
     await page.goto("/workspace");
-    await expect(page.getByRole("heading", { name: "Workspace browser" })).toBeVisible();
+    await expect(page.getByText("Active Agent", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Atlas" }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Run State" })).toBeVisible();
+    await expect(page.getByPlaceholder("Message Atlas...")).toBeVisible();
     expect(queueSessionId).toBeTruthy();
-    await page.getByRole("button", { name: "Reference" }).first().click();
+    await page.getByRole("button", { name: "Reference" }).first().click({ force: true });
     await expect(page.getByText("[[workspace:src/main.rs]]").first()).toBeVisible();
 
     const steeringMessage = "Playwright steering smoke message";

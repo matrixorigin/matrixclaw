@@ -42,16 +42,14 @@ const queueState = {
 };
 
 const executionVisibility = {
-    modeLabel: "sandboxed",
-    visibleBackends: ["docker", "boxlite", "local"],
+    modeLabel: "local",
+    visibleBackends: ["local", "docker", "boxlite"],
     sandboxPriority: ["docker", "boxlite"],
     sandboxFailureMessage: "Sandbox-only operations remain explicit in the workspace shell.",
     fallbackPolicy: "prefer-sandbox"
 };
 
-test("workspace tri-rail layout keeps the agent, conversation, and run state visible", async ({
-    page
-}) => {
+test("workspace uses agent summary, conversation, and run state rails", async ({ page }) => {
     await page.route("**/api/workspace/files", async (route) => {
         await route.fulfill({
             contentType: "application/json",
@@ -82,9 +80,10 @@ test("workspace tri-rail layout keeps the agent, conversation, and run state vis
 
     await page.goto("/workspace");
 
-    await expect(page.getByText("Active Agent", { exact: true })).toBeVisible();
-    await expect(page.getByText("Reference tray")).toBeVisible();
+    await expect(page.getByRole("main").getByText("Active Agent", { exact: true })).toBeVisible();
+    await expect(page.getByRole("main").getByRole("heading", { name: "Atlas" })).toBeVisible();
+    await expect(page.getByText("Crown Job")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Conversation" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Run State" })).toBeVisible();
-    await expect(page.getByText("Sandbox policy")).toBeVisible();
+    await expect(page.getByPlaceholder("Message Atlas...")).toBeVisible();
 });

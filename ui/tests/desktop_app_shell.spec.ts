@@ -8,6 +8,19 @@ const workspaceFiles = [
     }
 ];
 
+const activeAgent = {
+    agent_name: "atlas",
+    title: "Atlas",
+    crown_job: "Research topics and synthesize findings.",
+    memory_summary: "Keeps long-running workspace context.",
+    memory_signal_count: 14,
+    pinned_memory_count: 3,
+    enabled_skills: ["web_search"],
+    enabled_mcp_servers: ["search-01"],
+    enabled_gateways: ["matrix"],
+    binding_count: 2
+};
+
 const queueState = {
     steering: {
         kind: "steering",
@@ -41,6 +54,13 @@ test("desktop shell exposes the full product navigation", async ({
         });
     });
 
+    await page.route("**/api/agents/detail**", async (route) => {
+        await route.fulfill({
+            contentType: "application/json",
+            body: JSON.stringify(activeAgent)
+        });
+    });
+
     await page.route("**/api/queue/state*", async (route) => {
         await route.fulfill({
             contentType: "application/json",
@@ -63,7 +83,7 @@ test("desktop shell exposes the full product navigation", async ({
     await expect(page.getByRole("link", { name: /Skills Cmd-3/i })).toHaveAttribute("href", "/skills");
     await expect(page.getByRole("link", { name: /MCP Cmd-4/i })).toHaveAttribute("href", "/mcp");
     await expect(page.getByRole("link", { name: /Gateway Cmd-5/i })).toHaveAttribute("href", "/gateway");
-    await expect(page.getByRole("heading", { name: "Workspace browser" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Assistant stream" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Queue and execution detail" })).toBeVisible();
+    await expect(page.getByText("Active Agent", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Conversation" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Run State" })).toBeVisible();
 });

@@ -47,6 +47,19 @@ const workspaceFiles: WorkspaceFilesPayload = [
     }
 ];
 
+const activeAgent = {
+    agent_name: "atlas",
+    title: "Atlas",
+    crown_job: "Research topics and synthesize findings.",
+    memory_summary: "Keeps long-running workspace context.",
+    memory_signal_count: 14,
+    pinned_memory_count: 3,
+    enabled_skills: ["web_search"],
+    enabled_mcp_servers: ["search-01"],
+    enabled_gateways: ["matrix"],
+    binding_count: 2
+};
+
 const queueState: QueueStatePayload = {
     steering: {
         kind: "steering",
@@ -93,6 +106,13 @@ test("workspace transcript streams deltas without duplicating the final assistan
         });
     });
 
+    await page.route("**/api/agents/detail**", async (route) => {
+        await route.fulfill({
+            contentType: "application/json",
+            body: JSON.stringify(activeAgent)
+        });
+    });
+
     await page.route("**/api/execution/visibility", async (route) => {
         await route.fulfill({
             contentType: "application/json",
@@ -101,7 +121,12 @@ test("workspace transcript streams deltas without duplicating the final assistan
     });
 
     await page.route("**/api/agent/run/stream", async (route) => {
-        const body = route.request().postDataJSON() as { prompt?: string; session_id?: string };
+        const body = route.request().postDataJSON() as {
+            prompt?: string;
+            session_id?: string;
+            agent_name?: string;
+        };
+        expect(body.agent_name).toBe("atlas");
         if (!firstSessionId) {
             expect(body.session_id).toBeTruthy();
             firstSessionId = body.session_id ?? "";
@@ -141,8 +166,9 @@ test("workspace transcript streams deltas without duplicating the final assistan
 
     await page.goto("/workspace");
 
-    await expect(page.getByRole("heading", { name: "Workspace browser" })).toBeVisible();
-    await expect(page.getByText("Visible backends")).toBeVisible();
+    await expect(page.getByText("Active Agent", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Atlas" }).first()).toBeVisible();
+    await expect(page.getByText("Execution posture")).toBeVisible();
     await expect(page.getByText("Sandbox policy")).toBeVisible();
     expect(queueStateSeenSessionId).toBeTruthy();
 
@@ -163,6 +189,6 @@ test("workspace transcript streams deltas without duplicating the final assistan
         }).first()
     ).toBeVisible();
 
-    await expect(page.getByText("Visible backends")).toBeVisible();
+    await expect(page.getByText("Execution posture")).toBeVisible();
     await expect(page.getByText("Sandbox policy")).toBeVisible();
 });

@@ -1,13 +1,16 @@
-export type QueueControlView = {
-    kind: "steering" | "follow-up";
-    submitRoute: string;
-    deliveryTiming: "next-turn" | "next-run" | "queued";
-    summary: string;
-};
+import type { AgentSummary } from "$lib/agents";
+import type { QueueControlsView } from "$lib/queue";
 
-export type QueueControlsPanelView = {
-    steering: QueueControlView;
-    followUp: QueueControlView;
+export type WorkspaceAgentSurface = {
+    agentName: string;
+    heading: string;
+    crownJob: string;
+    memorySummary: string;
+    memorySignalCount: number;
+    bindingCount: number;
+    enabledSkills: string[];
+    enabledMcpServers: string[];
+    enabledGateways: string[];
 };
 
 export type WorkspaceExecutionSnapshot = {
@@ -30,41 +33,45 @@ export type WorkspaceShellDiagnostics = {
     executionCards: WorkspaceDiagnosticsCard[];
 };
 
+export function buildWorkspaceAgentSurface(agent: AgentSummary): WorkspaceAgentSurface {
+    const heading = agent.title.trim() || agent.agent_name.trim() || "Agent";
+
+    return {
+        agentName: agent.agent_name,
+        heading,
+        crownJob: agent.crown_job,
+        memorySummary: agent.memory_summary,
+        memorySignalCount: agent.memory_signal_count,
+        bindingCount: agent.binding_count,
+        enabledSkills: agent.enabled_skills,
+        enabledMcpServers: agent.enabled_mcp_servers,
+        enabledGateways: agent.enabled_gateways
+    };
+}
+
 export function buildWorkspaceShellDiagnostics(
-    queueView: QueueControlsPanelView,
+    queueView: QueueControlsView,
     execution: WorkspaceExecutionSnapshot
 ): WorkspaceShellDiagnostics {
     return {
         queueCards: [
             {
-                title: "Steering queue",
-                label: queueView.steering.deliveryTiming,
-                body: queueView.steering.summary,
-                tone: "neutral"
-            },
-            {
-                title: "Follow-up queue",
-                label: queueView.followUp.deliveryTiming,
-                body: queueView.followUp.summary,
+                title: "Queue",
+                label: `${queueView.steering.deliveryTiming} · ${queueView.followUp.deliveryTiming}`,
+                body: `${queueView.steering.summary} ${queueView.followUp.summary}`,
                 tone: "neutral"
             }
         ],
         executionCards: [
             {
-                title: "Visible backends",
+                title: "Execution posture",
                 label: execution.modeLabel,
-                body: execution.visibleBackends.join(", "),
-                tone: "neutral"
-            },
-            {
-                title: "Sandbox priority",
-                label: execution.fallbackPolicy,
                 body: execution.sandboxPriority.join(" > "),
                 tone: "neutral"
             },
             {
                 title: "Sandbox policy",
-                label: "required failures stay explicit",
+                label: "runtime warning",
                 body: execution.sandboxFailureMessage,
                 tone: "warning"
             }

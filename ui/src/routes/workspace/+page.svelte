@@ -1,4 +1,8 @@
 <script lang="ts">
+    import { onMount, tick } from "svelte";
+
+    import { agentRoute, fetchAgent, type AgentSummary } from "$lib/agents";
+    import { createSelectedAgentSession, displaySelectedAgentName, type SelectedAgentSession } from "$lib/agents/session";
     import { errorMessage, fetchJson } from "$lib/http";
     import {
         queueControlsCopy,
@@ -6,17 +10,14 @@
         type QueueControlKind,
         type QueueControlsView
     } from "$lib/queue";
+    import { workspaceExplorerContract, type WorkspaceEntry } from "$lib/workspace";
     import {
-        workspaceExplorerContract,
-        type WorkspaceEntry
-    } from "$lib/workspace";
-    import type {
-        QueueControlsPanelView,
-        WorkspaceExecutionSnapshot,
-        WorkspaceShellDiagnostics
+        buildWorkspaceAgentSurface,
+        buildWorkspaceShellDiagnostics,
+        type WorkspaceAgentSurface,
+        type WorkspaceExecutionSnapshot,
+        type WorkspaceShellDiagnostics
     } from "$lib/workspace/shell";
-    import { buildWorkspaceShellDiagnostics } from "$lib/workspace/shell";
-    import { onMount, tick } from "svelte";
 
     type TranscriptEntry = {
         role: "assistant" | "tool" | "warning";
@@ -53,8 +54,6 @@
         state: ApiQueueControlState;
     };
 
-    type ApiExecutionSnapshot = WorkspaceExecutionSnapshot;
-
     type AgentRunEvent = {
         sequence: number;
         kind: string;
@@ -78,6 +77,9 @@
               error: string;
           };
 
+    let selectedAgentSession: SelectedAgentSession = createSelectedAgentSession();
+    let activeAgentDetails: AgentSummary | null = null;
+    let activeAgentSurface: WorkspaceAgentSurface | null = null;
     let workspaceEntries: WorkspaceEntry[] = [];
     let queueView: QueueControlsView | null = null;
     let executionSnapshot: WorkspaceExecutionSnapshot | null = null;
@@ -92,13 +94,19 @@
     let loading = true;
     let busy = false;
     let pageError = "";
-    let sessionId = "";
     let streamPreviousEntries: TranscriptEntry[] = [];
+    let activeAgentLabel = displaySelectedAgentName(selectedAgentSession.agentName);
+    let composerPlaceholder = `Message ${activeAgentLabel}...`;
 
-    onMount(async () => {
-        sessionId = createSessionId();
-        await loadPage();
+    onMount(() => {
+        if (!selectedAgentSession.sessionId.trim()) {
+            setSessionId(createSessionId());
+        }
+        void loadPage();
     });
+
+    $: activeAgentLabel = displaySelectedAgentName(selectedAgentSession.agentName);
+    $: composerPlaceholder = `Message ${activeAgentLabel}...`;
 
     function createSessionId() {
         if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -109,11 +117,11 @@
     }
 
     function queueStateRoute() {
-        if (!sessionId.trim()) {
+        if (!selectedAgentSession.sessionId.trim()) {
             return "/api/queue/state";
         }
 
-        return `/api/queue/state?session_id=${encodeURIComponent(sessionId)}`;
+        return `/api/queue/state?session_id=${encodeURIComponent(selectedAgentSession.sessionId)}`;
     }
 
     function normalizeWorkspaceEntry(entry: ApiWorkspaceEntry): WorkspaceEntry {
@@ -145,9 +153,23 @@
         transcriptEntries = [
             {
                 role: "assistant",
-                text: "Workspace shell is connected. Use the side rails for queueing, execution status, and file references."
+                text: `Connected to ${activeAgentSurface?.heading ?? activeAgentLabel}. Use the composer to message the active agent, attach references, and inspect run state.`
             }
         ];
+    }
+
+    function setSessionId(sessionId: string) {
+        selectedAgentSession = createSelectedAgentSession(selectedAgentSession.agentName, sessionId);
+    }
+
+    function appendReference(referenceToken: string) {
+        if (!composerReferences.includes(referenceToken)) {
+            composerReferences = [...composerReferences, referenceToken];
+        }
+
+        promptDraft = promptDraft.trim()
+            ? `${promptDraft.trim()}\n${referenceToken}`
+            : referenceToken;
     }
 
     function startStreamShell(modelLabel: string) {
@@ -199,7 +221,7 @@
         }
 
         if (frame.type === "complete") {
-            sessionId = frame.session_id.trim() || sessionId;
+            setSessionId(frame.session_id.trim() || selectedAgentSession.sessionId);
             startStreamShell(frame.model);
             updateModelLabel(frame.model);
             setAssistantText(frame.final_message.trim() || frame.streamed_message.trim() || "");
@@ -288,24 +310,21 @@
         pageError = "";
 
         try {
-            const [entryPayload, queuePayload, executionPayload] = await Promise.all([
+            const [workspacePayload, agentPayload, queuePayload, executionPayload] = await Promise.all([
                 fetchJson<ApiWorkspaceEntry[]>(workspaceExplorerContract.filesRoute),
+                fetchAgent(selectedAgentSession.agentName),
                 fetchJson<ApiQueueControlsView>(queueStateRoute()),
-                fetchJson<ApiExecutionSnapshot>("/api/execution/visibility")
+                fetchJson<WorkspaceExecutionSnapshot>("/api/execution/visibility")
             ]);
 
-            workspaceEntries = entryPayload.map(normalizeWorkspaceEntry);
+            workspaceEntries = workspacePayload.map(normalizeWorkspaceEntry);
+            activeAgentDetails = agentPayload;
+            activeAgentSurface = buildWorkspaceAgentSurface(agentPayload);
             queueView = normalizeQueueView(queuePayload);
             executionSnapshot = executionPayload;
             shellDiagnostics = buildWorkspaceShellDiagnostics(queueView, executionSnapshot);
-            composerReferences = workspaceEntries
-                .filter((entry) => entry.kind === "file")
-                .slice(0, 2)
-                .map((entry) => entry.referenceToken);
-            promptDraft =
-                composerReferences.length >= 2
-                    ? `Review ${composerReferences[0]} before touching ${composerReferences[1]}.`
-                    : "";
+            composerReferences = [];
+            promptDraft = "";
             setInitialTranscript();
         } catch (error) {
             pageError = errorMessage(error);
@@ -315,6 +334,10 @@
     }
 
     async function attachReference(entry: WorkspaceEntry) {
+        if (entry.kind === "directory") {
+            return;
+        }
+
         busy = true;
         pageError = "";
 
@@ -329,11 +352,7 @@
                 }
             );
 
-            if (!composerReferences.includes(response.reference_token)) {
-                composerReferences = [...composerReferences, response.reference_token];
-            }
-
-            promptDraft = `${promptDraft}\n${response.reference_token}`.trim();
+            appendReference(response.reference_token);
             transcriptEntries = [
                 {
                     role: "assistant",
@@ -359,10 +378,11 @@
                 body: JSON.stringify({
                     kind,
                     message,
-                    session_id: sessionId || undefined
+                    session_id: selectedAgentSession.sessionId || undefined
                 })
             });
-            sessionId = response.session_id?.trim() || sessionId;
+
+            setSessionId(response.session_id.trim() || selectedAgentSession.sessionId);
 
             const queuePayload = await fetchJson<ApiQueueControlsView>(queueStateRoute());
             queueView = normalizeQueueView(queuePayload);
@@ -401,11 +421,13 @@
                 },
                 body: JSON.stringify({
                     prompt: promptDraft.trim(),
-                    session_id: sessionId || undefined
+                    session_id: selectedAgentSession.sessionId || undefined,
+                    agent_name: selectedAgentSession.agentName
                 })
             });
             await consumeStreamResponse(response);
-            queueView = normalizeQueueView(await fetchJson<ApiQueueControlsView>(queueStateRoute()));
+            const queuePayload = await fetchJson<ApiQueueControlsView>(queueStateRoute());
+            queueView = normalizeQueueView(queuePayload);
             if (executionSnapshot) {
                 shellDiagnostics = buildWorkspaceShellDiagnostics(queueView, executionSnapshot);
             }
@@ -417,61 +439,104 @@
     }
 </script>
 
+<svelte:head>
+    <title>Workspace | MatrixClaw</title>
+</svelte:head>
+
 <section class="workspace-shell">
     <aside class="left-rail">
-        <div class="panel-heading">
-            <p class="section-label">Project files</p>
-            <h2>Workspace browser</h2>
-        </div>
+        <section class="surface-card agent-card">
+            <p class="section-label">Active Agent</p>
+            <h2>{activeAgentSurface?.heading ?? activeAgentLabel}</h2>
+            <p class="lead">
+                {activeAgentDetails?.crown_job ?? "Loading the active agent profile..."}
+            </p>
 
-        <div class="summary-card">
-            <span class="card-title">Working set</span>
-            <strong>{workspaceEntries.length} visible items</strong>
-            <p>
-                Browse the workspace on the left, run the agent in the center, and inspect queue
-                or execution posture on the right.
+            <div class="detail-grid">
+                <article class="detail-card">
+                    <p class="section-label">Crown Job</p>
+                    <p>{activeAgentSurface?.crownJob ?? "Loading crown job..."}</p>
+                </article>
+
+                <article class="detail-card">
+                    <p class="section-label">Memory</p>
+                    <p>{activeAgentSurface?.memorySummary ?? "Loading memory summary..."}</p>
+                </article>
+            </div>
+
+            <dl class="metric-grid">
+                <div>
+                    <dt>Signals</dt>
+                    <dd>{activeAgentSurface?.memorySignalCount ?? 0}</dd>
+                </div>
+                <div>
+                    <dt>Bindings</dt>
+                    <dd>{activeAgentSurface?.bindingCount ?? 0}</dd>
+                </div>
+                <div>
+                    <dt>Skills</dt>
+                    <dd>{activeAgentSurface?.enabledSkills.length ?? 0}</dd>
+                </div>
+                <div>
+                    <dt>MCP</dt>
+                    <dd>{activeAgentSurface?.enabledMcpServers.length ?? 0}</dd>
+                </div>
+                <div>
+                    <dt>Gateways</dt>
+                    <dd>{activeAgentSurface?.enabledGateways.length ?? 0}</dd>
+                </div>
+                <div>
+                    <dt>Session</dt>
+                    <dd>{selectedAgentSession.sessionId || "new session"}</dd>
+                </div>
+            </dl>
+
+            <div class="chip-row">
+                {#if activeAgentSurface}
+                    {#each activeAgentSurface.enabledSkills as skill}
+                        <span>{skill}</span>
+                    {/each}
+                    {#each activeAgentSurface.enabledMcpServers as server}
+                        <span>{server}</span>
+                    {/each}
+                    {#each activeAgentSurface.enabledGateways as gateway}
+                        <span>{gateway}</span>
+                    {/each}
+                {/if}
+            </div>
+
+            <a class="agent-link" href={agentRoute(selectedAgentSession.agentName)}>
+                Open agent configuration
+            </a>
+        </section>
+    </aside>
+
+    <section class="main-column">
+        <div class="panel-heading">
+            <p class="section-label">Conversation</p>
+            <h2>Conversation</h2>
+            <p class="lead">
+                Talk to the selected agent, attach workspace references, and keep the transcript
+                grounded.
             </p>
         </div>
 
-        {#if loading}
-            <p class="status-copy">Loading workspace…</p>
-        {:else if pageError}
-            <p class="error-copy">{pageError}</p>
-        {:else}
-            <ul class="file-list">
-                {#each workspaceEntries as entry}
-                    <li>
-                        <div>
-                            <strong>{entry.relativePath}</strong>
-                            <small>
-                                {entry.kind === "directory" ? "Directory" : "Attachable file"}
-                            </small>
-                        </div>
-                        <button
-                            type="button"
-                            disabled={busy || entry.kind === "directory"}
-                            on:click={() => attachReference(entry)}
-                        >
-                            {entry.kind === "directory" ? "Browse" : "Reference"}
-                        </button>
-                    </li>
-                {/each}
-            </ul>
+        {#if pageError}
+            <p class="error-copy" role="alert">{pageError}</p>
         {/if}
-    </aside>
 
-    <div class="main-column">
-        <div class="transcript">
-            <div class="panel-heading">
-                <p class="section-label">Run stream</p>
-                <h2>Assistant stream</h2>
-            </div>
+        {#if loading}
+            <p class="state-copy">Loading workspace...</p>
+        {/if}
 
+        <div class="transcript-stack">
             {#each transcriptEntries as item}
                 {#if item.role === "assistant"}
-                    <article data-role="assistant"><p>{item.text}</p></article>
+                    <article class="transcript-card assistant" data-role={item.role}>
+                        <p>{item.text}</p>
+                    </article>
                 {:else}
-                    <article data-role={item.role}>
+                    <article class={`transcript-card ${item.role}`} data-role={item.role}>
                         <div class="entry-header">
                             <strong>{item.role}</strong>
                             {#if item.backend}
@@ -484,53 +549,112 @@
             {/each}
         </div>
 
-        <form class="composer">
+        <form class="composer" on:submit|preventDefault={sendPrompt}>
             <label for="prompt">Composer</label>
             <textarea
                 id="prompt"
                 rows="4"
                 bind:value={promptDraft}
-                placeholder="Ask the agent, attach references, or queue a steering update."
+                placeholder={composerPlaceholder}
             ></textarea>
-            <div class="composer-actions">
-                <div class="reference-chips">
-                    {#each composerReferences as reference}
-                        <span>{reference}</span>
-                    {/each}
+
+            <section class="reference-tray">
+                <div class="tray-header">
+                    <p class="section-label">Reference tray</p>
+                    <span>{workspaceEntries.length} entries</span>
                 </div>
-                <button type="button" disabled={busy || !promptDraft.trim()} on:click={sendPrompt}>
+
+                {#if workspaceEntries.length > 0}
+                    <div class="reference-list">
+                        {#each workspaceEntries as entry}
+                            <article class="reference-row">
+                                <div>
+                                    <strong>{entry.relativePath}</strong>
+                                    <small>
+                                        {entry.kind === "directory"
+                                            ? "Directory"
+                                            : entry.referenceToken}
+                                    </small>
+                                </div>
+                                <button
+                                    type="button"
+                                    disabled={busy || entry.kind === "directory"}
+                                    on:click={() => attachReference(entry)}
+                                >
+                                    {entry.kind === "directory" ? "Browse" : "Reference"}
+                                </button>
+                            </article>
+                        {/each}
+                    </div>
+                {:else}
+                    <p class="state-copy">No workspace references available.</p>
+                {/if}
+            </section>
+
+            <div class="composer-footer">
+                <div class="reference-chips">
+                    {#if composerReferences.length > 0}
+                        {#each composerReferences as reference}
+                            <button
+                                type="button"
+                                class="reference-chip"
+                                on:click={() => appendReference(reference)}
+                            >
+                                {reference}
+                            </button>
+                        {/each}
+                    {:else}
+                        <p class="state-copy">Select references from the tray above.</p>
+                    {/if}
+                </div>
+
+                <button
+                    type="button"
+                    class="send-button"
+                    disabled={busy || !promptDraft.trim()}
+                    on:click={sendPrompt}
+                >
                     Send
                 </button>
             </div>
         </form>
-    </div>
+    </section>
 
     <aside class="right-rail">
         <div class="panel-heading">
-            <p class="section-label">Run inspector</p>
-            <h2>Queue and execution detail</h2>
+            <p class="section-label">Run State</p>
+            <h2>Run State</h2>
+            <p class="lead">
+                Live queue posture and execution policy for the active session.
+            </p>
         </div>
 
-        <div class="summary-card">
-            <span class="card-title">Reference tray</span>
-            {#if composerReferences.length > 0}
-                <div class="reference-chips compact">
-                    {#each composerReferences as reference}
-                        <span>{reference}</span>
-                    {/each}
-                </div>
-            {:else}
-                <p>No references attached yet.</p>
+        <div class="state-stack">
+            {#if shellDiagnostics}
+                {#each shellDiagnostics.queueCards as card}
+                    <article class:warning={card.tone === "warning"} class="summary-card">
+                        <span class="card-title">{card.title}</span>
+                        <strong>{card.label}</strong>
+                        <p>{card.body}</p>
+                    </article>
+                {/each}
+                {#each shellDiagnostics.executionCards as card}
+                    <article class:warning={card.tone === "warning"} class="summary-card">
+                        <span class="card-title">{card.title}</span>
+                        <strong>{card.label}</strong>
+                        <p>{card.body}</p>
+                    </article>
+                {/each}
             {/if}
         </div>
 
-        {#if queueView && shellDiagnostics}
-            <section class="queue-strip">
-                <div class="queue-card">
-                    <p class="section-label">{shellDiagnostics.queueCards[0].title}</p>
+        {#if queueView}
+            <section class="queue-controls">
+                <article class="queue-card">
+                    <p class="section-label">Steering</p>
                     <h3>{queueDeliveryLabels[queueView.steering.deliveryTiming]}</h3>
                     <p>{queueControlsCopy.steering}</p>
-                    <small>{shellDiagnostics.queueCards[0].body}</small>
+                    <small>{queueView.steering.summary}</small>
                     <textarea
                         rows="3"
                         bind:value={steeringDraft}
@@ -543,13 +667,13 @@
                     >
                         Queue steering
                     </button>
-                </div>
+                </article>
 
-                <div class="queue-card">
-                    <p class="section-label">{shellDiagnostics.queueCards[1].title}</p>
+                <article class="queue-card">
+                    <p class="section-label">Follow-up</p>
                     <h3>{queueDeliveryLabels[queueView.followUp.deliveryTiming]}</h3>
                     <p>{queueControlsCopy.followUp}</p>
-                    <small>{shellDiagnostics.queueCards[1].body}</small>
+                    <small>{queueView.followUp.summary}</small>
                     <textarea
                         rows="3"
                         bind:value={followUpDraft}
@@ -562,18 +686,8 @@
                     >
                         Queue follow-up
                     </button>
-                </div>
+                </article>
             </section>
-        {/if}
-
-        {#if shellDiagnostics}
-            {#each shellDiagnostics.executionCards as card}
-                <div class:failure={card.tone === "warning"} class="execution-card">
-                    <span class="card-title">{card.title}</span>
-                    <strong>{card.label}</strong>
-                    <p>{card.body}</p>
-                </div>
-            {/each}
         {/if}
     </aside>
 </section>
@@ -581,127 +695,195 @@
 <style>
     .workspace-shell {
         display: grid;
-        grid-template-columns: minmax(17rem, 22rem) minmax(0, 1fr) minmax(17rem, 22rem);
+        grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr) minmax(18rem, 22rem);
         gap: 1rem;
+        align-items: start;
     }
 
     .left-rail,
     .right-rail,
-    .transcript,
+    .surface-card,
+    .transcript-card,
     .composer,
     .queue-card,
-    .execution-card,
-    .summary-card {
-        padding: 1.1rem;
-        border-radius: 1.25rem;
-        border: 1px solid rgba(148, 163, 184, 0.16);
-        background: rgba(15, 23, 42, 0.72);
+    .summary-card,
+    .reference-row,
+    .detail-card {
+        border: 1px solid var(--mc-border);
+        border-radius: var(--mc-radius-card);
+        background: var(--mc-surface);
+        box-shadow: 0 12px 24px rgba(27, 34, 51, 0.06);
     }
 
+    .left-rail,
+    .right-rail,
     .main-column {
         display: grid;
         gap: 1rem;
+        min-width: 0;
+    }
+
+    .surface-card,
+    .composer,
+    .queue-card,
+    .summary-card,
+    .transcript-card {
+        padding: 1rem 1.1rem;
     }
 
     .panel-heading {
-        margin-bottom: 0.85rem;
+        display: grid;
+        gap: 0.4rem;
     }
 
     .section-label {
-        margin: 0 0 0.4rem;
-        color: #86efac;
+        margin: 0;
+        color: var(--mc-primary);
+        font-size: 0.78rem;
         letter-spacing: 0.16em;
         text-transform: uppercase;
-        font-size: 0.78rem;
     }
 
     h2,
-    h3 {
+    h3,
+    p,
+    dl {
         margin: 0;
     }
 
-    .summary-card {
-        display: grid;
-        gap: 0.35rem;
-        margin-bottom: 1rem;
+    h2 {
+        color: var(--mc-text);
+        font-size: clamp(1.6rem, 3vw, 2.3rem);
+        line-height: 1;
     }
 
-    .summary-card span,
-    .execution-card p,
+    h3 {
+        color: var(--mc-text);
+        font-size: 1.05rem;
+    }
+
+    .lead,
+    .state-copy,
+    .error-copy,
+    .transcript-card p,
     .queue-card p,
     .queue-card small,
-    article p,
-    .status-copy {
-        color: #cbd5e1;
+    .reference-row small {
+        color: var(--mc-text-secondary);
         line-height: 1.55;
     }
 
     .error-copy {
-        color: #fecaca;
-        line-height: 1.55;
+        color: #b91c1c;
     }
 
-    .file-list,
-    .queue-strip {
-        margin: 0;
-        padding: 0;
-        list-style: none;
-    }
-
-    .file-list li {
+    .agent-card {
         display: grid;
-        gap: 0.6rem;
-        margin-bottom: 0.75rem;
-        padding: 0.85rem;
-        border-radius: 1rem;
-        background: rgba(30, 41, 59, 0.66);
+        gap: 1rem;
     }
 
-    .file-list strong,
-    .execution-card strong,
-    .summary-card strong {
-        color: #f8fafc;
+    .detail-grid,
+    .metric-grid,
+    .state-stack,
+    .reference-list,
+    .reference-chips {
+        display: grid;
+        gap: 0.75rem;
     }
 
-    .file-list small {
-        display: block;
-        margin-top: 0.25rem;
-        color: #94a3b8;
+    .detail-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    button {
-        width: fit-content;
-        padding: 0.6rem 0.9rem;
-        border: 0;
+    .detail-card {
+        padding: 0.85rem 0.95rem;
+        display: grid;
+        gap: 0.45rem;
+    }
+
+    .detail-card p {
+        color: var(--mc-text-secondary);
+        line-height: 1.5;
+    }
+
+    .metric-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .metric-grid div {
+        display: grid;
+        gap: 0.12rem;
+        padding: 0.7rem 0.8rem;
+        border-radius: var(--mc-radius-input);
+        background: var(--mc-raised);
+        border: 1px solid var(--mc-border);
+    }
+
+    dt {
+        color: var(--mc-text-muted);
+        font-size: 0.76rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    dd {
+        margin: 0;
+        color: var(--mc-text);
+        font-weight: 600;
+    }
+
+    .chip-row,
+    .reference-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .chip-row span,
+    .reference-chip,
+    .backend-badge,
+    .tray-header span,
+    .card-title {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.3rem 0.55rem;
         border-radius: 999px;
-        background: #fbbf24;
-        color: #111827;
-        font-weight: 700;
-        cursor: pointer;
+        background: rgba(91, 192, 235, 0.12);
+        color: var(--mc-text);
+        font-size: 0.84rem;
     }
 
-    button:disabled {
-        opacity: 0.55;
-        cursor: not-allowed;
+    .agent-link {
+        justify-self: start;
+        padding: 0.6rem 0.9rem;
+        border-radius: 999px;
+        background: var(--mc-primary);
+        color: #fff;
+        font-weight: 600;
     }
 
-    .transcript {
-        min-height: 18rem;
+    .transcript-stack {
+        display: grid;
+        gap: 0.75rem;
+        min-height: 10rem;
     }
 
-    article {
-        margin-top: 0.85rem;
-        padding: 0.95rem;
-        border-radius: 1rem;
-        background: rgba(2, 6, 23, 0.45);
+    .transcript-card {
+        display: grid;
+        gap: 0.55rem;
+        background: linear-gradient(180deg, var(--mc-surface), var(--mc-raised));
     }
 
-    article[data-role="tool"] {
-        border-left: 3px solid #38bdf8;
+    .transcript-card.assistant {
+        border-left: 3px solid var(--mc-primary);
     }
 
-    article[data-role="warning"] {
-        border-left: 3px solid #f87171;
+    .transcript-card.tool {
+        border-left: 3px solid var(--mc-warning);
+    }
+
+    .transcript-card.warning {
+        border-left: 3px solid var(--mc-danger);
     }
 
     .entry-header {
@@ -709,111 +891,175 @@
         flex-wrap: wrap;
         gap: 0.5rem;
         align-items: center;
-        margin-bottom: 0.4rem;
     }
 
     .backend-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 0.25rem 0.65rem;
-        border-radius: 999px;
-        background: rgba(251, 191, 36, 0.16);
-        color: #fde68a;
-        font-size: 0.85rem;
-        font-weight: 700;
+        background: rgba(245, 158, 11, 0.16);
+        color: #92400e;
         text-transform: lowercase;
-    }
-
-    .queue-strip {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 1rem;
     }
 
     .composer {
         display: grid;
-        gap: 0.75rem;
+        gap: 0.9rem;
+    }
+
+    .composer label {
+        color: var(--mc-text);
+        font-weight: 600;
     }
 
     textarea {
         width: 100%;
         resize: vertical;
-        min-height: 8rem;
-        padding: 1rem;
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        border-radius: 1rem;
-        background: rgba(2, 6, 23, 0.45);
-        color: inherit;
+        min-height: 7rem;
+        padding: 0.95rem 1rem;
+        border: 1px solid var(--mc-border);
+        border-radius: var(--mc-radius-input);
+        background: var(--mc-raised);
+        color: var(--mc-text);
         font: inherit;
+    }
+
+    .reference-tray {
+        display: grid;
+        gap: 0.7rem;
+    }
+
+    .tray-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .reference-list {
+        gap: 0.6rem;
+    }
+
+    .reference-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.8rem;
+        padding: 0.85rem 0.95rem;
+        background: var(--mc-raised);
+    }
+
+    .reference-row strong {
+        display: block;
+        color: var(--mc-text);
+    }
+
+    .reference-row small {
+        display: block;
+        margin-top: 0.2rem;
+    }
+
+    .reference-row button,
+    .send-button,
+    .queue-card button {
+        border: 0;
+        border-radius: 999px;
+        background: var(--mc-primary);
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .reference-row button,
+    .queue-card button {
+        padding: 0.5rem 0.8rem;
+    }
+
+    .reference-row button:disabled,
+    .send-button:disabled,
+    .queue-card button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+    }
+
+    .composer-footer {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.8rem;
+    }
+
+    .reference-chip {
+        border: 0;
+        cursor: pointer;
+    }
+
+    .send-button {
+        padding: 0.7rem 1rem;
+    }
+
+    .state-stack {
+        gap: 0.75rem;
+    }
+
+    .summary-card {
+        display: grid;
+        gap: 0.45rem;
+    }
+
+    .summary-card.warning {
+        border-color: rgba(239, 68, 68, 0.3);
+        background: rgba(254, 242, 242, 0.96);
+    }
+
+    .queue-controls {
+        display: grid;
+        gap: 0.75rem;
+    }
+
+    .queue-card {
+        display: grid;
+        gap: 0.55rem;
     }
 
     .queue-card textarea {
         min-height: 5rem;
     }
 
-    .composer-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-        justify-content: space-between;
-        align-items: center;
+    .queue-card button {
+        justify-self: start;
     }
 
-    .reference-chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-    }
-
-    .reference-chips.compact {
-        gap: 0.35rem;
-    }
-
-    .reference-chips span {
-        padding: 0.35rem 0.6rem;
-        border-radius: 999px;
-        background: rgba(59, 130, 246, 0.14);
-        color: #bfdbfe;
-        font-family:
-            "IBM Plex Mono",
-            monospace;
-        font-size: 0.85rem;
-    }
-
-    .execution-card {
-        margin-bottom: 0.9rem;
-    }
-
-    .card-title {
-        display: block;
-        margin-bottom: 0.55rem;
-        color: #93c5fd;
-        font-size: 0.8rem;
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-    }
-
-    .failure {
-        border-color: rgba(248, 113, 113, 0.3);
-    }
-
-    .failure p {
-        margin-top: 0.45rem;
-    }
-
-    @media (max-width: 1080px) {
+    @media (max-width: 1180px) {
         .workspace-shell {
             grid-template-columns: 1fr;
+        }
+
+        .detail-grid,
+        .metric-grid {
+            grid-template-columns: 1fr 1fr;
         }
     }
 
     @media (max-width: 720px) {
-        .queue-strip {
+        .detail-grid,
+        .metric-grid {
             grid-template-columns: 1fr;
         }
 
-        .composer-actions {
+        .composer-footer,
+        .tray-header,
+        .composer-footer .reference-chips {
+            width: 100%;
+        }
+
+        .send-button,
+        .queue-card button,
+        .reference-row button {
+            width: 100%;
+        }
+
+        .reference-row {
             align-items: flex-start;
+            flex-direction: column;
         }
     }
 </style>
