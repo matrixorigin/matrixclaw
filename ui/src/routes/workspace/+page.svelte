@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount, tick } from "svelte";
 
-    import { agentRoute, fetchAgent } from "$lib/agents";
+    import { fetchAgent } from "$lib/agents";
     import { createSelectedAgentSession, displaySelectedAgentName, type SelectedAgentSession } from "$lib/agents/session";
     import { errorMessage, fetchJson } from "$lib/http";
     import {
@@ -330,10 +330,6 @@
 
             workspaceEntries = workspacePayload.map(normalizeWorkspaceEntry);
             activeAgentSurface = buildWorkspaceAgentSurface(agentPayload);
-            workspaceDock = buildWorkspaceDockModel(
-                selectedAgentSession.agentName,
-                activeAgentSurface
-            );
             queueView = normalizeQueueView(queuePayload);
             executionSnapshot = executionPayload;
             shellDiagnostics = buildWorkspaceShellDiagnostics(queueView, executionSnapshot);
@@ -462,12 +458,14 @@
         <section class="surface-card agent-card">
             <p class="section-label">Active Agent</p>
             <h2>{activeAgentSurface?.heading ?? activeAgentLabel}</h2>
-            <p class="lead">{workspaceDock.crownJobSummary}</p>
+            <p class="lead">
+                {workspaceDock.crownJobSummary ?? "Loading the active agent profile..."}
+            </p>
 
             <div class="detail-grid">
                 <article class="detail-card">
                     <p class="section-label">Crown Job</p>
-                    <p>{workspaceDock.crownJobSummary}</p>
+                    <p>{workspaceDock.crownJobSummary ?? "Loading crown job..."}</p>
                 </article>
 
                 <article class="detail-card">
@@ -494,24 +492,6 @@
                     <dd>{selectedAgentSession.sessionId || "new session"}</dd>
                 </div>
             </dl>
-
-            <div class="chip-row">
-                {#if activeAgentSurface}
-                    {#each activeAgentSurface.enabledSkills as skill}
-                        <span>{skill}</span>
-                    {/each}
-                    {#each activeAgentSurface.enabledMcpServers as server}
-                        <span>{server}</span>
-                    {/each}
-                    {#each activeAgentSurface.enabledGateways as gateway}
-                        <span>{gateway}</span>
-                    {/each}
-                {/if}
-            </div>
-
-            <a class="agent-link" href={agentRoute(selectedAgentSession.agentName)}>
-                Open agent configuration
-            </a>
         </section>
     </aside>
 

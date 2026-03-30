@@ -18,7 +18,7 @@ export type WorkspaceDockModel = {
     title: string;
     agentToken: string;
     dockCopy: string;
-    crownJobSummary: string;
+    crownJobSummary: string | null;
     navItems: WorkspaceDockNavItem[];
     agentState: WorkspaceDockStateRow[];
     capabilityState: WorkspaceDockStateRow[];
@@ -39,12 +39,11 @@ export function buildWorkspaceDockModel(
         agentToken: normalizedAgent,
         dockCopy:
             "Select the active agent, move between control surfaces, and inspect compact runtime context without leaving the workspace.",
-        crownJobSummary: summarizeCrownJob(surface?.crownJob ?? ""),
+        crownJobSummary: surface ? summarizeCrownJob(surface.crownJob) : null,
         navItems: [
             {
                 label: "Agent Detail",
                 href: agentRoute(normalizedAgent),
-                active: true,
                 shortCode: "AG"
             },
             { label: "Skills", href: "/skills", shortCode: "SK" },
@@ -54,7 +53,7 @@ export function buildWorkspaceDockModel(
         agentState: [
             { label: "Crown job", value: "active", tone: "primary" },
             { label: "Memory", value: `${surface?.memorySignalCount ?? 0} signals` },
-            { label: "Pinned", value: `${surface?.bindingCount ?? 0} bindings` }
+            { label: "Bindings", value: `${surface?.bindingCount ?? 0} bindings` }
         ],
         capabilityState: [
             {
