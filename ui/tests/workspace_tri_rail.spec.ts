@@ -80,10 +80,12 @@ test("workspace uses agent summary, conversation, and run state rails", async ({
 
     await page.goto("/workspace");
 
-    await expect(page.getByRole("main").getByText("Active Agent", { exact: true })).toBeVisible();
-    await expect(page.getByRole("main").getByRole("heading", { name: "Atlas" })).toBeVisible();
-    await expect(page.getByText("Crown Job")).toBeVisible();
+    await expect(page.getByTestId("workspace-control-dock")).toBeVisible();
+    await expect(page.getByText("Workspace Controls", { exact: true })).toBeVisible();
+    await expect(page.getByText("Control dock", { exact: true })).toBeVisible();
+    await expect(page.getByText("Agent state", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Agent Detail" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Skills" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Conversation" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Run State" })).toBeVisible();
-    await expect(page.getByPlaceholder("Message Atlas...")).toBeVisible();
 });

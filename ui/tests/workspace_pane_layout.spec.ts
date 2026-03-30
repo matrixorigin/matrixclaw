@@ -82,9 +82,15 @@ test("workspace tri-rail layout keeps the agent, conversation, and run state vis
 
     await page.goto("/workspace");
 
-    await expect(page.getByText("Active Agent", { exact: true })).toBeVisible();
-    await expect(page.getByText("Reference tray")).toBeVisible();
+    const dock = page.getByTestId("workspace-control-dock");
+    const transcript = page.getByTestId("workspace-conversation-column");
+    const runState = page.getByTestId("workspace-run-state");
+
+    await expect(dock).toBeVisible();
+    await expect(transcript).toBeVisible();
+    await expect(runState).toBeVisible();
+    await expect(dock.getByRole("link", { name: "MCP" })).toBeVisible();
+    await expect(dock.getByText("14 signals", { exact: false })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Conversation" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Run State" })).toBeVisible();
-    await expect(page.getByText("Sandbox policy")).toBeVisible();
 });
