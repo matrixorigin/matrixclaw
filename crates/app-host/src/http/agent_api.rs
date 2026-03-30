@@ -11,7 +11,7 @@ use crate::ingress::{
 };
 use crate::live_runtime::LiveRunEvent;
 use crate::openai_compatible::OpenAiCompatibleProvider;
-use crate::session_binding_store::bind_session_to_agent;
+use crate::session_binding_store::{bind_session_to_agent, session_binding_for_session_id};
 
 pub const AGENT_RUN_ROUTE: &str = "/api/agent/run";
 pub const AGENT_RUN_STREAM_ROUTE: &str = "/api/agent/run/stream";
@@ -187,13 +187,22 @@ fn normalize_agent_run_request(
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
         .unwrap_or_else(generate_session_id);
-    let agent_name = payload
+    let agent_name = if let Some(agent_name) = payload
         .agent_name
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-        .unwrap_or_else(|| surface.current_agent_name());
+    {
+        agent_name.to_owned()
+    } else if let Some(existing_binding) =
+        session_binding_for_session_id(surface.home(), &session_id).map_err(|error| {
+            HttpResponse::json(500, json!({ "error": error.to_string() }).to_string())
+        })?
+    {
+        existing_binding.agent_name
+    } else {
+        surface.current_agent_name()
+    };
 
     let binding = match bind_session_to_agent(surface.home(), &session_id, &agent_name) {
         Ok(binding) => binding,
@@ -224,6 +233,53 @@ fn generate_session_id() -> String {
         .expect("clock before unix epoch")
         .as_nanos();
     format!("session-{}-{}", std::process::id(), nanos)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::env;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use crate::session_binding_store::bind_session_to_agent;
+    use crate::ui_assets::UiAssetLayout;
+
+    fn temp_home() -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock before unix epoch")
+            .as_nanos();
+        let home = env::temp_dir().join(format!(
+            "matrixclaw-home-{}-{}",
+            std::process::id(),
+            nanos
+        ));
+        fs::create_dir_all(&home).expect("create temp home");
+        home
+    }
+
+    #[test]
+    fn normalize_agent_run_request_reuses_existing_session_binding_when_agent_is_omitted() {
+        let home = temp_home();
+        let surface = SetupSurface::new(&home, UiAssetLayout::discover());
+        bind_session_to_agent(&home, "session-a", "atlas").expect("seed binding");
+
+        let envelope = normalize_agent_run_request(
+            &surface,
+            &AgentRunRequest {
+                prompt: "hello".to_string(),
+                session_id: Some("session-a".to_string()),
+                agent_name: None,
+            },
+        )
+        .expect("normalize request");
+
+        assert_eq!(envelope.conversation.session_id, "session-a");
+        assert_eq!(envelope.target_agent.as_deref(), Some("atlas"));
+    }
 }
 
 pub(crate) fn resolve_model(surface: &SetupSurface) -> String {

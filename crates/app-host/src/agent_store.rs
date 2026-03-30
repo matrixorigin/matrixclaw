@@ -94,10 +94,10 @@ pub fn save_agent_profile(
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
     let temp_path = path.with_extension(format!("json.tmp-{}", temp_suffix()));
     fs::write(&temp_path, body)?;
-    if path.exists() {
-        fs::remove_file(&path)?;
+    if let Err(error) = fs::rename(&temp_path, &path) {
+        let _ = fs::remove_file(&temp_path);
+        return Err(error);
     }
-    fs::rename(&temp_path, &path)?;
     Ok(path)
 }
 

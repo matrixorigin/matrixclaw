@@ -1,6 +1,7 @@
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
@@ -21,6 +22,7 @@ pub fn bind_session_to_agent(
     let session_id = trim_required(session_id.as_ref(), "session_id")?;
     let agent_name = trim_required(agent_name.as_ref(), "agent_name")?;
 
+    let _guard = binding_write_lock().lock().expect("binding store lock");
     let mut bindings = load_session_bindings(home.as_ref())?;
     if let Some(existing) = bindings.iter().find(|binding| binding.session_id == session_id) {
         if existing.agent_name != agent_name {
@@ -68,10 +70,10 @@ pub fn save_session_bindings(
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
     let temp_path = path.with_extension(format!("json.tmp-{}", temp_suffix()));
     fs::write(&temp_path, body)?;
-    if path.exists() {
-        fs::remove_file(&path)?;
+    if let Err(error) = fs::rename(&temp_path, &path) {
+        let _ = fs::remove_file(&temp_path);
+        return Err(error);
     }
-    fs::rename(&temp_path, &path)?;
     Ok(path)
 }
 
@@ -79,6 +81,16 @@ pub fn session_bindings_path(home: impl AsRef<Path>) -> PathBuf {
     paths::runtime_home(home)
         .join("state")
         .join("session-agent-bindings.json")
+}
+
+pub fn session_binding_for_session_id(
+    home: impl AsRef<Path>,
+    session_id: impl AsRef<str>,
+) -> io::Result<Option<SessionAgentBinding>> {
+    let session_id = trim_required(session_id.as_ref(), "session_id")?;
+    Ok(load_session_bindings(home)?
+        .into_iter()
+        .find(|binding| binding.session_id == session_id))
 }
 
 fn trim_required(value: &str, field: &str) -> io::Result<String> {
@@ -99,4 +111,9 @@ fn temp_suffix() -> String {
         .expect("clock before unix epoch")
         .as_nanos();
     format!("{}-{nanos}", std::process::id())
+}
+
+fn binding_write_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
 }
