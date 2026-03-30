@@ -454,48 +454,69 @@
 </svelte:head>
 
 <section class="workspace-shell">
-    <aside class="left-rail">
-        <section class="surface-card agent-card">
-            <p class="section-label">Active Agent</p>
-            <h2>{activeAgentSurface?.heading ?? activeAgentLabel}</h2>
-            <p class="lead">
-                {workspaceDock.crownJobSummary ?? "Loading the active agent profile..."}
-            </p>
-
-            <div class="detail-grid">
-                <article class="detail-card">
-                    <p class="section-label">Crown Job</p>
-                    <p>{workspaceDock.crownJobSummary ?? "Loading crown job..."}</p>
-                </article>
-
-                <article class="detail-card">
-                    <p class="section-label">Memory</p>
-                    <p>{activeAgentSurface?.memorySummary ?? "Loading memory summary..."}</p>
-                </article>
+    <aside class="left-rail control-dock" data-testid="workspace-control-dock">
+        <div class="dock-header">
+            <div class="dock-title-row">
+                <strong>{workspaceDock.title}</strong>
+                <span>{workspaceDock.agentToken}</span>
             </div>
+            <p class="dock-copy">{workspaceDock.dockCopy}</p>
+        </div>
 
-            <dl class="metric-grid">
-                {#each workspaceDock.agentState as row}
-                    <div>
-                        <dt>{row.label}</dt>
-                        <dd>{row.value}</dd>
+        <section class="dock-section">
+            <p class="section-label">Active Agent</p>
+            <div class="agent-pill">
+                <div class="agent-head">
+                    <div class="agent-copy">
+                        <strong>{activeAgentSurface?.heading ?? activeAgentLabel}</strong>
+                        <small>{workspaceDock.agentToken}</small>
                     </div>
-                {/each}
-                {#each workspaceDock.capabilityState as row}
-                    <div>
-                        <dt>{row.label}</dt>
-                        <dd>{row.value}</dd>
-                    </div>
-                {/each}
-                <div>
-                    <dt>Session</dt>
-                    <dd>{selectedAgentSession.sessionId || "new session"}</dd>
+                    <span class="status-badge live">Active</span>
                 </div>
-            </dl>
+            </div>
+        </section>
+
+        <section class="dock-section">
+            <p class="section-label">Control dock</p>
+            <nav class="dock-nav" aria-label="Workspace control dock">
+                {#each workspaceDock.navItems as item}
+                    <a href={item.href} class:active-nav={item.active} aria-label={item.label}>
+                        <span class="nav-icon" aria-hidden="true">{item.shortCode}</span>
+                        <span>{item.label}</span>
+                    </a>
+                {/each}
+            </nav>
+        </section>
+
+        <section class="dock-section">
+            <p class="section-label">Agent state</p>
+            <div class="dock-state-list">
+                {#each workspaceDock.agentState as row}
+                    <div class={`dock-state-row ${row.tone ?? "default"}`}>
+                        <strong>{row.label}</strong>
+                        <span>{row.value}</span>
+                    </div>
+                {/each}
+                <p class="dock-summary">
+                    {workspaceDock.crownJobSummary ?? "Loading crown job..."}
+                </p>
+            </div>
+        </section>
+
+        <section class="dock-section">
+            <p class="section-label">Capabilities</p>
+            <div class="dock-state-list">
+                {#each workspaceDock.capabilityState as row}
+                    <div class={`dock-state-row ${row.tone ?? "default"}`}>
+                        <strong>{row.label}</strong>
+                        <span>{row.value}</span>
+                    </div>
+                {/each}
+            </div>
         </section>
     </aside>
 
-    <section class="main-column">
+    <section class="main-column" data-testid="workspace-conversation-column">
         <div class="panel-heading">
             <p class="section-label">Conversation</p>
             <h2>Conversation</h2>
@@ -604,7 +625,7 @@
         </form>
     </section>
 
-    <aside class="right-rail">
+    <aside class="right-rail" data-testid="workspace-run-state">
         <div class="panel-heading">
             <p class="section-label">Run State</p>
             <h2>Run State</h2>
@@ -684,15 +705,12 @@
         align-items: start;
     }
 
-    .left-rail,
     .right-rail,
-    .surface-card,
     .transcript-card,
     .composer,
     .queue-card,
     .summary-card,
-    .reference-row,
-    .detail-card {
+    .reference-row {
         border: 1px solid var(--mc-border);
         border-radius: var(--mc-radius-card);
         background: var(--mc-surface);
@@ -707,7 +725,6 @@
         min-width: 0;
     }
 
-    .surface-card,
     .composer,
     .queue-card,
     .summary-card,
@@ -730,8 +747,7 @@
 
     h2,
     h3,
-    p,
-    dl {
+    p {
         margin: 0;
     }
 
@@ -761,69 +777,199 @@
         color: #b91c1c;
     }
 
-    .agent-card {
-        display: grid;
-        gap: 1rem;
+    .left-rail.control-dock {
+        padding: 1rem;
+        gap: 0.9rem;
+        border: 1px solid color-mix(in srgb, var(--mc-border-strong) 82%, transparent);
+        border-right-color: color-mix(in srgb, var(--mc-border-strong) 94%, transparent);
+        border-radius: var(--mc-radius-panel);
+        background:
+            linear-gradient(
+                180deg,
+                color-mix(in srgb, var(--mc-raised) 92%, transparent),
+                color-mix(in srgb, var(--mc-bg) 74%, transparent)
+            );
+        box-shadow:
+            inset -1px 0 0 rgba(255, 255, 255, 0.32),
+            0 16px 28px rgba(27, 34, 51, 0.08);
     }
 
-    .detail-grid,
-    .metric-grid,
+    .dock-header {
+        display: grid;
+        gap: 0.55rem;
+        padding-bottom: 0.85rem;
+        border-bottom: 1px solid color-mix(in srgb, var(--mc-border) 80%, transparent);
+    }
+
+    .dock-title-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+    }
+
+    .dock-title-row strong,
+    .agent-copy strong {
+        color: var(--mc-text);
+    }
+
+    .dock-title-row span,
+    .dock-copy,
+    .agent-copy small,
+    .dock-summary {
+        color: var(--mc-text-secondary);
+    }
+
+    .dock-title-row span,
+    .agent-copy small {
+        font-size: 0.78rem;
+        text-transform: lowercase;
+    }
+
+    .dock-copy {
+        margin: 0;
+        max-width: 28ch;
+        font-size: 0.84rem;
+        line-height: 1.5;
+    }
+
+    .dock-section {
+        display: grid;
+        gap: 0.55rem;
+    }
+
+    .agent-pill {
+        padding: 0.75rem 0.85rem;
+        border-radius: 0.85rem;
+        border: 1px solid color-mix(in srgb, var(--mc-border) 86%, transparent);
+        background: color-mix(in srgb, var(--mc-surface) 58%, transparent);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42);
+    }
+
+    .agent-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+    }
+
+    .agent-copy {
+        display: grid;
+        gap: 0.18rem;
+    }
+
+    .dock-nav,
+    .dock-state-list,
     .state-stack,
     .reference-list,
     .reference-chips {
         display: grid;
-        gap: 0.75rem;
-    }
-
-    .detail-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .detail-card {
-        padding: 0.85rem 0.95rem;
-        display: grid;
         gap: 0.45rem;
     }
 
-    .detail-card p {
+    .dock-nav a,
+    .dock-state-row {
+        min-height: 2.25rem;
+        padding: 0.55rem 0.75rem;
+        border-radius: 0.65rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.65rem;
+        border: 1px solid transparent;
+        background: color-mix(in srgb, var(--mc-surface) 34%, transparent);
+    }
+
+    .dock-nav a {
+        justify-content: flex-start;
+        transition:
+            border-color 150ms ease,
+            background 150ms ease,
+            box-shadow 150ms ease;
+    }
+
+    .dock-nav a:hover {
+        border-color: color-mix(in srgb, var(--mc-border-strong) 70%, transparent);
+        background: color-mix(in srgb, var(--mc-surface) 62%, transparent);
+    }
+
+    .dock-nav a.active-nav {
+        color: var(--mc-primary);
+        border-color: color-mix(in srgb, var(--mc-primary) 22%, transparent);
+        background: color-mix(in srgb, var(--mc-primary) 9%, transparent);
+        box-shadow:
+            inset 3px 0 0 var(--mc-primary),
+            0 6px 14px rgba(99, 89, 243, 0.08);
+    }
+
+    .nav-icon {
+        width: 1.25rem;
+        height: 1.25rem;
+        flex: 0 0 auto;
+        display: grid;
+        place-items: center;
+        border-radius: 0.45rem;
+        font:
+            600 0.62rem/1 var(--font-mono, "IBM Plex Mono", monospace);
+        color: var(--mc-text-muted);
+        background: color-mix(in srgb, var(--mc-surface) 84%, transparent);
+        border: 1px solid color-mix(in srgb, var(--mc-border) 90%, transparent);
+    }
+
+    .dock-state-row strong,
+    .dock-state-row span {
+        font-size: 0.84rem;
+    }
+
+    .dock-state-row span {
         color: var(--mc-text-secondary);
+        text-align: right;
+    }
+
+    .dock-state-row.primary {
+        border-color: color-mix(in srgb, var(--mc-primary) 18%, transparent);
+        background: color-mix(in srgb, var(--mc-primary) 6%, transparent);
+    }
+
+    .dock-state-row.mcp {
+        border-color: color-mix(in srgb, var(--mc-success) 18%, transparent);
+        background: color-mix(in srgb, var(--mc-success) 7%, transparent);
+    }
+
+    .dock-state-row.gateway {
+        border-color: color-mix(in srgb, var(--mc-danger) 18%, transparent);
+        background: color-mix(in srgb, var(--mc-danger) 7%, transparent);
+    }
+
+    .dock-summary {
+        margin: 0.1rem 0 0;
+        max-width: 24ch;
+        font-size: 0.78rem;
         line-height: 1.5;
     }
 
-    .metric-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .metric-grid div {
-        display: grid;
-        gap: 0.12rem;
-        padding: 0.7rem 0.8rem;
-        border-radius: var(--mc-radius-input);
-        background: var(--mc-raised);
-        border: 1px solid var(--mc-border);
-    }
-
-    dt {
-        color: var(--mc-text-muted);
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.3rem 0.55rem;
+        border-radius: 999px;
         font-size: 0.76rem;
-        letter-spacing: 0.08em;
+        font-weight: 600;
+        letter-spacing: 0.04em;
         text-transform: uppercase;
     }
 
-    dd {
-        margin: 0;
-        color: var(--mc-text);
-        font-weight: 600;
+    .status-badge.live {
+        background: color-mix(in srgb, var(--mc-success) 16%, transparent);
+        color: #17603b;
     }
 
-    .chip-row,
     .reference-chips {
         display: flex;
         flex-wrap: wrap;
         gap: 0.5rem;
     }
 
-    .chip-row span,
     .reference-chip,
     .backend-badge,
     .tray-header span,
@@ -835,15 +981,6 @@
         background: rgba(91, 192, 235, 0.12);
         color: var(--mc-text);
         font-size: 0.84rem;
-    }
-
-    .agent-link {
-        justify-self: start;
-        padding: 0.6rem 0.9rem;
-        border-radius: 999px;
-        background: var(--mc-primary);
-        color: #fff;
-        font-weight: 600;
     }
 
     .transcript-stack {
@@ -1017,16 +1154,21 @@
             grid-template-columns: 1fr;
         }
 
-        .detail-grid,
-        .metric-grid {
-            grid-template-columns: 1fr 1fr;
+        .left-rail.control-dock {
+            border-right-color: color-mix(in srgb, var(--mc-border-strong) 82%, transparent);
         }
     }
 
     @media (max-width: 720px) {
-        .detail-grid,
-        .metric-grid {
-            grid-template-columns: 1fr;
+        .dock-title-row,
+        .agent-head,
+        .dock-state-row {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .dock-state-row span {
+            text-align: left;
         }
 
         .composer-footer,
