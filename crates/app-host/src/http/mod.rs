@@ -4,7 +4,10 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 pub mod agent_api;
+pub mod agents_api;
 pub mod execution_api;
+pub mod gateway_api;
+pub mod mcp_api;
 pub mod openclaw_api;
 pub mod queue_api;
 pub mod routes;
@@ -177,13 +180,35 @@ impl SetupSurface {
             return openclaw_api::openclaw_chat_response(self, request);
         }
 
+        if agents_api::is_agents_directory_route(&request.path) && request.method == HttpMethod::Get
+        {
+            return agents_api::agents_directory_response(self);
+        }
+
+        if agents_api::is_agent_detail_route(&request.path) && request.method == HttpMethod::Get {
+            return agents_api::agent_detail_response(self, &request.path);
+        }
+
         if skills_api::is_skills_inventory_route(&request.path) && request.method == HttpMethod::Get
         {
             return skills_api::skills_inventory_response(self, &request.path);
         }
 
+        if skills_api::is_skills_catalog_route(&request.path) && request.method == HttpMethod::Get {
+            return skills_api::skills_catalog_response(self);
+        }
+
         if skills_api::is_skills_toggle_route(&request.path) && request.method == HttpMethod::Post {
             return skills_api::toggle_skill_response(self, request);
+        }
+
+        if mcp_api::is_mcp_catalog_route(&request.path) && request.method == HttpMethod::Get {
+            return mcp_api::mcp_catalog_response(self);
+        }
+
+        if gateway_api::is_gateway_catalog_route(&request.path) && request.method == HttpMethod::Get
+        {
+            return gateway_api::gateway_catalog_response(self);
         }
 
         if request.method == HttpMethod::Get && routes::is_shell_route(&request.path) {

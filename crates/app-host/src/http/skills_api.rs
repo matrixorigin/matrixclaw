@@ -1,3 +1,4 @@
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -31,6 +32,15 @@ pub struct SkillsInventory {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkillCatalogRecord {
+    pub name: String,
+    pub source_root: PathBuf,
+    pub installed_root: PathBuf,
+    pub enabled_by_agent_count: usize,
+    pub enabled_by_agents: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EnableSkillChange {
     pub agent_name: String,
     pub skill_name: String,
@@ -48,6 +58,7 @@ struct EnabledSkillsFile {
 
 pub const SKILLS_INVENTORY_ROUTE: &str = "/api/skills";
 pub const SKILLS_TOGGLE_ROUTE: &str = "/api/skills/toggle";
+pub const SKILLS_CATALOG_ROUTE: &str = "/api/skills/catalog";
 
 pub fn is_skills_inventory_route(path: &str) -> bool {
     crate::http::routes::normalize_path(path) == SKILLS_INVENTORY_ROUTE
@@ -55,6 +66,10 @@ pub fn is_skills_inventory_route(path: &str) -> bool {
 
 pub fn is_skills_toggle_route(path: &str) -> bool {
     crate::http::routes::normalize_path(path) == SKILLS_TOGGLE_ROUTE
+}
+
+pub fn is_skills_catalog_route(path: &str) -> bool {
+    crate::http::routes::normalize_path(path) == SKILLS_CATALOG_ROUTE
 }
 
 pub fn compat_registry_path(home: impl AsRef<Path>) -> PathBuf {
@@ -78,6 +93,31 @@ pub fn skills_inventory_for_agent(
     let enabled = load_enabled_skills(home.as_ref(), agent_name.as_ref())?;
 
     Ok(SkillsInventory { installed, enabled })
+}
+
+pub fn skills_catalog_for_home(home: impl AsRef<Path>) -> io::Result<Vec<SkillCatalogRecord>> {
+    let installed = load_installed_skills(home.as_ref())?;
+    let enabled_by_skill = load_enabled_skills_by_skill(home.as_ref())?;
+
+    let mut catalog = installed
+        .into_iter()
+        .map(|record| {
+            let enabled_by_agents = enabled_by_skill
+                .get(&record.name)
+                .map(|agents| agents.iter().cloned().collect::<Vec<_>>())
+                .unwrap_or_default();
+            SkillCatalogRecord {
+                enabled_by_agent_count: enabled_by_agents.len(),
+                enabled_by_agents,
+                name: record.name,
+                source_root: record.source_root,
+                installed_root: record.installed_root,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    catalog.sort_by(|left, right| left.name.cmp(&right.name));
+    Ok(catalog)
 }
 
 pub fn set_skill_enabled(
@@ -149,6 +189,39 @@ fn load_enabled_skills(
     }])
 }
 
+fn load_enabled_skills_by_skill(
+    home: impl AsRef<Path>,
+) -> io::Result<BTreeMap<String, BTreeSet<String>>> {
+    let home = home.as_ref();
+    let agents_dir = paths::runtime_home(home).join("agents");
+    if !agents_dir.exists() {
+        return Ok(BTreeMap::new());
+    }
+
+    let mut by_skill = BTreeMap::<String, BTreeSet<String>>::new();
+    for entry in fs::read_dir(agents_dir)? {
+        let entry = entry?;
+        if !entry.file_type()?.is_dir() {
+            continue;
+        }
+
+        let Some(agent_name) = entry.file_name().to_str().map(str::to_string) else {
+            continue;
+        };
+
+        for enabled in load_enabled_skills(home, &agent_name)? {
+            for skill_name in enabled.enabled {
+                by_skill
+                    .entry(skill_name)
+                    .or_default()
+                    .insert(enabled.agent_name.clone());
+            }
+        }
+    }
+
+    Ok(by_skill)
+}
+
 fn save_enabled_skills(
     home: impl AsRef<Path>,
     record: &EnabledSkillsRecord,
@@ -197,6 +270,19 @@ pub fn skills_inventory_response(surface: &SetupSurface, request_path: &str) -> 
         Err(error) => HttpResponse::json(
             500,
             json!({ "error": format!("failed to load skills inventory: {error}") }).to_string(),
+        ),
+    }
+}
+
+pub fn skills_catalog_response(surface: &SetupSurface) -> HttpResponse {
+    match skills_catalog_for_home(surface.home()) {
+        Ok(catalog) => {
+            let body = serde_json::to_string_pretty(&catalog).expect("serialize skills catalog");
+            HttpResponse::json(200, body)
+        }
+        Err(error) => HttpResponse::json(
+            500,
+            json!({ "error": format!("failed to load skills catalog: {error}") }).to_string(),
         ),
     }
 }
