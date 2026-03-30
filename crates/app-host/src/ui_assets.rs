@@ -143,8 +143,18 @@ impl UiAssetLayout {
                     shell.clone()
                 })
             }
-            _ if is_client_route(&normalized) => Some(shell),
-            _ => None,
+            _ => {
+                let route_html = self.build_dir.join(normalized.trim_start_matches('/')).with_extension("html");
+                if route_html.is_file() {
+                    return Some(route_html);
+                }
+
+                if is_client_route(&normalized) {
+                    Some(shell)
+                } else {
+                    None
+                }
+            }
         }
     }
 
