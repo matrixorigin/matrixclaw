@@ -200,7 +200,8 @@ test("browser smoke verifies live workspace and skills flows", async ({ page }) 
 
     await page.goto("/workspace");
     await expect(page.getByText("Active Agent", { exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Atlas" }).first()).toBeVisible();
+    await expect(page.getByText("Workspace Controls", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Agent Detail" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Run State" })).toBeVisible();
     await expect(page.getByPlaceholder("Message Atlas...")).toBeVisible();
     expect(queueSessionId).toBeTruthy();
