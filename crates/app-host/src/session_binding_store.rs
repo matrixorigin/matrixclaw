@@ -24,7 +24,10 @@ pub fn bind_session_to_agent(
 
     let _guard = binding_write_lock().lock().expect("binding store lock");
     let mut bindings = load_session_bindings(home.as_ref())?;
-    if let Some(existing) = bindings.iter().find(|binding| binding.session_id == session_id) {
+    if let Some(existing) = bindings
+        .iter()
+        .find(|binding| binding.session_id == session_id)
+    {
         if existing.agent_name != agent_name {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,

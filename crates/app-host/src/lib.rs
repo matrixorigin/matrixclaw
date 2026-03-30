@@ -1,9 +1,9 @@
+pub mod agent_store;
 pub mod asset_manifest;
 pub mod assets;
 pub mod commands;
 pub mod compat_registry;
 pub mod execution;
-pub mod agent_store;
 pub mod gateway;
 pub mod http;
 pub mod ingress;
@@ -17,8 +17,8 @@ pub mod openclaw_transport;
 pub mod paths;
 pub mod plugin_launcher;
 pub mod sandbox_backend;
-pub mod session_binding_store;
 pub mod server;
+pub mod session_binding_store;
 pub mod setup;
 pub mod ui_assets;
 

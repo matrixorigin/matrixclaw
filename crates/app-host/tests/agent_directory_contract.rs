@@ -11,11 +11,7 @@ fn temp_home() -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("clock before unix epoch")
         .as_nanos();
-    let home = env::temp_dir().join(format!(
-        "matrixclaw-home-{}-{}",
-        std::process::id(),
-        nanos
-    ));
+    let home = env::temp_dir().join(format!("matrixclaw-home-{}-{}", std::process::id(), nanos));
     fs::create_dir_all(&home).expect("create temp home");
     home
 }

@@ -207,10 +207,16 @@ fn normalize_agent_run_request(
     let binding = match bind_session_to_agent(surface.home(), &session_id, &agent_name) {
         Ok(binding) => binding,
         Err(error) if error.kind() == io::ErrorKind::InvalidInput => {
-            return Err(HttpResponse::json(400, json!({ "error": error.to_string() }).to_string()))
+            return Err(HttpResponse::json(
+                400,
+                json!({ "error": error.to_string() }).to_string(),
+            ))
         }
         Err(error) => {
-            return Err(HttpResponse::json(500, json!({ "error": error.to_string() }).to_string()));
+            return Err(HttpResponse::json(
+                500,
+                json!({ "error": error.to_string() }).to_string(),
+            ));
         }
     };
 
@@ -220,7 +226,12 @@ fn normalize_agent_run_request(
 
     let mut envelope = match normalize_browser_request(&normalized_request) {
         Ok(envelope) => envelope,
-        Err(error) => return Err(HttpResponse::json(400, json!({ "error": error }).to_string())),
+        Err(error) => {
+            return Err(HttpResponse::json(
+                400,
+                json!({ "error": error }).to_string(),
+            ))
+        }
     };
 
     envelope.target_agent = Some(binding.agent_name);
@@ -252,11 +263,8 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("clock before unix epoch")
             .as_nanos();
-        let home = env::temp_dir().join(format!(
-            "matrixclaw-home-{}-{}",
-            std::process::id(),
-            nanos
-        ));
+        let home =
+            env::temp_dir().join(format!("matrixclaw-home-{}-{}", std::process::id(), nanos));
         fs::create_dir_all(&home).expect("create temp home");
         home
     }
