@@ -91,6 +91,4 @@ test("workspace tri-rail layout keeps the agent, conversation, and run state vis
     await expect(runState).toBeVisible();
     await expect(dock.getByRole("link", { name: "MCP" })).toBeVisible();
     await expect(dock.getByText("14 signals", { exact: false })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Conversation" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Run State" })).toBeVisible();
 });
