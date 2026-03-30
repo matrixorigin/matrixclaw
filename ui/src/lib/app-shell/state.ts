@@ -71,28 +71,13 @@ export const bootNotes: BootNote[] = [
 ];
 
 export function describeRoute(pathname: string): string {
-    if (pathname.startsWith("/workspace")) {
-        return "Workspace";
-    }
-
-    if (pathname.startsWith("/agents")) {
-        return "Agents";
-    }
-
-    if (pathname.startsWith("/skills")) {
-        return "Skills";
-    }
-
-    if (pathname.startsWith("/mcp")) {
-        return "MCP";
-    }
-
-    if (pathname.startsWith("/gateway")) {
-        return "Gateway";
-    }
-
     if (pathname.startsWith("/setup")) {
         return "Setup";
+    }
+
+    const matchedRoute = appShellNav.find((route) => isActiveRoute(pathname, route.href));
+    if (matchedRoute) {
+        return matchedRoute.label;
     }
 
     return "Launch";

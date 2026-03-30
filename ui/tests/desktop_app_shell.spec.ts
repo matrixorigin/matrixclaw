@@ -58,11 +58,11 @@ test("desktop shell exposes the full product navigation", async ({
     await page.goto("/workspace");
 
     await expect(page.getByRole("heading", { name: "MatrixClaw" }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /Workspace Cmd-1/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Agents Cmd-2/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Skills Cmd-3/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /MCP Cmd-4/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Gateway Cmd-5/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Workspace Cmd-1/i })).toHaveAttribute("href", "/workspace");
+    await expect(page.getByRole("link", { name: /Agents Cmd-2/i })).toHaveAttribute("href", "/agents");
+    await expect(page.getByRole("link", { name: /Skills Cmd-3/i })).toHaveAttribute("href", "/skills");
+    await expect(page.getByRole("link", { name: /MCP Cmd-4/i })).toHaveAttribute("href", "/mcp");
+    await expect(page.getByRole("link", { name: /Gateway Cmd-5/i })).toHaveAttribute("href", "/gateway");
     await expect(page.getByRole("heading", { name: "Workspace browser" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Assistant stream" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Queue and execution detail" })).toBeVisible();
