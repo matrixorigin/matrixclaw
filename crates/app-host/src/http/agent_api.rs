@@ -1,5 +1,6 @@
 use std::env;
 use std::io;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -10,6 +11,7 @@ use crate::ingress::{
 };
 use crate::live_runtime::LiveRunEvent;
 use crate::openai_compatible::OpenAiCompatibleProvider;
+use crate::session_binding_store::bind_session_to_agent;
 
 pub const AGENT_RUN_ROUTE: &str = "/api/agent/run";
 pub const AGENT_RUN_STREAM_ROUTE: &str = "/api/agent/run/stream";
@@ -19,6 +21,8 @@ pub struct AgentRunRequest {
     pub prompt: String,
     #[serde(default)]
     pub session_id: Option<String>,
+    #[serde(default)]
+    pub agent_name: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -67,10 +71,10 @@ pub fn agent_run_response(surface: &SetupSurface, request: HttpRequest) -> HttpR
         Err(response) => return response,
     };
 
-    let envelope = match normalize_browser_request(&payload) {
+    let envelope = match normalize_agent_run_request(surface, &payload) {
         Ok(envelope) => envelope,
-        Err(error) => {
-            return HttpResponse::json(400, json!({ "error": error }).to_string());
+        Err(response) => {
+            return response;
         }
     };
 
@@ -117,10 +121,12 @@ pub fn stream_agent_run(
         }
     };
 
-    let envelope = match normalize_browser_request(&payload) {
+    let envelope = match normalize_agent_run_request(surface, &payload) {
         Ok(envelope) => envelope,
-        Err(error) => {
-            return on_frame(sse_frame(&AgentRunStreamFrame::Error { error }));
+        Err(response) => {
+            return on_frame(sse_frame(&AgentRunStreamFrame::Error {
+                error: response.body_text(),
+            }));
         }
     };
 
@@ -168,6 +174,56 @@ fn parse_agent_run_request(body: &[u8]) -> Result<AgentRunRequest, HttpResponse>
     }
 
     Ok(payload)
+}
+
+fn normalize_agent_run_request(
+    surface: &SetupSurface,
+    payload: &AgentRunRequest,
+) -> Result<crate::ingress::IngressEnvelope, HttpResponse> {
+    let session_id = payload
+        .session_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(generate_session_id);
+    let agent_name = payload
+        .agent_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| surface.current_agent_name());
+
+    let binding = match bind_session_to_agent(surface.home(), &session_id, &agent_name) {
+        Ok(binding) => binding,
+        Err(error) if error.kind() == io::ErrorKind::InvalidInput => {
+            return Err(HttpResponse::json(400, json!({ "error": error.to_string() }).to_string()))
+        }
+        Err(error) => {
+            return Err(HttpResponse::json(500, json!({ "error": error.to_string() }).to_string()));
+        }
+    };
+
+    let mut normalized_request = payload.clone();
+    normalized_request.session_id = Some(binding.session_id.clone());
+    normalized_request.agent_name = Some(binding.agent_name.clone());
+
+    let mut envelope = match normalize_browser_request(&normalized_request) {
+        Ok(envelope) => envelope,
+        Err(error) => return Err(HttpResponse::json(400, json!({ "error": error }).to_string())),
+    };
+
+    envelope.target_agent = Some(binding.agent_name);
+    Ok(envelope)
+}
+
+fn generate_session_id() -> String {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock before unix epoch")
+        .as_nanos();
+    format!("session-{}-{}", std::process::id(), nanos)
 }
 
 pub(crate) fn resolve_model(surface: &SetupSurface) -> String {
