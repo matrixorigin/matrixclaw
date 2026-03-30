@@ -94,10 +94,7 @@ pub fn save_agent_profile(
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
     let temp_path = path.with_extension(format!("json.tmp-{}", temp_suffix()));
     fs::write(&temp_path, body)?;
-    if let Err(error) = fs::rename(&temp_path, &path) {
-        let _ = fs::remove_file(&temp_path);
-        return Err(error);
-    }
+    replace_file(&temp_path, &path)?;
     Ok(path)
 }
 
@@ -128,4 +125,26 @@ fn temp_suffix() -> String {
         .expect("clock before unix epoch")
         .as_nanos();
     format!("{}-{nanos}", std::process::id())
+}
+
+fn replace_file(source: &Path, destination: &Path) -> io::Result<()> {
+    if !destination.exists() {
+        if let Err(error) = fs::rename(source, destination) {
+            let _ = fs::remove_file(source);
+            return Err(error);
+        }
+        return Ok(());
+    }
+
+    let backup_path = destination.with_extension(format!("json.bak-{}", temp_suffix()));
+    fs::rename(destination, &backup_path)?;
+
+    if let Err(error) = fs::rename(source, destination) {
+        let _ = fs::rename(&backup_path, destination);
+        let _ = fs::remove_file(source);
+        return Err(error);
+    }
+
+    let _ = fs::remove_file(&backup_path);
+    Ok(())
 }
