@@ -112,6 +112,9 @@ fn map_request(
     surface: &SetupSurface,
     mut request: tiny_http::Request,
 ) -> io::Result<(tiny_http::Request, Response<Box<dyn Read + Send>>)> {
+    let request_path = request.url().to_string();
+    let request_origin = request_origin_header_value(&request).map(str::to_string);
+
     let method = match request.method() {
         Method::Get => HttpMethod::Get,
         Method::Post => HttpMethod::Post,
@@ -137,14 +140,18 @@ fn map_request(
 
     let response = surface.handle(HttpRequest {
         method,
-        path: request.url().to_string(),
+        path: request_path.clone(),
         body,
     });
 
-    Ok((
-        request,
-        build_response(response.status_code, &response.content_type, response.body)?,
-    ))
+    let mut response = build_response(response.status_code, &response.content_type, response.body)?;
+    if let Some(origin) = health_probe_origin_for_cors(&request_path, request_origin.as_deref()) {
+        response = with_header(response, "Access-Control-Allow-Origin", origin)?;
+        response = with_header(response, "Access-Control-Allow-Methods", "GET")?;
+        response = with_header(response, "Vary", "Origin")?;
+    }
+
+    Ok((request, response))
 }
 
 fn build_streaming_agent_response(
@@ -196,6 +203,36 @@ fn build_response(
         Some(body.len()),
         None,
     ))
+}
+
+fn with_header(
+    response: Response<Box<dyn Read + Send>>,
+    name: &str,
+    value: &str,
+) -> io::Result<Response<Box<dyn Read + Send>>> {
+    let header = Header::from_bytes(name.as_bytes(), value.as_bytes())
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid header"))?;
+    Ok(response.with_header(header))
+}
+
+fn request_origin_header_value(request: &tiny_http::Request) -> Option<&str> {
+    request
+        .headers()
+        .iter()
+        .find(|header| header.field.equiv("Origin"))
+        .map(|header| header.value.as_str())
+}
+
+fn health_probe_origin_for_cors<'origin>(
+    path: &str,
+    origin: Option<&'origin str>,
+) -> Option<&'origin str> {
+    if !crate::http::routes::is_health_route(path) {
+        return None;
+    }
+
+    let origin = origin?.trim();
+    (!origin.is_empty()).then_some(origin)
 }
 
 fn bind_server(bind_addr: &str) -> io::Result<Server> {
