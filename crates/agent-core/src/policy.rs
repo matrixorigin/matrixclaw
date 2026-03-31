@@ -1,11 +1,13 @@
-use crate::tool::{BlockedToolResult, ToolExecutionRequest};
+use async_trait::async_trait;
+use matrixclaw_tools::{ToolCall, ToolResult};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum ToolPreflightDecision {
     Allow,
-    Block(BlockedToolResult),
+    Block(ToolResult),
 }
 
-pub trait ToolPreflightPolicy {
-    fn before_tool_call(&mut self, request: &ToolExecutionRequest) -> ToolPreflightDecision;
+#[async_trait]
+pub trait ToolPreflightPolicy: Send + Sync {
+    async fn before_tool_call(&self, call: &ToolCall) -> ToolPreflightDecision;
 }

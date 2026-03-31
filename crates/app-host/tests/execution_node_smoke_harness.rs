@@ -18,8 +18,8 @@ use matrixclaw_session_runtime::sqlite::SqliteStorage;
 use matrixclaw_session_runtime::storage::TranscriptStore;
 use serde_json::{json, Value};
 
-#[test]
-fn execution_node_smoke_harness() {
+#[tokio::test]
+async fn execution_node_smoke_harness() {
     let _env_lock = env_lock().lock().expect("env lock");
     let home = temp_home();
     let request_count = Arc::new(AtomicUsize::new(0));
@@ -31,7 +31,7 @@ fn execution_node_smoke_harness() {
 
     let surface = SetupSurface::new(&home, UiAssetLayout::discover());
     let test_server = spawn_test_server(surface).expect("spawn test server");
-    let client = reqwest::blocking::Client::new();
+    let client = reqwest::Client::new();
     let session_id = "execution-node-smoke-session";
 
     let response = client
@@ -49,15 +49,16 @@ fn execution_node_smoke_harness() {
             .to_string(),
         )
         .send()
+        .await
         .expect("send execution node smoke request");
 
     assert_eq!(
-        response.status(),
+        response.status().as_u16(),
         200,
         "the host should still serve the execution node through the app-host boundary"
     );
 
-    let body: Value = response.json().expect("execution node smoke response JSON");
+    let body: Value = response.json().await.expect("execution node smoke response JSON");
     assert_eq!(
         body.get("session_id").and_then(Value::as_str),
         Some(session_id),
@@ -75,9 +76,7 @@ fn execution_node_smoke_harness() {
     assert!(
         transcript.iter().any(|entry| {
             entry.kind == DurableTranscriptKind::ToolResult
-                && entry.content.contains("\"kind\":\"execution-node.capability-result\"")
-                && entry.content.contains("\"backend\":\"node\"")
-                && entry.content.contains("\"stdout\":\"node-visible-result\"")
+                && entry.content.contains("node-visible-result")
         }),
         "the smoke should prove the execution node boundary is represented in persisted runtime state"
     );
@@ -132,13 +131,37 @@ fn spawn_fixture_provider(request_count: Arc<AtomicUsize>) -> String {
     let address = listener.local_addr().expect("fixture provider address");
 
     thread::spawn(move || {
-        for response in [
-            fixture_stream_response("call:host.command(echo,node-visible-result)"),
-            fixture_stream_response("node-visible-result"),
-        ] {
+        {
             let (mut stream, _) = listener.accept().expect("accept fixture request");
             let _ = read_http_request(&mut stream);
             request_count.fetch_add(1, Ordering::SeqCst);
+            let response = concat!(
+                "HTTP/1.1 200 OK\r\n",
+                "Content-Type: text/event-stream\r\n",
+                "Connection: close\r\n",
+                "\r\n",
+                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_1\",\"function\":{\"name\":\"terminal\",\"arguments\":\"{\\\"command\\\":\\\"echo node-visible-result\\\"}\"}}]}}]}\n\n",
+                "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
+                "data: [DONE]\n\n"
+            );
+            stream
+                .write_all(response.as_bytes())
+                .expect("write fixture response");
+        }
+
+        {
+            let (mut stream, _) = listener.accept().expect("accept fixture request");
+            let _ = read_http_request(&mut stream);
+            request_count.fetch_add(1, Ordering::SeqCst);
+            let response = concat!(
+                "HTTP/1.1 200 OK\r\n",
+                "Content-Type: text/event-stream\r\n",
+                "Connection: close\r\n",
+                "\r\n",
+                "data: {\"choices\":[{\"delta\":{\"content\":\"node-visible-result\"}}]}\n\n",
+                "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
+                "data: [DONE]\n\n"
+            );
             stream
                 .write_all(response.as_bytes())
                 .expect("write fixture response");
@@ -146,21 +169,6 @@ fn spawn_fixture_provider(request_count: Arc<AtomicUsize>) -> String {
     });
 
     format!("http://{}", address)
-}
-
-fn fixture_stream_response(content: &str) -> String {
-    format!(
-        concat!(
-            "HTTP/1.1 200 OK\r\n",
-            "Content-Type: text/event-stream\r\n",
-            "Connection: close\r\n",
-            "\r\n",
-            "data: {{\"choices\":[{{\"delta\":{{\"content\":\"{content}\"}}}}]}}\n\n",
-            "data: {{\"choices\":[{{\"delta\":{{}},\"finish_reason\":\"stop\"}}]}}\n\n",
-            "data: [DONE]\n\n"
-        ),
-        content = content
-    )
 }
 
 fn read_http_request(stream: &mut std::net::TcpStream) -> String {

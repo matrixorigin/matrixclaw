@@ -11,8 +11,8 @@ use matrixclaw_app_host::server::spawn_test_server;
 use matrixclaw_app_host::ui_assets::UiAssetLayout;
 use serde_json::{json, Value};
 
-#[test]
-fn openclaw_http_over_server() {
+#[tokio::test]
+async fn openclaw_http_over_server() {
     let _env_lock = env_lock().lock().expect("env lock");
     let home = temp_home();
     let request_count = Arc::new(AtomicUsize::new(0));
@@ -26,7 +26,8 @@ fn openclaw_http_over_server() {
     let surface = SetupSurface::new(&home, UiAssetLayout::discover());
     let test_server = spawn_test_server(surface).expect("spawn test server");
     let conversation_id = "openclaw-http-session";
-    let response = reqwest::blocking::Client::new()
+    let client = reqwest::Client::new();
+    let response = client
         .post(format!("http://{}/api/openclaw/chat", test_server.address))
         .header("content-type", "application/json")
         .body(
@@ -40,6 +41,7 @@ fn openclaw_http_over_server() {
             .to_string(),
         )
         .send()
+        .await
         .expect("send openclaw http request");
 
     env::remove_var("OPENROUTER_API_KEY");
@@ -47,12 +49,12 @@ fn openclaw_http_over_server() {
     env::remove_var("MATRIXCLAW_LLM_MODEL");
 
     assert_eq!(
-        response.status(),
+        response.status().as_u16(),
         200,
         "served OpenClaw HTTP endpoint should succeed"
     );
 
-    let body: Value = response.json().expect("response JSON");
+    let body: Value = response.json().await.expect("response JSON");
     assert_eq!(
         body.get("conversation_id").and_then(Value::as_str),
         Some(conversation_id),

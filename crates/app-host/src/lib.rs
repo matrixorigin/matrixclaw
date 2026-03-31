@@ -1,6 +1,7 @@
 pub mod agent_store;
 pub mod asset_manifest;
 pub mod assets;
+pub mod chat;
 pub mod commands;
 pub mod compat_registry;
 pub mod execution;
@@ -25,6 +26,13 @@ pub mod ui_assets;
 pub const VERSION: &str = "0.1.0";
 
 pub use ui_assets::{UiAssetKind, UiAssetLayout, UiResolvedAsset};
+
+fn runtime() -> tokio::runtime::Runtime {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to create tokio runtime")
+}
 
 pub fn run(args: impl IntoIterator<Item = String>) -> i32 {
     let mut args = args.into_iter();
@@ -82,13 +90,41 @@ pub fn run(args: impl IntoIterator<Item = String>) -> i32 {
                 }
             }
 
-            match llm_smoke::run_openrouter_smoke(&model) {
+            let rt = runtime();
+            match rt.block_on(llm_smoke::run_openrouter_smoke(&model)) {
                 Ok(report) => {
                     println!("{report}");
                     0
                 }
                 Err(error) => {
                     eprintln!("llm smoke failed: {error}");
+                    1
+                }
+            }
+        }
+        Some("chat") => {
+            let mut model: Option<String> = None;
+            while let Some(flag) = args.next() {
+                match flag.as_str() {
+                    "--model" => {
+                        let Some(value) = args.next() else {
+                            eprintln!("missing model name after --model");
+                            return 1;
+                        };
+                        model = Some(value);
+                    }
+                    other => {
+                        eprintln!("unknown chat option: {other}");
+                        return 1;
+                    }
+                }
+            }
+
+            let rt = runtime();
+            match rt.block_on(chat::run_chat(model.as_deref())) {
+                Ok(()) => 0,
+                Err(error) => {
+                    eprintln!("chat failed: {error}");
                     1
                 }
             }
@@ -107,7 +143,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> i32 {
         },
         _ => {
             eprintln!(
-                "usage: matrixclaw version | matrixclaw serve [--fixture demo] | matrixclaw llm-smoke [--model <id>]"
+                "usage: matrixclaw version | matrixclaw serve [--fixture demo] | matrixclaw chat [--model <id>] | matrixclaw llm-smoke [--model <id>]"
             );
             1
         }

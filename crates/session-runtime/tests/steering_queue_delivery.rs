@@ -1,4 +1,3 @@
-use matrixclaw_agent_core::message::ToolResultMessage;
 use matrixclaw_session_runtime::queue::QueueItem;
 use matrixclaw_session_runtime::run_controller::RunController;
 use matrixclaw_session_runtime::RuntimeMessage;
@@ -6,12 +5,8 @@ use matrixclaw_session_runtime::RuntimeMessage;
 #[test]
 fn steering_queue_delivery() {
     let mut controller = RunController::new(vec![
-        RuntimeMessage::ToolResult(
-            ToolResultMessage::new("search", "alpha").as_assistant_fragment(),
-        ),
-        RuntimeMessage::ToolResult(
-            ToolResultMessage::new("search", "beta").as_assistant_fragment(),
-        ),
+        RuntimeMessage::ToolResult("result:alpha".to_string()),
+        RuntimeMessage::ToolResult("result:beta".to_string()),
     ]);
 
     controller.queue_steering_message("hold the line");

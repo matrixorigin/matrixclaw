@@ -5,54 +5,16 @@ pub mod policy;
 pub mod provider;
 pub mod tool;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RunMessageRole {
-    User,
-    System,
-    Assistant,
-    Tool,
-}
+pub use matrixclaw_tools::{ToolCall, ToolDescriptor, ToolResult};
+pub use message::{RunMessage, RunMessageRole};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RunMessage {
-    pub role: RunMessageRole,
-    pub content: String,
-}
-
-impl RunMessage {
-    pub fn user(content: impl Into<String>) -> Self {
-        Self {
-            role: RunMessageRole::User,
-            content: content.into(),
-        }
-    }
-
-    pub fn system(content: impl Into<String>) -> Self {
-        Self {
-            role: RunMessageRole::System,
-            content: content.into(),
-        }
-    }
-
-    pub fn assistant(content: impl Into<String>) -> Self {
-        Self {
-            role: RunMessageRole::Assistant,
-            content: content.into(),
-        }
-    }
-
-    pub fn tool(content: impl Into<String>) -> Self {
-        Self {
-            role: RunMessageRole::Tool,
-            content: content.into(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct RunRequest {
     pub prompt: String,
     pub context_messages: Vec<RunMessage>,
+    pub tools: Vec<ToolDescriptor>,
+    pub tool_choice: ToolChoice,
+    pub max_iterations: u32,
 }
 
 impl RunRequest {
@@ -60,14 +22,25 @@ impl RunRequest {
         Self {
             prompt: prompt.into(),
             context_messages: Vec::new(),
+            tools: Vec::new(),
+            tool_choice: ToolChoice::Auto,
+            max_iterations: 90,
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
+pub enum ToolChoice {
+    Auto,
+    None,
+}
+
+#[derive(Debug, Clone)]
 pub struct RunResult {
     pub streamed_message: String,
     pub final_message: String,
+    pub tool_calls_made: u32,
+    pub iterations: u32,
 }
 
 pub use r#loop::run_prompt;

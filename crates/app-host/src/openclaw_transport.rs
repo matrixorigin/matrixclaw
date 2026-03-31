@@ -13,7 +13,7 @@ use crate::ingress::{
 };
 use crate::live_runtime::LiveRunEvent;
 
-pub fn openclaw_chat_http_with_provider(
+pub async fn openclaw_chat_http_with_provider(
     home: impl AsRef<Path>,
     model: impl Into<String>,
     request: &OpenClawChatRequest,
@@ -26,9 +26,10 @@ pub fn openclaw_chat_http_with_provider(
         &OpenClawIngressMetadata::default(),
         provider,
     )
+    .await
 }
 
-pub fn openclaw_chat_http_with_provider_and_metadata(
+pub async fn openclaw_chat_http_with_provider_and_metadata(
     home: impl AsRef<Path>,
     model: impl Into<String>,
     request: &OpenClawChatRequest,
@@ -36,24 +37,24 @@ pub fn openclaw_chat_http_with_provider_and_metadata(
     provider: &mut dyn Provider,
 ) -> Result<HttpChatResponse, String> {
     let envelope = normalize_openclaw_request(request, metadata)?;
-    let outcome = run_ingress_with_provider(home, model, &envelope, provider)?;
+    let outcome = run_ingress_with_provider(home, model, &envelope, provider).await?;
     Ok(HttpChatResponse {
         conversation_id: envelope.reply.conversation_id.clone(),
         frames: frames_from_outcome(&outcome),
     })
 }
 
-pub fn openclaw_chat_http(
+pub async fn openclaw_chat_http(
     home: impl AsRef<Path>,
     model: impl Into<String>,
     request: &OpenClawChatRequest,
     metadata: &OpenClawIngressMetadata,
     provider: &mut dyn Provider,
 ) -> Result<HttpChatResponse, String> {
-    openclaw_chat_http_with_provider_and_metadata(home, model, request, metadata, provider)
+    openclaw_chat_http_with_provider_and_metadata(home, model, request, metadata, provider).await
 }
 
-pub fn openclaw_chat_websocket_with_provider(
+pub async fn openclaw_chat_websocket_with_provider(
     home: impl AsRef<Path>,
     model: impl Into<String>,
     request: &OpenClawChatRequest,
@@ -66,9 +67,10 @@ pub fn openclaw_chat_websocket_with_provider(
         &OpenClawIngressMetadata::default(),
         provider,
     )
+    .await
 }
 
-pub fn openclaw_chat_websocket_with_provider_and_metadata(
+pub async fn openclaw_chat_websocket_with_provider_and_metadata(
     home: impl AsRef<Path>,
     model: impl Into<String>,
     request: &OpenClawChatRequest,
@@ -76,7 +78,7 @@ pub fn openclaw_chat_websocket_with_provider_and_metadata(
     provider: &mut dyn Provider,
 ) -> Result<ChatWebSocketConversation, String> {
     let envelope = normalize_openclaw_request(request, metadata)?;
-    let outcome = run_ingress_with_provider(home, model, &envelope, provider)?;
+    let outcome = run_ingress_with_provider(home, model, &envelope, provider).await?;
     Ok(ChatWebSocketConversation {
         capability: CapabilityDescriptor {
             agent_listing_supported: true,
@@ -86,22 +88,22 @@ pub fn openclaw_chat_websocket_with_provider_and_metadata(
     })
 }
 
-pub fn openclaw_chat_websocket(
+pub async fn openclaw_chat_websocket(
     home: impl AsRef<Path>,
     model: impl Into<String>,
     request: &OpenClawChatRequest,
     metadata: &OpenClawIngressMetadata,
     provider: &mut dyn Provider,
 ) -> Result<ChatWebSocketConversation, String> {
-    openclaw_chat_websocket_with_provider_and_metadata(home, model, request, metadata, provider)
+    openclaw_chat_websocket_with_provider_and_metadata(home, model, request, metadata, provider).await
 }
 
-pub fn stream_openclaw_chat_websocket(
+pub async fn stream_openclaw_chat_websocket(
     home: impl AsRef<Path>,
     model: impl Into<String>,
     request: &OpenClawChatRequest,
     provider: &mut dyn Provider,
-    on_frame: &mut dyn FnMut(ChatFrame),
+    on_frame: &mut (dyn FnMut(ChatFrame) + Send),
 ) -> Result<ChatWebSocketConversation, String> {
     stream_openclaw_chat_websocket_with_metadata(
         home,
@@ -111,15 +113,16 @@ pub fn stream_openclaw_chat_websocket(
         provider,
         on_frame,
     )
+    .await
 }
 
-pub fn stream_openclaw_chat_websocket_with_metadata(
+pub async fn stream_openclaw_chat_websocket_with_metadata(
     home: impl AsRef<Path>,
     model: impl Into<String>,
     request: &OpenClawChatRequest,
     metadata: &OpenClawIngressMetadata,
     provider: &mut dyn Provider,
-    on_frame: &mut dyn FnMut(ChatFrame),
+    on_frame: &mut (dyn FnMut(ChatFrame) + Send),
 ) -> Result<ChatWebSocketConversation, String> {
     let envelope = normalize_openclaw_request(request, metadata)?;
     let mut projector = ChatFrameProjector::default();
@@ -128,7 +131,7 @@ pub fn stream_openclaw_chat_websocket_with_metadata(
             if let Some(frame) = projector.on_event(&event) {
                 on_frame(frame);
             }
-        })?;
+        }).await?;
 
     Ok(ChatWebSocketConversation {
         capability: CapabilityDescriptor {

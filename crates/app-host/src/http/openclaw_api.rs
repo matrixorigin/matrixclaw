@@ -68,13 +68,17 @@ pub fn openclaw_chat_response(surface: &SetupSurface, request: HttpRequest) -> H
         Err(response) => return response,
     };
 
-    let response = match openclaw_transport::openclaw_chat_http(
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to create tokio runtime");
+    let response = match rt.block_on(openclaw_transport::openclaw_chat_http(
         surface.home(),
         model,
         &payload.request,
         &payload.metadata,
         &mut provider,
-    ) {
+    )) {
         Ok(response) => response,
         Err(error) => {
             return HttpResponse::json(502, json!({ "error": error }).to_string());
@@ -133,21 +137,28 @@ pub fn serve_openclaw_websocket(surface: SetupSurface, request: Request) -> io::
     let mut provider = build_provider_from_env(&surface, &model)
         .map_err(|response| io_error_from_response(&response))?;
     let mut write_error = None;
-    let conversation = openclaw_transport::stream_openclaw_chat_websocket_with_metadata(
-        surface.home(),
-        model,
-        &request.request,
-        &request.metadata,
-        &mut provider,
-        &mut |frame| {
-            if write_error.is_none() {
-                if let Err(error) = write_websocket_json_frame(&mut stream, &frame) {
-                    write_error = Some(error);
-                }
-            }
-        },
-    )
-    .map_err(io::Error::other)?;
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to create tokio runtime");
+    let conversation = rt
+        .block_on(
+            openclaw_transport::stream_openclaw_chat_websocket_with_metadata(
+                surface.home(),
+                model,
+                &request.request,
+                &request.metadata,
+                &mut provider,
+                &mut |frame| {
+                    if write_error.is_none() {
+                        if let Err(error) = write_websocket_json_frame(&mut stream, &frame) {
+                            write_error = Some(error);
+                        }
+                    }
+                },
+            ),
+        )
+        .map_err(io::Error::other)?;
 
     if let Some(error) = write_error {
         return Err(error);

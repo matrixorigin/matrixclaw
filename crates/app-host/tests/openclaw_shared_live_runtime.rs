@@ -4,8 +4,9 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use async_trait::async_trait;
 use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::provider::{Provider, ProviderError};
+use matrixclaw_agent_core::provider::{Provider, ProviderError, ProviderResponse};
 use matrixclaw_agent_core::{RunMessageRole, RunRequest};
 use matrixclaw_app_host::live_runtime::{
     session_db_path, LiveRunRequest, SessionBackedLiveRunService,
@@ -16,8 +17,8 @@ use matrixclaw_session_runtime::recovery::SessionRecoveryStore;
 use matrixclaw_session_runtime::sqlite::SqliteStorage;
 use matrixclaw_session_runtime::RuntimeMessage;
 
-#[test]
-fn openclaw_transport_reuses_the_shared_live_runtime() {
+#[tokio::test]
+async fn openclaw_transport_reuses_the_shared_live_runtime() {
     let _env_lock = env_lock().lock().expect("env lock");
     let home = temp_home();
     env::set_var("HOME", &home);
@@ -44,6 +45,7 @@ fn openclaw_transport_reuses_the_shared_live_runtime() {
         &request,
         &mut compat_provider,
     )
+    .await
     .expect("serve OpenClaw request through the shared runtime");
 
     let live_session_path = session_db_path(&home, &conversation_id);
@@ -81,7 +83,7 @@ fn openclaw_transport_reuses_the_shared_live_runtime() {
         "OpenClaw transport should send the current protocol user turn through the live runtime"
     );
 
-    let service = SessionBackedLiveRunService::new(&home);
+    let service = SessionBackedLiveRunService::new(&home).await;
     let mut provider = RecordingProvider::live();
     let outcome = service
         .run_with_provider(
@@ -92,6 +94,7 @@ fn openclaw_transport_reuses_the_shared_live_runtime() {
             },
             &mut provider,
         )
+        .await
         .expect("live runtime should resume the OpenClaw-seeded session");
 
     assert_eq!(
@@ -183,18 +186,22 @@ impl RecordingProvider {
     }
 }
 
+#[async_trait]
 impl Provider for RecordingProvider {
-    fn complete(&mut self, _request: &RunRequest) -> Result<String, ProviderError> {
+    async fn complete(
+        &mut self,
+        _request: &RunRequest,
+    ) -> Result<ProviderResponse, ProviderError> {
         Err(ProviderError(
             "recording provider only supports streamed live runs".to_string(),
         ))
     }
 
-    fn stream(
+    async fn stream(
         &mut self,
         request: &RunRequest,
-        on_event: &mut dyn FnMut(AgentEvent),
-    ) -> Result<String, ProviderError> {
+        on_event: &mut (dyn FnMut(AgentEvent) + Send),
+    ) -> Result<ProviderResponse, ProviderError> {
         self.prompts.push(request.prompt.clone());
         self.context_messages.push(
             request
@@ -204,12 +211,11 @@ impl Provider for RecordingProvider {
                 .collect(),
         );
 
-        on_event(AgentEvent::RunStarted);
         on_event(AgentEvent::MessageStarted);
         on_event(AgentEvent::MessageDelta(self.response.clone()));
         on_event(AgentEvent::MessageCompleted(self.response.clone()));
 
-        Ok(self.response.clone())
+        Ok(ProviderResponse::text(self.response.clone()))
     }
 }
 

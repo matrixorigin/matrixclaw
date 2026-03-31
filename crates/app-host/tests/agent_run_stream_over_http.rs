@@ -12,8 +12,8 @@ use matrixclaw_app_host::server::spawn_test_server;
 use matrixclaw_app_host::ui_assets::UiAssetLayout;
 use serde_json::Value;
 
-#[test]
-fn agent_run_stream_over_http() {
+#[tokio::test]
+async fn agent_run_stream_over_http() {
     let _env_lock = env_lock().lock().expect("env lock");
     let home = temp_home();
     let server_url = spawn_fixture_server();
@@ -24,7 +24,7 @@ fn agent_run_stream_over_http() {
 
     let surface = SetupSurface::new(&home, UiAssetLayout::discover());
     let test_server = spawn_test_server(surface).expect("spawn test server");
-    let response = reqwest::blocking::Client::new()
+    let response = reqwest::Client::new()
         .post(format!(
             "http://{}/api/agent/run/stream",
             test_server.address
@@ -32,8 +32,9 @@ fn agent_run_stream_over_http() {
         .header("content-type", "application/json")
         .body(r#"{"prompt":"stream the assistant reply","session_id":"stream-http-session"}"#)
         .send()
+        .await
         .expect("stream request");
-    let body = response.text().expect("stream body");
+    let body = response.text().await.expect("stream body");
 
     let _ = test_server.shutdown();
     env::remove_var("OPENROUTER_API_KEY");

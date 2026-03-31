@@ -1,13 +1,13 @@
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use async_trait::async_trait;
 use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::message::{ToolCallMessage, ToolResultMessage};
-use matrixclaw_agent_core::provider::{Provider, ProviderError};
-use matrixclaw_agent_core::r#loop::run_prompt_with_trace;
-use matrixclaw_agent_core::tool::{ToolExecutionRequest, ToolExecutionResponse, ToolExecutor};
-use matrixclaw_agent_core::RunRequest;
+use matrixclaw_agent_core::provider::{Provider, ProviderError, ProviderResponse};
+use matrixclaw_agent_core::r#loop::run_prompt_with_policy;
+use matrixclaw_agent_core::{RunRequest, ToolCall};
 use matrixclaw_app_host::live_runtime::{
     session_db_path, LiveRunEvent, LiveRunRequest, SessionBackedLiveRunService,
 };
@@ -16,18 +16,31 @@ use matrixclaw_session_runtime::message_projection::{
 };
 use matrixclaw_session_runtime::sqlite::SqliteStorage;
 use matrixclaw_session_runtime::storage::TranscriptStore;
+use matrixclaw_tools::{ToolDescriptor, ToolExecutor, ToolRegistry, ToolResult};
+use std::sync::Arc;
 
-#[test]
-fn live_tool_execution() {
+#[tokio::test]
+async fn live_tool_execution() {
     let home = temp_home();
 
-    let mut expected_provider = ScriptedProvider::new(vec!["call:add(2,3)", "result:5"]);
-    let mut expected_tool = AddTool;
-    let expected_trace = run_prompt_with_trace(
+    let mut expected_provider = ScriptedProvider::new(vec![
+        ScriptedResponse::ToolCall(ToolCall::new(
+            "add_call_1".into(),
+            "add".into(),
+            serde_json::json!({"a": 2, "b": 3}),
+        )),
+        ScriptedResponse::Text("result:5".into()),
+    ]);
+    let registry = ToolRegistry::new();
+    registry.register(Arc::new(AddTool)).await;
+    let expected_trace = run_prompt_with_policy(
         &mut expected_provider,
         &RunRequest::new("add 2 and 3"),
-        Some(&mut expected_tool),
+        &registry,
+        None,
+        &mut |_| {},
     )
+    .await
     .expect("the core loop should define the live tool contract");
 
     let expected_final_message = expected_trace.result.final_message.clone();
@@ -36,8 +49,17 @@ fn live_tool_execution() {
         "the agent-core loop should continue after the tool result is available"
     );
 
-    let mut live_provider = ScriptedProvider::new(vec!["call:add(2,3)", "result:5"]);
-    let service = SessionBackedLiveRunService::new(&home);
+    let mut live_provider = ScriptedProvider::new(vec![
+        ScriptedResponse::ToolCall(ToolCall::new(
+            "add_call_1".into(),
+            "add".into(),
+            serde_json::json!({"a": 2, "b": 3}),
+        )),
+        ScriptedResponse::Text("result:5".into()),
+    ]);
+    let registry = Arc::new(ToolRegistry::new());
+    registry.register(Arc::new(AddTool)).await;
+    let service = SessionBackedLiveRunService::new_from_registry(&home, registry).await;
     let outcome = service
         .run_with_provider(
             "moonshotai/kimi-k2.5",
@@ -47,6 +69,7 @@ fn live_tool_execution() {
             },
             &mut live_provider,
         )
+        .await
         .expect("live run should produce an outcome");
 
     let session_path = session_db_path(&home, &outcome.session_id);
@@ -69,12 +92,12 @@ fn live_tool_execution() {
         LiveRunEvent {
             sequence: 2,
             kind: "message_delta".to_string(),
-            content: Some("call:add(2,3)".to_string()),
+            content: Some("call:add({\"a\":2,\"b\":3})".to_string()),
         },
         LiveRunEvent {
             sequence: 3,
             kind: "message_completed".to_string(),
-            content: Some("call:add(2,3)".to_string()),
+            content: Some(String::new()),
         },
         LiveRunEvent {
             sequence: 4,
@@ -93,26 +116,21 @@ fn live_tool_execution() {
         },
         LiveRunEvent {
             sequence: 7,
-            kind: "tool_result_appended".to_string(),
-            content: Some("5".to_string()),
-        },
-        LiveRunEvent {
-            sequence: 8,
             kind: "message_started".to_string(),
             content: None,
         },
         LiveRunEvent {
-            sequence: 9,
+            sequence: 8,
             kind: "message_delta".to_string(),
             content: Some("result:5".to_string()),
         },
         LiveRunEvent {
-            sequence: 10,
+            sequence: 9,
             kind: "message_completed".to_string(),
             content: Some("result:5".to_string()),
         },
         LiveRunEvent {
-            sequence: 11,
+            sequence: 10,
             kind: "run_completed".to_string(),
             content: None,
         },
@@ -131,7 +149,7 @@ fn live_tool_execution() {
 
     assert_eq!(
         (
-            live_provider.stream_calls(),
+            live_provider.stream_calls.load(Ordering::SeqCst),
             live_provider.prompts().to_vec(),
             outcome.events,
             outcome.final_message,
@@ -139,7 +157,7 @@ fn live_tool_execution() {
         ),
         (
             2,
-            vec!["add 2 and 3".to_string(), "result:5".to_string()],
+            vec!["".to_string(), "".to_string()],
             expected_events,
             expected_final_message,
             expected_transcript,
@@ -149,23 +167,24 @@ fn live_tool_execution() {
 }
 
 #[derive(Debug, Clone)]
+enum ScriptedResponse {
+    ToolCall(ToolCall),
+    Text(String),
+}
+
 struct ScriptedProvider {
-    responses: Vec<String>,
+    responses: Vec<ScriptedResponse>,
     prompts: Vec<String>,
-    stream_calls: usize,
+    stream_calls: AtomicUsize,
 }
 
 impl ScriptedProvider {
-    fn new(responses: Vec<&str>) -> Self {
+    fn new(responses: Vec<ScriptedResponse>) -> Self {
         Self {
-            responses: responses.into_iter().map(str::to_string).collect(),
+            responses,
             prompts: Vec::new(),
-            stream_calls: 0,
+            stream_calls: AtomicUsize::new(0),
         }
-    }
-
-    fn stream_calls(&self) -> usize {
-        self.stream_calls
     }
 
     fn prompts(&self) -> &[String] {
@@ -173,46 +192,64 @@ impl ScriptedProvider {
     }
 }
 
+#[async_trait]
 impl Provider for ScriptedProvider {
-    fn complete(&mut self, _request: &RunRequest) -> Result<String, ProviderError> {
-        Ok(self.responses.first().cloned().unwrap_or_default())
+    async fn complete(
+        &mut self,
+        _request: &RunRequest,
+    ) -> Result<ProviderResponse, ProviderError> {
+        Ok(ProviderResponse::text(
+            self.responses
+                .first()
+                .map(|r| match r {
+                    ScriptedResponse::Text(t) => t.clone(),
+                    ScriptedResponse::ToolCall(_) => String::new(),
+                })
+                .unwrap_or_default(),
+        ))
     }
 
-    fn stream(
+    async fn stream(
         &mut self,
         request: &RunRequest,
-        on_event: &mut dyn FnMut(AgentEvent),
-    ) -> Result<String, ProviderError> {
+        on_event: &mut (dyn FnMut(AgentEvent) + Send),
+    ) -> Result<ProviderResponse, ProviderError> {
         self.prompts.push(request.prompt.clone());
-        on_event(AgentEvent::RunStarted);
-        on_event(AgentEvent::MessageStarted);
+        let idx = self.stream_calls.fetch_add(1, Ordering::SeqCst);
 
-        let response = self
-            .responses
-            .get(self.stream_calls)
-            .cloned()
-            .unwrap_or_default();
+        let response = self.responses.get(idx);
 
-        for line in response.lines() {
-            on_event(AgentEvent::MessageDelta(line.to_string()));
+        match response {
+            Some(ScriptedResponse::ToolCall(call)) => {
+                let label = format!("call:{}({})", call.name, call.arguments);
+                on_event(AgentEvent::MessageDelta(label.clone()));
+                Ok(ProviderResponse::tool_calls(vec![call.clone()]))
+            }
+            Some(ScriptedResponse::Text(text)) => {
+                for line in text.lines() {
+                    on_event(AgentEvent::MessageDelta(line.to_string()));
+                }
+                Ok(ProviderResponse::text(text.clone()))
+            }
+            None => {
+                Ok(ProviderResponse::text(String::new()))
+            }
         }
-        on_event(AgentEvent::MessageCompleted(response.clone()));
-
-        self.stream_calls += 1;
-        Ok(response)
     }
 }
 
 struct AddTool;
 
+#[async_trait]
 impl ToolExecutor for AddTool {
-    fn execute(&mut self, request: &ToolExecutionRequest) -> ToolExecutionResponse {
-        assert_eq!(
-            request.call,
-            ToolCallMessage::new("add", "2,3"),
-            "the live runtime should pass the tool call through unchanged"
-        );
-        ToolExecutionResponse::new(ToolResultMessage::new("add", "5"))
+    fn descriptor(&self) -> &ToolDescriptor {
+        static DESC: std::sync::OnceLock<ToolDescriptor> = std::sync::OnceLock::new();
+        DESC.get_or_init(|| ToolDescriptor::new("add", "adds two numbers"))
+    }
+
+    async fn execute(&self, call: ToolCall) -> ToolResult {
+        assert_eq!(call.name, "add");
+        ToolResult::success(&call, "5")
     }
 }
 

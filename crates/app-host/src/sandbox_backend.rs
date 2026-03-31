@@ -1,7 +1,7 @@
 use std::io;
 use std::path::PathBuf;
 
-use matrixclaw_agent_core::tool::StructuredExecutionResult;
+use crate::execution::StructuredExecutionResult;
 use matrixclaw_manifests::config::{ExecutionBackendSelection, ExecutionSettings};
 
 use crate::local_command::{execute_local_command, LocalCommandRequest};

@@ -4,8 +4,9 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use async_trait::async_trait;
 use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::provider::{Provider, ProviderError};
+use matrixclaw_agent_core::provider::{Provider, ProviderError, ProviderResponse};
 use matrixclaw_agent_core::RunRequest;
 use matrixclaw_app_host::gateway::matrix::MatrixInboundEvent;
 use matrixclaw_app_host::gateway::runtime::{
@@ -14,8 +15,8 @@ use matrixclaw_app_host::gateway::runtime::{
 use matrixclaw_app_host::gateway::store::GatewaySessionStore;
 use matrixclaw_app_host::gateway::OutboundDeliveryKind;
 
-#[test]
-fn gateway_dedupe_retry_boundary() {
+#[tokio::test]
+async fn gateway_dedupe_retry_boundary() {
     let _env_lock = env_lock().lock().expect("env lock");
     let home = temp_home();
 
@@ -40,12 +41,14 @@ fn gateway_dedupe_retry_boundary() {
 
     let first = runtime
         .process_matrix_event(&home, "moonshotai/kimi-k2.5", &event, &mut provider)
+        .await
         .expect("process first event");
     assert_eq!(first.status, GatewayRunStatus::Processed);
     assert_eq!(provider.calls, 1, "first delivery should reach the runtime");
 
     let second = runtime
         .process_matrix_event(&home, "moonshotai/kimi-k2.5", &event, &mut provider)
+        .await
         .expect("process duplicate event");
     assert_eq!(second.status, GatewayRunStatus::Duplicate);
     assert_eq!(
@@ -75,24 +78,27 @@ struct CountingProvider {
     calls: usize,
 }
 
+#[async_trait]
 impl Provider for CountingProvider {
-    fn complete(&mut self, _request: &RunRequest) -> Result<String, ProviderError> {
+    async fn complete(
+        &mut self,
+        _request: &RunRequest,
+    ) -> Result<ProviderResponse, ProviderError> {
         Err(ProviderError(
             "counting provider only supports streamed live runs".to_string(),
         ))
     }
 
-    fn stream(
+    async fn stream(
         &mut self,
         _request: &RunRequest,
-        on_event: &mut dyn FnMut(AgentEvent),
-    ) -> Result<String, ProviderError> {
+        on_event: &mut (dyn FnMut(AgentEvent) + Send),
+    ) -> Result<ProviderResponse, ProviderError> {
         self.calls += 1;
-        on_event(AgentEvent::RunStarted);
         on_event(AgentEvent::MessageStarted);
         on_event(AgentEvent::MessageDelta("gateway response".to_string()));
         on_event(AgentEvent::MessageCompleted("gateway response".to_string()));
-        Ok("gateway response".to_string())
+        Ok(ProviderResponse::text("gateway response"))
     }
 }
 

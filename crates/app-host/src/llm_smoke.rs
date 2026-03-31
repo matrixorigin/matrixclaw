@@ -1,13 +1,14 @@
 use std::env;
 
-use matrixclaw_agent_core::r#loop::run_prompt_with_trace;
+use matrixclaw_agent_core::r#loop::run_prompt;
 use matrixclaw_agent_core::{RunRequest, RunResult};
+use matrixclaw_tools::ToolRegistry;
 
 use crate::openai_compatible::OpenAiCompatibleProvider;
 
 const EXPECTED_SENTINEL: &str = "MATRIXCLAW_KIMI_SMOKE_OK";
 
-pub fn run_openrouter_smoke(model: &str) -> Result<String, String> {
+pub async fn run_openrouter_smoke(model: &str) -> Result<String, String> {
     let api_key = env::var("OPENROUTER_API_KEY")
         .map_err(|_| "OPENROUTER_API_KEY is not set in the environment".to_string())?;
 
@@ -18,14 +19,16 @@ pub fn run_openrouter_smoke(model: &str) -> Result<String, String> {
         "Reply with exactly `{EXPECTED_SENTINEL}` and nothing else."
     ));
 
-    let trace = run_prompt_with_trace(&mut provider, &request, None).map_err(|error| error.0)?;
-    validate_result(&trace.result)?;
+    let registry = ToolRegistry::new();
+    let result = run_prompt(&mut provider, &request, &registry, &mut |_| {})
+        .await
+        .map_err(|error| error.0)?;
+    validate_result(&result)?;
 
     Ok(format!(
-        "model={model}\nstreamed_message={}\nfinal_message={}\nevents={:?}",
-        trace.result.streamed_message.trim(),
-        trace.result.final_message.trim(),
-        trace.events
+        "model={model}\nstreamed_message={}\nfinal_message={}",
+        result.streamed_message.trim(),
+        result.final_message.trim(),
     ))
 }
 
@@ -58,6 +61,8 @@ mod tests {
         let result = RunResult {
             streamed_message: EXPECTED_SENTINEL.to_string(),
             final_message: EXPECTED_SENTINEL.to_string(),
+            tool_calls_made: 0,
+            iterations: 1,
         };
 
         assert!(validate_result(&result).is_ok());
@@ -68,6 +73,8 @@ mod tests {
         let result = RunResult {
             streamed_message: format!("{EXPECTED_SENTINEL}."),
             final_message: EXPECTED_SENTINEL.to_string(),
+            tool_calls_made: 0,
+            iterations: 1,
         };
 
         assert!(validate_result(&result).is_err());

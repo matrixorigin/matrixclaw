@@ -4,10 +4,9 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matrixclaw_agent_core::tool::StructuredExecutionResult;
 use matrixclaw_app_host::execution::{
     execution_contract_paths, load_execution_contract, route_isolated_command,
-    ExecutionBackendProbe,
+    ExecutionBackendProbe, StructuredExecutionResult, ToolExecutionBackendKind,
 };
 use matrixclaw_app_host::sandbox_backend::{
     SandboxBackend, SandboxBackendRoute, SandboxExecutionRequest,
@@ -109,7 +108,7 @@ fn optional_sandbox_mode() {
     );
     assert_eq!(
         contract.tool_backend.kind,
-        matrixclaw_agent_core::tool::ToolExecutionBackendKind::Sandbox,
+        ToolExecutionBackendKind::Sandbox,
         "sandbox mode should resolve to the sandbox backend kind"
     );
 

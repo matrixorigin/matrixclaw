@@ -78,13 +78,21 @@ pub fn agent_run_response(surface: &SetupSurface, request: HttpRequest) -> HttpR
         }
     };
 
-    let outcome =
-        match run_ingress_with_provider(surface.home(), model.clone(), &envelope, &mut provider) {
-            Ok(outcome) => outcome,
-            Err(error) => {
-                return HttpResponse::json(502, json!({ "error": error }).to_string());
-            }
-        };
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to create tokio runtime");
+    let outcome = match rt.block_on(run_ingress_with_provider(
+        surface.home(),
+        model.clone(),
+        &envelope,
+        &mut provider,
+    )) {
+        Ok(outcome) => outcome,
+        Err(error) => {
+            return HttpResponse::json(502, json!({ "error": error }).to_string());
+        }
+    };
 
     let body = serde_json::to_string_pretty(&AgentRunResponse {
         session_id: outcome.live_run.session_id,
@@ -100,7 +108,7 @@ pub fn agent_run_response(surface: &SetupSurface, request: HttpRequest) -> HttpR
 pub fn stream_agent_run(
     surface: &SetupSurface,
     body: &[u8],
-    on_frame: &mut dyn FnMut(Vec<u8>) -> io::Result<()>,
+    on_frame: &mut (dyn FnMut(Vec<u8>) -> io::Result<()> + Send),
 ) -> io::Result<()> {
     let payload = match parse_agent_run_request(body) {
         Ok(payload) => payload,
@@ -130,7 +138,11 @@ pub fn stream_agent_run(
         }
     };
 
-    let outcome = match run_ingress_with_provider_stream(
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to create tokio runtime");
+    let outcome = match rt.block_on(run_ingress_with_provider_stream(
         surface.home(),
         model.clone(),
         &envelope,
@@ -138,7 +150,7 @@ pub fn stream_agent_run(
         &mut |event| {
             let _ = on_frame(sse_frame(&AgentRunStreamFrame::Event { event }));
         },
-    ) {
+    )) {
         Ok(outcome) => outcome,
         Err(error) => {
             return on_frame(sse_frame(&AgentRunStreamFrame::Error { error }));

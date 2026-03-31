@@ -6,8 +6,8 @@ use matrixclaw_agent_core::provider::Provider;
 use super::matrix::{normalize_matrix_inbound_event, MatrixInboundEvent};
 use super::store::{GatewayDeliveryRetryRecord, GatewaySessionStore};
 use super::OutboundDeliveryKind;
-use crate::ingress::run_ingress_with_provider;
-use crate::live_runtime::LiveRunOutcome;
+use crate::ingress::run_ingress_with_provider_stream;
+use crate::live_runtime::{LiveRunEvent, LiveRunOutcome};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GatewayDeliveryRetry {
@@ -64,7 +64,7 @@ impl GatewayRuntime {
         Ok(())
     }
 
-    pub fn process_matrix_event(
+    pub async fn process_matrix_event(
         &mut self,
         home: impl AsRef<Path>,
         model: impl Into<String>,
@@ -86,14 +86,27 @@ impl GatewayRuntime {
         }
 
         let envelope = normalize_matrix_inbound_event(home.as_ref(), event)?;
-        let outcome = run_ingress_with_provider(home, model, &envelope, provider)?;
+        let mut collected_events: Vec<LiveRunEvent> = Vec::new();
+        let outcome = run_ingress_with_provider_stream(
+            home,
+            model,
+            &envelope,
+            provider,
+            &mut |event| {
+                collected_events.push(event);
+            },
+        )
+        .await?;
         if let Some(event_id) = event.event_id.as_deref() {
             self.processed_inbound_event_ids.push(event_id.to_string());
         }
         Ok(GatewayProcessOutcome {
             status: GatewayRunStatus::Processed,
             session_id: Some(outcome.live_run.session_id.clone()),
-            live_run: Some(outcome.live_run),
+            live_run: Some(LiveRunOutcome {
+                events: collected_events,
+                ..outcome.live_run
+            }),
         })
     }
 

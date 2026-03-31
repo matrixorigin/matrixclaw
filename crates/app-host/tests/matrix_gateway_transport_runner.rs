@@ -4,8 +4,9 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use async_trait::async_trait;
 use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::provider::{Provider, ProviderError};
+use matrixclaw_agent_core::provider::{Provider, ProviderError, ProviderResponse};
 use matrixclaw_agent_core::RunRequest;
 use matrixclaw_app_host::gateway::client::GatewayTransportClient;
 use matrixclaw_app_host::gateway::matrix::MatrixInboundEvent;
@@ -14,8 +15,8 @@ use matrixclaw_app_host::gateway::store::GatewaySessionStore;
 use matrixclaw_app_host::gateway::transport::{MatrixGatewayTransport, MatrixTransportConfig};
 use matrixclaw_app_host::gateway::{GatewayOutboundDelivery, OutboundDeliveryKind};
 
-#[test]
-fn matrix_gateway_transport_runner_streams_deliveries() {
+#[tokio::test]
+async fn matrix_gateway_transport_runner_streams_deliveries() {
     let _env_lock = env_lock().lock().expect("env lock");
     let home = temp_home();
 
@@ -45,6 +46,7 @@ fn matrix_gateway_transport_runner_streams_deliveries() {
 
     let report = transport
         .run_once(&mut client, &mut provider)
+        .await
         .expect("run matrix gateway transport")
         .expect("expected one inbound event");
 
@@ -69,8 +71,8 @@ fn matrix_gateway_transport_runner_streams_deliveries() {
     assert_eq!(client.sent[2].body, "first second");
 }
 
-#[test]
-fn matrix_gateway_transport_runner_records_and_flushes_retries() {
+#[tokio::test]
+async fn matrix_gateway_transport_runner_records_and_flushes_retries() {
     let _env_lock = env_lock().lock().expect("env lock");
     let home = temp_home();
 
@@ -96,6 +98,7 @@ fn matrix_gateway_transport_runner_records_and_flushes_retries() {
 
     let report = transport
         .run_once(&mut failing_client, &mut provider)
+        .await
         .expect("run matrix gateway transport")
         .expect("expected one inbound event");
 
@@ -171,27 +174,28 @@ impl StreamingProvider {
     }
 }
 
+#[async_trait]
 impl Provider for StreamingProvider {
-    fn complete(&mut self, _request: &RunRequest) -> Result<String, ProviderError> {
+    async fn complete(
+        &mut self,
+        _request: &RunRequest,
+    ) -> Result<ProviderResponse, ProviderError> {
         Err(ProviderError(
             "streaming provider only supports streamed live runs".to_string(),
         ))
     }
 
-    fn stream(
+    async fn stream(
         &mut self,
         _request: &RunRequest,
-        on_event: &mut dyn FnMut(AgentEvent),
-    ) -> Result<String, ProviderError> {
-        on_event(AgentEvent::RunStarted);
-        on_event(AgentEvent::MessageStarted);
+        on_event: &mut (dyn FnMut(AgentEvent) + Send),
+    ) -> Result<ProviderResponse, ProviderError> {
         let mut final_message = String::new();
         for chunk in &self.chunks {
             final_message.push_str(chunk);
             on_event(AgentEvent::MessageDelta(chunk.clone()));
         }
-        on_event(AgentEvent::MessageCompleted(final_message.clone()));
-        Ok(final_message)
+        Ok(ProviderResponse::text(final_message))
     }
 }
 

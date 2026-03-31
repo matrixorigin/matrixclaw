@@ -1,8 +1,82 @@
 use std::io;
 use std::path::{Path, PathBuf};
 
-use matrixclaw_agent_core::tool::{StructuredExecutionResult, ToolExecutionBackendSelection};
 use matrixclaw_manifests::config::{ExecutionBackendSelection, ExecutionMode, ExecutionSettings};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StructuredExecutionResult {
+    pub backend: ExecutionBackendSelection,
+    pub exit_code: i32,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+impl StructuredExecutionResult {
+    pub fn new(
+        backend: ExecutionBackendSelection,
+        exit_code: i32,
+        stdout: impl Into<String>,
+        stderr: impl Into<String>,
+    ) -> Self {
+        Self {
+            backend,
+            exit_code,
+            stdout: stdout.into(),
+            stderr: stderr.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ToolExecutionMode {
+    Local,
+    Sandboxed,
+    Disabled,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ToolExecutionBackendKind {
+    LocalCommand,
+    Sandbox,
+    Disabled,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ToolExecutionBackendSelection {
+    pub mode: ToolExecutionMode,
+    pub kind: ToolExecutionBackendKind,
+    pub label: String,
+    pub requires_docker: bool,
+}
+
+impl ToolExecutionBackendSelection {
+    pub fn local_default() -> Self {
+        Self {
+            mode: ToolExecutionMode::Local,
+            kind: ToolExecutionBackendKind::LocalCommand,
+            label: "local-command".to_string(),
+            requires_docker: false,
+        }
+    }
+
+    pub fn sandbox_with_label(label: impl Into<String>, requires_docker: bool) -> Self {
+        Self {
+            mode: ToolExecutionMode::Sandboxed,
+            kind: ToolExecutionBackendKind::Sandbox,
+            label: label.into(),
+            requires_docker,
+        }
+    }
+
+    pub fn disabled_with_label(label: impl Into<String>, requires_docker: bool) -> Self {
+        Self {
+            mode: ToolExecutionMode::Disabled,
+            kind: ToolExecutionBackendKind::Disabled,
+            label: label.into(),
+            requires_docker,
+        }
+    }
+}
 
 use crate::local_command::{execute_local_command_with_settings, LocalCommandRequest};
 use crate::sandbox_backend::{SandboxBackend, SandboxExecutionRequest};

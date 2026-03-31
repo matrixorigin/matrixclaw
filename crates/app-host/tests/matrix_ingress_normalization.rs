@@ -4,8 +4,9 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use async_trait::async_trait;
 use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::provider::{Provider, ProviderError};
+use matrixclaw_agent_core::provider::{Provider, ProviderError, ProviderResponse};
 use matrixclaw_agent_core::{RunMessageRole, RunRequest};
 use matrixclaw_app_host::gateway::matrix::{normalize_matrix_inbound_event, MatrixInboundEvent};
 use matrixclaw_app_host::gateway::store::GatewaySessionStore;
@@ -15,8 +16,8 @@ use matrixclaw_session_runtime::recovery::SessionRecoveryStore;
 use matrixclaw_session_runtime::sqlite::SqliteStorage;
 use matrixclaw_session_runtime::RuntimeMessage;
 
-#[test]
-fn matrix_ingress_normalization() {
+#[tokio::test]
+async fn matrix_ingress_normalization() {
     let _env_lock = env_lock().lock().expect("env lock");
     let home = temp_home();
     let session_id = "matrix-session-1";
@@ -53,6 +54,7 @@ fn matrix_ingress_normalization() {
     let mut provider = RecordingProvider::new("matrix resumed");
     let outcome =
         run_ingress_with_provider(&home, "moonshotai/kimi-k2.5", &envelope, &mut provider)
+            .await
             .expect("resume mapped Matrix session through shared runtime");
 
     assert_eq!(outcome.live_run.session_id, session_id);
@@ -95,18 +97,22 @@ impl RecordingProvider {
     }
 }
 
+#[async_trait]
 impl Provider for RecordingProvider {
-    fn complete(&mut self, _request: &RunRequest) -> Result<String, ProviderError> {
+    async fn complete(
+        &mut self,
+        _request: &RunRequest,
+    ) -> Result<ProviderResponse, ProviderError> {
         Err(ProviderError(
             "recording provider only supports streamed live runs".to_string(),
         ))
     }
 
-    fn stream(
+    async fn stream(
         &mut self,
         request: &RunRequest,
-        on_event: &mut dyn FnMut(AgentEvent),
-    ) -> Result<String, ProviderError> {
+        on_event: &mut (dyn FnMut(AgentEvent) + Send),
+    ) -> Result<ProviderResponse, ProviderError> {
         self.context_messages.push(
             request
                 .context_messages
@@ -115,12 +121,11 @@ impl Provider for RecordingProvider {
                 .collect(),
         );
 
-        on_event(AgentEvent::RunStarted);
         on_event(AgentEvent::MessageStarted);
         on_event(AgentEvent::MessageDelta(self.response.clone()));
         on_event(AgentEvent::MessageCompleted(self.response.clone()));
 
-        Ok(self.response.clone())
+        Ok(ProviderResponse::text(self.response.clone()))
     }
 }
 

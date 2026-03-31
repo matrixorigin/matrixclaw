@@ -2,8 +2,9 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use async_trait::async_trait;
 use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::provider::{Provider, ProviderError};
+use matrixclaw_agent_core::provider::{Provider, ProviderError, ProviderResponse};
 use matrixclaw_agent_core::{RunMessageRole, RunRequest};
 use matrixclaw_app_host::live_runtime::{
     session_db_path, LiveRunRequest, SessionBackedLiveRunService,
@@ -13,8 +14,8 @@ use matrixclaw_session_runtime::session::Session;
 use matrixclaw_session_runtime::sqlite::SqliteStorage;
 use matrixclaw_session_runtime::RuntimeMessage;
 
-#[test]
-fn live_queue_integration() {
+#[tokio::test]
+async fn live_queue_integration() {
     let home = temp_home();
     let session_id = "live-queue-session";
     seed_session(
@@ -27,7 +28,7 @@ fn live_queue_integration() {
         vec!["hold the line".to_string(), "what changed?".to_string()],
     );
 
-    let service = SessionBackedLiveRunService::new(&home);
+    let service = SessionBackedLiveRunService::new(&home).await;
     let mut provider = RecordingProvider::default();
 
     let first = service
@@ -39,6 +40,7 @@ fn live_queue_integration() {
             },
             &mut provider,
         )
+        .await
         .expect("first live run");
 
     let second = service
@@ -50,6 +52,7 @@ fn live_queue_integration() {
             },
             &mut provider,
         )
+        .await
         .expect("second live run");
 
     assert_eq!(
@@ -100,18 +103,22 @@ struct RecordingProvider {
     prompts: Vec<String>,
 }
 
+#[async_trait]
 impl Provider for RecordingProvider {
-    fn complete(&mut self, _request: &RunRequest) -> Result<String, ProviderError> {
+    async fn complete(
+        &mut self,
+        _request: &RunRequest,
+    ) -> Result<ProviderResponse, ProviderError> {
         Err(ProviderError(
             "recording provider only supports streamed live runs".to_string(),
         ))
     }
 
-    fn stream(
+    async fn stream(
         &mut self,
         request: &RunRequest,
-        on_event: &mut dyn FnMut(AgentEvent),
-    ) -> Result<String, ProviderError> {
+        on_event: &mut (dyn FnMut(AgentEvent) + Send),
+    ) -> Result<ProviderResponse, ProviderError> {
         let prompt = if request.context_messages.is_empty() {
             request.prompt.clone()
         } else {
@@ -124,13 +131,12 @@ impl Provider for RecordingProvider {
         };
         self.prompts.push(prompt);
 
-        on_event(AgentEvent::RunStarted);
         on_event(AgentEvent::MessageStarted);
         on_event(AgentEvent::MessageDelta("Persisted ".to_string()));
         on_event(AgentEvent::MessageDelta("hello".to_string()));
         on_event(AgentEvent::MessageCompleted("Persisted hello".to_string()));
 
-        Ok("Persisted hello".to_string())
+        Ok(ProviderResponse::text("Persisted hello"))
     }
 }
 

@@ -9,8 +9,8 @@ use matrixclaw_agent_core::provider::Provider;
 use matrixclaw_agent_core::RunRequest;
 use matrixclaw_app_host::openai_compatible::OpenAiCompatibleProvider;
 
-#[test]
-fn openrouter_provider_streaming() {
+#[tokio::test]
+async fn openrouter_provider_streaming() {
     let request_count = Arc::new(AtomicUsize::new(0));
     let request_bodies = Arc::new(Mutex::new(Vec::new()));
     let server_url = spawn_fixture_server(request_count.clone(), request_bodies.clone());
@@ -22,7 +22,9 @@ fn openrouter_provider_streaming() {
     let request = RunRequest::new("Say MatrixClaw");
     let mut events = Vec::new();
 
-    let result = provider.stream(&request, &mut |event| events.push(event));
+    let result = provider
+        .stream(&request, &mut |event| events.push(event))
+        .await;
 
     let body = request_bodies
         .lock()
@@ -42,17 +44,14 @@ fn openrouter_provider_streaming() {
     );
 
     let streamed = result.expect("streaming fixture response should parse");
-    assert_eq!(streamed, "MatrixClaw");
+    assert_eq!(streamed.content.as_deref(), Some("MatrixClaw"));
     assert_eq!(
         events,
         vec![
-            AgentEvent::RunStarted,
-            AgentEvent::MessageStarted,
             AgentEvent::MessageDelta("Matrix".to_string()),
             AgentEvent::MessageDelta("Claw".to_string()),
-            AgentEvent::MessageCompleted("MatrixClaw".to_string()),
         ],
-        "streamed provider boundary should emit ordered deltas and one final completion"
+        "streamed provider boundary should emit ordered deltas"
     );
 }
 

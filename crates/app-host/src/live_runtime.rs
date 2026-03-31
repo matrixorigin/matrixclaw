@@ -1,22 +1,20 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::message::ToolResultMessage;
-use matrixclaw_agent_core::policy::{ToolPreflightDecision, ToolPreflightPolicy};
-use matrixclaw_agent_core::provider::{Provider, ProviderError};
-use matrixclaw_agent_core::r#loop::run_prompt_with_policy_trace_sink;
-use matrixclaw_agent_core::tool::{ToolExecutionRequest, ToolExecutionResponse, ToolExecutor};
-use matrixclaw_agent_core::{RunMessage, RunRequest};
+use matrixclaw_agent_core::provider::Provider;
+use matrixclaw_agent_core::r#loop::run_prompt_with_policy;
+use matrixclaw_agent_core::{RunMessage, RunRequest, ToolChoice};
 use matrixclaw_session_runtime::queue::{QueueItem, SessionQueue};
 use matrixclaw_session_runtime::recovery::{restore_session, SessionRecoveryStore};
 use matrixclaw_session_runtime::session::Session;
 use matrixclaw_session_runtime::sqlite::SqliteStorage;
 use matrixclaw_session_runtime::RuntimeMessage;
+use matrixclaw_tools::ToolRegistry;
 use serde::{Deserialize, Serialize};
 
-use crate::node::execution::ExecutionNodeCapabilityRequest;
 use crate::paths;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -45,73 +43,121 @@ pub struct LiveRunOutcome {
 #[derive(Debug, Clone)]
 pub struct SessionBackedLiveRunService {
     home: PathBuf,
+    registry: Arc<ToolRegistry>,
 }
 
 impl SessionBackedLiveRunService {
-    pub fn new(home: impl AsRef<Path>) -> Self {
+    pub async fn new(home: impl AsRef<Path>) -> Self {
+        let registry = Arc::new(ToolRegistry::new());
+        let workspace_root = home.as_ref().to_string_lossy().to_string();
+        matrixclaw_tools::builtin::register_all(&registry, &workspace_root).await;
         Self {
             home: home.as_ref().to_path_buf(),
+            registry,
         }
     }
 
-    pub fn run_with_provider(
+    pub async fn new_from_registry(home: impl AsRef<Path>, registry: Arc<ToolRegistry>) -> Self {
+        Self {
+            home: home.as_ref().to_path_buf(),
+            registry,
+        }
+    }
+
+    pub async fn run_with_provider(
         &self,
         model: impl Into<String>,
         request: LiveRunRequest,
         provider: &mut dyn Provider,
     ) -> Result<LiveRunOutcome, String> {
         self.run_with_provider_and_queue(model, request, None, provider)
+            .await
     }
 
-    pub fn run_with_provider_and_queue(
+    pub async fn run_with_provider_and_queue(
         &self,
         model: impl Into<String>,
         request: LiveRunRequest,
         bootstrap_queue: Option<SessionQueue>,
         provider: &mut dyn Provider,
     ) -> Result<LiveRunOutcome, String> {
-        self.run_with_provider_and_queue_stream(
-            model,
-            request,
-            bootstrap_queue,
-            provider,
-            &mut |_| {},
-        )
+        let collected: Arc<Mutex<Vec<LiveRunEvent>>> = Arc::new(Mutex::new(Vec::new()));
+        let collector = collected.clone();
+        let mut seq: u64 = 0;
+        let mut on_agent_event = move |event: AgentEvent| {
+            let live = LiveRunEvent::from_agent_event(seq, event);
+            seq += 1;
+            if let Ok(mut g) = collector.lock() {
+                g.push(live);
+            }
+        };
+
+        let outcome = self
+            .run_inner(model, request, bootstrap_queue, provider, &mut on_agent_event)
+            .await?;
+
+        let events = collected.lock().map(|g| g.clone()).unwrap_or_default();
+        Ok(LiveRunOutcome {
+            session_id: outcome.session_id,
+            model: outcome.model,
+            streamed_message: outcome.streamed_message,
+            final_message: outcome.final_message,
+            events,
+        })
     }
 
-    pub fn run_with_provider_and_queue_stream(
+    pub async fn run_with_provider_and_queue_stream(
         &self,
         model: impl Into<String>,
         request: LiveRunRequest,
         bootstrap_queue: Option<SessionQueue>,
         provider: &mut dyn Provider,
-        on_event: &mut dyn FnMut(LiveRunEvent),
+        on_event: &mut (dyn FnMut(LiveRunEvent) + Send),
+    ) -> Result<LiveRunOutcome, String> {
+        let mut seq: u64 = 0;
+        let mut on_agent_event = |event: AgentEvent| {
+            on_event(LiveRunEvent::from_agent_event(seq, event));
+            seq += 1;
+        };
+
+        self.run_inner(model, request, bootstrap_queue, provider, &mut on_agent_event)
+            .await
+    }
+
+    async fn run_inner(
+        &self,
+        model: impl Into<String>,
+        request: LiveRunRequest,
+        bootstrap_queue: Option<SessionQueue>,
+        provider: &mut dyn Provider,
+        on_event: &mut (dyn FnMut(AgentEvent) + Send),
     ) -> Result<LiveRunOutcome, String> {
         let (session_id, mut session) =
             load_or_create_session_for_request(&self.home, request.session_id.as_deref())?;
         merge_bootstrap_queue(&mut session, bootstrap_queue.as_ref());
 
         let projection_kind = projection_kind_for_session(&session);
-        let provider_prompt = build_provider_prompt(&session, projection_kind, &request.prompt);
-        let context_messages = build_context_messages(&session, projection_kind, &request.prompt);
-        let mut tool_executor = AppToolExecutor::new(self.home.clone());
-        let mut policy = AppToolPolicy;
-        let mut sequence = 0_u64;
-        let mut on_agent_event = |event: AgentEvent| {
-            on_event(LiveRunEvent::from_agent_event(sequence, event));
-            sequence += 1;
+        let context_messages =
+            build_context_messages(&session, projection_kind, &request.prompt);
+        let tool_descriptors = self.registry.list_descriptors().await;
+
+        let run_request = RunRequest {
+            prompt: String::new(),
+            context_messages,
+            tools: tool_descriptors,
+            tool_choice: ToolChoice::Auto,
+            max_iterations: 10,
         };
-        let trace = run_prompt_with_policy_trace_sink(
+
+        let trace = run_prompt_with_policy(
             provider,
-            &RunRequest {
-                prompt: provider_prompt,
-                context_messages,
-            },
-            Some(&mut tool_executor),
-            Some(&mut policy),
-            &mut on_agent_event,
+            &run_request,
+            &self.registry,
+            None,
+            on_event,
         )
-        .map_err(provider_error)?;
+        .await
+        .map_err(|e| e.0.clone())?;
 
         finalize_session_after_run(
             &mut session,
@@ -123,17 +169,19 @@ impl SessionBackedLiveRunService {
 
         persist_session_for_id(&self.home, &session_id, &session)?;
 
+        let events: Vec<LiveRunEvent> = trace
+            .events
+            .into_iter()
+            .enumerate()
+            .map(|(i, e)| LiveRunEvent::from_agent_event(i as u64, e))
+            .collect();
+
         Ok(LiveRunOutcome {
             session_id,
             model: model.into(),
             streamed_message: trace.result.streamed_message,
             final_message: trace.result.final_message,
-            events: trace
-                .events
-                .into_iter()
-                .enumerate()
-                .map(|(index, event)| LiveRunEvent::from_agent_event(index as u64, event))
-                .collect(),
+            events,
         })
     }
 }
@@ -145,71 +193,6 @@ enum PromptProjectionKind {
     NextRun,
 }
 
-struct AppToolExecutor;
-struct AppToolPolicy;
-
-impl AppToolExecutor {
-    fn new(_: PathBuf) -> Self {
-        Self
-    }
-
-    fn execute_host_command(&self, request: &ToolExecutionRequest) -> ToolExecutionResponse {
-        let response = ExecutionNodeCapabilityRequest::host_command_from_tool_arguments(
-            &request.call.arguments,
-            None,
-        )
-        .and_then(|request| request.execute())
-        .and_then(|response| response.into_tool_output());
-
-        match response {
-            Ok(output) => ToolExecutionResponse::new(ToolResultMessage::new(
-                request.call.tool_name.clone(),
-                output,
-            )),
-            Err(error) => ToolExecutionResponse::new(ToolResultMessage::new(
-                request.call.tool_name.clone(),
-                error.to_string(),
-            )),
-        }
-    }
-}
-
-impl ToolExecutor for AppToolExecutor {
-    fn execute(&mut self, request: &ToolExecutionRequest) -> ToolExecutionResponse {
-        match request.call.tool_name.as_str() {
-            "add" => {
-                let sum = request
-                    .call
-                    .arguments
-                    .split(',')
-                    .filter_map(|value| value.trim().parse::<i64>().ok())
-                    .sum::<i64>();
-                ToolExecutionResponse::new(ToolResultMessage::new("add", sum.to_string()))
-            }
-            "host.command" => self.execute_host_command(request),
-            other => ToolExecutionResponse::new(ToolResultMessage::new(
-                other,
-                format!("unsupported tool: {other}"),
-            )),
-        }
-    }
-}
-
-impl ToolPreflightPolicy for AppToolPolicy {
-    fn before_tool_call(&mut self, request: &ToolExecutionRequest) -> ToolPreflightDecision {
-        if request.call.tool_name == "danger" {
-            return ToolPreflightDecision::Block(
-                matrixclaw_agent_core::tool::BlockedToolResult::new(
-                    request.call.clone(),
-                    "policy denied execution",
-                ),
-            );
-        }
-
-        ToolPreflightDecision::Allow
-    }
-}
-
 impl LiveRunEvent {
     fn from_agent_event(sequence: u64, event: AgentEvent) -> Self {
         let (kind, content) = match event {
@@ -219,7 +202,7 @@ impl LiveRunEvent {
             AgentEvent::MessageCompleted(content) => {
                 ("message_completed".to_string(), Some(content))
             }
-            AgentEvent::ToolCallStarted(content) => {
+            AgentEvent::ToolCallReceived(content) => {
                 ("tool_call_started".to_string(), Some(content))
             }
             AgentEvent::ToolExecutionStarted(content) => {
@@ -227,9 +210,6 @@ impl LiveRunEvent {
             }
             AgentEvent::ToolExecutionCompleted(content) => {
                 ("tool_execution_completed".to_string(), Some(content))
-            }
-            AgentEvent::ToolResultAppended(content) => {
-                ("tool_result_appended".to_string(), Some(content))
             }
             AgentEvent::RunCompleted => ("run_completed".to_string(), None),
         };
@@ -267,57 +247,27 @@ fn projection_kind_for_session(session: &Session) -> PromptProjectionKind {
     }
 }
 
-fn build_provider_prompt(
-    session: &Session,
-    projection_kind: PromptProjectionKind,
-    prompt: &str,
-) -> String {
-    let mut lines = match projection_kind {
-        PromptProjectionKind::Direct => Vec::new(),
-        PromptProjectionKind::NextTurn => session
-            .project_next_turn()
-            .into_iter()
-            .map(render_runtime_message)
-            .collect(),
-        PromptProjectionKind::NextRun => session
-            .project_next_run()
-            .into_iter()
-            .map(render_runtime_message)
-            .collect(),
-    };
-
-    if matches!(projection_kind, PromptProjectionKind::Direct) {
-        return prompt.to_string();
-    }
-
-    if !prompt.trim().is_empty() {
-        lines.push(prompt.to_string());
-    }
-
-    lines.join("\n")
-}
-
 fn build_context_messages(
     session: &Session,
     projection_kind: PromptProjectionKind,
     prompt: &str,
 ) -> Vec<RunMessage> {
-    let mut messages = match projection_kind {
+    let mut messages: Vec<RunMessage> = match projection_kind {
         PromptProjectionKind::Direct => session
             .history()
             .iter()
             .map(run_message_from_runtime)
-            .collect::<Vec<_>>(),
+            .collect(),
         PromptProjectionKind::NextTurn => session
             .project_next_turn()
             .into_iter()
-            .map(|message| run_message_from_runtime(&message))
-            .collect::<Vec<_>>(),
+            .map(|m| run_message_from_runtime(&m))
+            .collect(),
         PromptProjectionKind::NextRun => session
             .project_next_run()
             .into_iter()
-            .map(|message| run_message_from_runtime(&message))
-            .collect::<Vec<_>>(),
+            .map(|m| run_message_from_runtime(&m))
+            .collect(),
     };
     messages.push(RunMessage::user(prompt.to_string()));
     messages
@@ -325,27 +275,14 @@ fn build_context_messages(
 
 fn run_message_from_runtime(message: &RuntimeMessage) -> RunMessage {
     match message {
-        RuntimeMessage::User(content) => RunMessage::user(content.clone()),
-        RuntimeMessage::Assistant(content) => RunMessage::assistant(content.clone()),
-        RuntimeMessage::RuntimeSummary(content) => RunMessage::system(content.clone()),
-        RuntimeMessage::ToolResult(content) => RunMessage::tool(content.clone()),
-        RuntimeMessage::Steering(content) => RunMessage::system(content.clone()),
-        RuntimeMessage::FollowUp(content) => RunMessage::system(content.clone()),
-        RuntimeMessage::Warning(content) => RunMessage::system(content.clone()),
-        RuntimeMessage::RetryMarker(content) => RunMessage::system(content.clone()),
-    }
-}
-
-fn render_runtime_message(message: RuntimeMessage) -> String {
-    match message {
-        RuntimeMessage::User(content)
-        | RuntimeMessage::Assistant(content)
-        | RuntimeMessage::RuntimeSummary(content)
-        | RuntimeMessage::ToolResult(content)
-        | RuntimeMessage::Steering(content)
-        | RuntimeMessage::FollowUp(content)
-        | RuntimeMessage::Warning(content)
-        | RuntimeMessage::RetryMarker(content) => content,
+        RuntimeMessage::User(c) => RunMessage::user(c.clone()),
+        RuntimeMessage::Assistant(c) => RunMessage::assistant(c.clone()),
+        RuntimeMessage::RuntimeSummary(c) => RunMessage::system(c.clone()),
+        RuntimeMessage::ToolResult(c) => RunMessage::tool_result("runtime", c.clone()),
+        RuntimeMessage::Steering(c) => RunMessage::system(c.clone()),
+        RuntimeMessage::FollowUp(c) => RunMessage::system(c.clone()),
+        RuntimeMessage::Warning(c) => RunMessage::system(c.clone()),
+        RuntimeMessage::RetryMarker(c) => RunMessage::system(c.clone()),
     }
 }
 
@@ -371,7 +308,7 @@ fn finalize_session_after_run(
         .push(RuntimeMessage::User(prompt.to_string()));
 
     for event in events {
-        if let AgentEvent::ToolResultAppended(content) = event {
+        if let AgentEvent::ToolExecutionCompleted(content) = event {
             session
                 .history_mut()
                 .push(RuntimeMessage::ToolResult(normalize_tool_result(content)));
@@ -457,10 +394,6 @@ fn generate_session_id() -> String {
         .expect("clock before unix epoch")
         .as_nanos();
     format!("session-{}-{}", std::process::id(), nanos)
-}
-
-fn provider_error(error: ProviderError) -> String {
-    error.0
 }
 
 pub fn session_db_path(home: impl AsRef<Path>, session_id: &str) -> PathBuf {

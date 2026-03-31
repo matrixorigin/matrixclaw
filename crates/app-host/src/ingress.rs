@@ -155,35 +155,37 @@ pub fn normalize_openclaw_request(
     })
 }
 
-pub fn run_ingress_with_provider(
+pub async fn run_ingress_with_provider(
     home: impl AsRef<Path>,
     model: impl Into<String>,
     envelope: &IngressEnvelope,
     provider: &mut dyn Provider,
 ) -> Result<IngressRunOutcome, String> {
-    run_ingress_with_provider_stream(home, model, envelope, provider, &mut |_| {})
+    run_ingress_with_provider_stream(home, model, envelope, provider, &mut |_| {}).await
 }
 
-pub fn run_ingress_with_provider_stream(
+pub async fn run_ingress_with_provider_stream(
     home: impl AsRef<Path>,
     model: impl Into<String>,
     envelope: &IngressEnvelope,
     provider: &mut dyn Provider,
-    on_event: &mut dyn FnMut(LiveRunEvent),
+    on_event: &mut (dyn FnMut(LiveRunEvent) + Send),
 ) -> Result<IngressRunOutcome, String> {
     let home = home.as_ref();
     let session_id = seed_session_from_ingress(home, envelope)?;
-    let service = SessionBackedLiveRunService::new(home);
-    let live_run = service.run_with_provider_and_queue_stream(
-        model,
-        LiveRunRequest {
-            session_id: Some(session_id),
-            ..envelope.to_live_run_request()
-        },
-        None,
-        provider,
-        on_event,
-    )?;
+    let service = SessionBackedLiveRunService::new(home).await;
+    let live_run = service
+        .run_with_provider_and_queue_stream(
+            model,
+            LiveRunRequest {
+                session_id: Some(session_id),
+                ..envelope.to_live_run_request()
+            },
+            None,
+            provider,
+            on_event,
+        )
+        .await?;
 
     Ok(IngressRunOutcome {
         reply: envelope.reply.clone(),

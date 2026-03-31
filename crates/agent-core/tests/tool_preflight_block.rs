@@ -1,101 +1,117 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+use async_trait::async_trait;
 use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::message::{ToolCallMessage, ToolResultMessage};
 use matrixclaw_agent_core::policy::{ToolPreflightDecision, ToolPreflightPolicy};
-use matrixclaw_agent_core::provider::{Provider, ProviderError};
-use matrixclaw_agent_core::r#loop::run_prompt_with_policy_trace;
-use matrixclaw_agent_core::tool::{
-    BlockedToolResult, ToolExecutionRequest, ToolExecutionResponse, ToolExecutor,
-};
-use matrixclaw_agent_core::RunRequest;
+use matrixclaw_agent_core::provider::{Provider, ProviderError, ProviderResponse};
+use matrixclaw_agent_core::r#loop::run_prompt_with_policy;
+use matrixclaw_agent_core::{RunRequest, ToolCall, ToolResult};
+use matrixclaw_tools::ToolRegistry;
 
-#[derive(Default)]
-struct BlockedToolProvider {
-    stream_calls: usize,
-}
-
-impl Provider for BlockedToolProvider {
-    fn complete(&mut self, _request: &RunRequest) -> Result<String, ProviderError> {
-        Ok("ignored".to_string())
-    }
-
-    fn stream(
-        &mut self,
-        _request: &RunRequest,
-        on_event: &mut dyn FnMut(AgentEvent),
-    ) -> Result<String, ProviderError> {
-        self.stream_calls += 1;
-        on_event(AgentEvent::RunStarted);
-        on_event(AgentEvent::MessageStarted);
-        on_event(AgentEvent::MessageDelta(
-            "call:danger(delete_all)".to_string(),
-        ));
-        on_event(AgentEvent::MessageCompleted(
-            "call:danger(delete_all)".to_string(),
-        ));
-        Ok("call:danger(delete_all)".to_string())
-    }
-}
-
-#[derive(Default)]
 struct DenyDangerPolicy {
-    checks: usize,
+    checks: AtomicUsize,
 }
 
+impl DenyDangerPolicy {
+    fn new() -> Self {
+        Self {
+            checks: AtomicUsize::new(0),
+        }
+    }
+}
+
+#[async_trait]
 impl ToolPreflightPolicy for DenyDangerPolicy {
-    fn before_tool_call(&mut self, request: &ToolExecutionRequest) -> ToolPreflightDecision {
-        self.checks += 1;
+    async fn before_tool_call(&self, call: &ToolCall) -> ToolPreflightDecision {
+        self.checks.fetch_add(1, Ordering::SeqCst);
         assert_eq!(
-            request.call,
-            ToolCallMessage::new("danger", "delete_all"),
+            call.name, "danger",
             "expected the policy to inspect the dangerous tool call"
         );
 
-        ToolPreflightDecision::Block(BlockedToolResult::new(
-            request.call.clone(),
-            "policy denied execution",
-        ))
+        ToolPreflightDecision::Block(ToolResult::error(call, "policy denied execution"))
     }
 }
 
-#[derive(Default)]
-struct CountingTool {
-    executions: usize,
+struct BlockedToolProvider {
+    stream_calls: AtomicUsize,
 }
 
-impl ToolExecutor for CountingTool {
-    fn execute(&mut self, request: &ToolExecutionRequest) -> ToolExecutionResponse {
-        self.executions += 1;
-        ToolExecutionResponse::new(ToolResultMessage::new(
-            request.call.tool_name.clone(),
-            "executed".to_string(),
-        ))
+impl BlockedToolProvider {
+    fn new() -> Self {
+        Self {
+            stream_calls: AtomicUsize::new(0),
+        }
     }
 }
 
-#[test]
-fn tool_preflight_block() {
-    let mut provider = BlockedToolProvider::default();
+#[async_trait]
+impl Provider for BlockedToolProvider {
+    async fn complete(
+        &mut self,
+        _request: &RunRequest,
+    ) -> Result<ProviderResponse, ProviderError> {
+        Ok(ProviderResponse::text("ignored"))
+    }
+
+    async fn stream(
+        &mut self,
+        _request: &RunRequest,
+        on_event: &mut (dyn FnMut(AgentEvent) + Send),
+    ) -> Result<ProviderResponse, ProviderError> {
+        let call_num = self.stream_calls.fetch_add(1, Ordering::SeqCst);
+        on_event(AgentEvent::MessageStarted);
+
+        if call_num == 0 {
+            let msg = "call:danger(delete_all)".to_string();
+            on_event(AgentEvent::MessageDelta(msg.clone()));
+            on_event(AgentEvent::MessageCompleted(msg));
+            Ok(ProviderResponse::tool_calls(vec![ToolCall::new(
+                "danger_call_1".into(),
+                "danger".into(),
+                serde_json::json!({"target": "delete_all"}),
+            )]))
+        } else {
+            let msg = "no more tool calls".to_string();
+            on_event(AgentEvent::MessageDelta(msg.clone()));
+            on_event(AgentEvent::MessageCompleted(msg.clone()));
+            Ok(ProviderResponse::text(msg))
+        }
+    }
+}
+
+#[tokio::test]
+async fn tool_preflight_block() {
+    let mut provider = BlockedToolProvider::new();
     let request = RunRequest::new("delete everything");
-    let mut policy = DenyDangerPolicy::default();
-    let mut tool = CountingTool::default();
+    let policy = DenyDangerPolicy::new();
+    let registry = ToolRegistry::new();
 
-    let trace =
-        run_prompt_with_policy_trace(&mut provider, &request, Some(&mut tool), Some(&mut policy))
-            .expect("run prompt");
+    let trace = run_prompt_with_policy(
+        &mut provider,
+        &request,
+        &registry,
+        Some(&policy),
+        &mut |_| {},
+    )
+    .await
+    .expect("run prompt");
 
     assert_eq!(
-        policy.checks, 1,
+        policy.checks.load(Ordering::SeqCst),
+        1,
         "tool preflight should consult the blocking policy before execution"
     );
-    assert_eq!(tool.executions, 0, "blocked tools must never execute");
     assert!(
-        trace.events.contains(&AgentEvent::ToolResultAppended(
-            "blocked: policy denied execution".to_string()
-        )),
+        trace
+            .events
+            .iter()
+            .any(|e| matches!(e, AgentEvent::ToolExecutionCompleted(msg) if msg.starts_with("blocked:"))),
         "expected a structured blocked tool-result message"
     );
     assert_eq!(
-        provider.stream_calls, 2,
+        provider.stream_calls.load(Ordering::SeqCst),
+        2,
         "the run should remain alive after the blocked tool call"
     );
     assert_eq!(trace.events.last(), Some(&AgentEvent::RunCompleted));

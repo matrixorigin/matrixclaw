@@ -4,6 +4,7 @@ members = [
     "crates/app-host",
     "crates/compat-openclaw",
     "crates/manifests",
+    "crates/matrixclaw-tools",
     "crates/session-runtime",
 ]
 resolver = "2"

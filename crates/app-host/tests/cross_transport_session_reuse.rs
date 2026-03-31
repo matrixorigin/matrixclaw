@@ -14,8 +14,8 @@ use matrixclaw_app_host::server::spawn_test_server;
 use matrixclaw_app_host::ui_assets::UiAssetLayout;
 use serde_json::{json, Value};
 
-#[test]
-fn cross_transport_session_reuse() {
+#[tokio::test]
+async fn cross_transport_session_reuse() {
     let _env_lock = env_lock().lock().expect("env lock");
     let home = temp_home();
     let request_count = Arc::new(AtomicUsize::new(0));
@@ -28,7 +28,7 @@ fn cross_transport_session_reuse() {
 
     let surface = SetupSurface::new(&home, UiAssetLayout::discover());
     let test_server = spawn_test_server(surface).expect("spawn test server");
-    let client = reqwest::blocking::Client::new();
+    let client = reqwest::Client::new();
     let session_id = "cross-transport-session";
 
     let browser_response = client
@@ -42,13 +42,14 @@ fn cross_transport_session_reuse() {
             .to_string(),
         )
         .send()
+        .await
         .expect("send browser request");
     assert_eq!(
-        browser_response.status(),
+        browser_response.status().as_u16(),
         200,
         "browser route should succeed"
     );
-    let browser_body: Value = browser_response.json().expect("browser response JSON");
+    let browser_body: Value = browser_response.json().await.expect("browser response JSON");
     assert_eq!(
         browser_body.get("session_id").and_then(Value::as_str),
         Some(session_id),
@@ -67,9 +68,10 @@ fn cross_transport_session_reuse() {
             .to_string(),
         )
         .send()
+        .await
         .expect("queue steering");
     assert_eq!(
-        steering_response.status(),
+        steering_response.status().as_u16(),
         200,
         "steering should be accepted"
     );
@@ -89,9 +91,10 @@ fn cross_transport_session_reuse() {
             .to_string(),
         )
         .send()
+        .await
         .expect("queue follow up");
     assert_eq!(
-        follow_up_response.status(),
+        follow_up_response.status().as_u16(),
         200,
         "follow-up should be accepted"
     );
@@ -109,6 +112,7 @@ fn cross_transport_session_reuse() {
             .to_string(),
         )
         .send()
+        .await
         .expect("send openclaw request");
 
     env::remove_var("OPENROUTER_API_KEY");
@@ -116,11 +120,11 @@ fn cross_transport_session_reuse() {
     env::remove_var("MATRIXCLAW_LLM_MODEL");
 
     assert_eq!(
-        openclaw_response.status(),
+        openclaw_response.status().as_u16(),
         200,
         "openclaw route should succeed"
     );
-    let openclaw_body: Value = openclaw_response.json().expect("openclaw response JSON");
+    let openclaw_body: Value = openclaw_response.json().await.expect("openclaw response JSON");
     assert_eq!(
         openclaw_body.get("conversation_id").and_then(Value::as_str),
         Some(session_id),

@@ -8,8 +8,9 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use async_trait::async_trait;
 use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::provider::{Provider, ProviderError};
+use matrixclaw_agent_core::provider::{Provider, ProviderError, ProviderResponse};
 use matrixclaw_agent_core::{RunMessageRole, RunRequest};
 use matrixclaw_app_host::gateway::matrix::MatrixInboundEvent;
 use matrixclaw_app_host::gateway::runtime::GatewayRuntime;
@@ -87,8 +88,12 @@ fn browser_matrix_session_reuse() {
 
     let mut runtime = GatewayRuntime::load_or_default(&home).expect("load gateway runtime");
     let mut provider = RecordingProvider::new("matrix reply");
-    let outcome = runtime
-        .process_matrix_event(&home, "moonshotai/kimi-k2.5", &event, &mut provider)
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("build tokio runtime");
+    let outcome = rt.block_on(runtime.process_matrix_event(&home, "moonshotai/kimi-k2.5", &event, &mut provider))
         .expect("resume mapped Matrix event");
 
     env::remove_var("OPENROUTER_API_KEY");
@@ -154,18 +159,22 @@ impl RecordingProvider {
     }
 }
 
+#[async_trait]
 impl Provider for RecordingProvider {
-    fn complete(&mut self, _request: &RunRequest) -> Result<String, ProviderError> {
+    async fn complete(
+        &mut self,
+        _request: &RunRequest,
+    ) -> Result<ProviderResponse, ProviderError> {
         Err(ProviderError(
             "recording provider only supports streamed live runs".to_string(),
         ))
     }
 
-    fn stream(
+    async fn stream(
         &mut self,
         request: &RunRequest,
-        on_event: &mut dyn FnMut(AgentEvent),
-    ) -> Result<String, ProviderError> {
+        on_event: &mut (dyn FnMut(AgentEvent) + Send),
+    ) -> Result<ProviderResponse, ProviderError> {
         self.context_messages.push(
             request
                 .context_messages
@@ -173,11 +182,10 @@ impl Provider for RecordingProvider {
                 .map(render_run_message)
                 .collect(),
         );
-        on_event(AgentEvent::RunStarted);
         on_event(AgentEvent::MessageStarted);
         on_event(AgentEvent::MessageDelta(self.response.clone()));
         on_event(AgentEvent::MessageCompleted(self.response.clone()));
-        Ok(self.response.clone())
+        Ok(ProviderResponse::text(self.response.clone()))
     }
 }
 

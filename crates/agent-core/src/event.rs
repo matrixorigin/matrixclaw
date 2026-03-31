@@ -4,9 +4,8 @@ pub enum AgentEvent {
     MessageStarted,
     MessageDelta(String),
     MessageCompleted(String),
-    ToolCallStarted(String),
+    ToolCallReceived(String),
     ToolExecutionStarted(String),
     ToolExecutionCompleted(String),
-    ToolResultAppended(String),
     RunCompleted,
 }

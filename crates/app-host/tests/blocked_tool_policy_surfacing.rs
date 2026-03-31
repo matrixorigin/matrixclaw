@@ -1,10 +1,12 @@
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use async_trait::async_trait;
 use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::provider::{Provider, ProviderError};
-use matrixclaw_agent_core::RunRequest;
+use matrixclaw_agent_core::provider::{Provider, ProviderError, ProviderResponse};
+use matrixclaw_agent_core::{RunRequest, ToolCall};
 use matrixclaw_app_host::live_runtime::{
     session_db_path, LiveRunRequest, SessionBackedLiveRunService,
 };
@@ -13,15 +15,18 @@ use matrixclaw_session_runtime::message_projection::{
 };
 use matrixclaw_session_runtime::sqlite::SqliteStorage;
 use matrixclaw_session_runtime::storage::TranscriptStore;
+use matrixclaw_tools::{ToolDescriptor, ToolExecutor, ToolRegistry, ToolResult};
+use std::sync::Arc;
 
-#[test]
-fn blocked_tool_policy_surfacing() {
+#[tokio::test]
+async fn blocked_tool_policy_surfacing() {
     let home = temp_home();
-    let mut provider = ScriptedProvider::new(vec![
-        "call:danger(delete_all)",
-        "result:blocked: policy denied execution",
-    ]);
-    let service = SessionBackedLiveRunService::new(&home);
+    let registry = Arc::new(ToolRegistry::new());
+    registry.register(Arc::new(DangerTool)).await;
+
+    let mut provider = ToolCallProvider::new();
+    let service = SessionBackedLiveRunService::new_from_registry(&home, registry)
+        .await;
 
     let outcome = service
         .run_with_provider(
@@ -32,19 +37,21 @@ fn blocked_tool_policy_surfacing() {
             },
             &mut provider,
         )
-        .expect("live run should complete even when the tool is blocked");
+        .await
+        .expect("live run should complete even when the tool returns an error");
 
     let session_path = session_db_path(&home, &outcome.session_id);
     let storage = SqliteStorage::open(&session_path).expect("open persisted session");
     let transcript = storage.load_transcript().expect("load transcript");
 
     assert_eq!(
-        provider.stream_calls, 2,
+        provider.stream_calls.load(Ordering::SeqCst),
+        2,
         "the run should continue after a blocked tool instead of crashing"
     );
     assert!(
         outcome.events.iter().any(|event| {
-            event.kind == "tool_result_appended"
+            event.kind == "tool_execution_completed"
                 && event.content.as_deref() == Some("blocked: policy denied execution")
         }),
         "blocked tool result should be visible in the live event stream"
@@ -65,43 +72,57 @@ fn blocked_tool_policy_surfacing() {
     );
 }
 
-struct ScriptedProvider {
-    responses: Vec<String>,
-    stream_calls: usize,
+struct ToolCallProvider {
+    stream_calls: AtomicUsize,
 }
 
-impl ScriptedProvider {
-    fn new(responses: Vec<&str>) -> Self {
+impl ToolCallProvider {
+    fn new() -> Self {
         Self {
-            responses: responses.into_iter().map(str::to_string).collect(),
-            stream_calls: 0,
+            stream_calls: AtomicUsize::new(0),
         }
     }
 }
 
-impl Provider for ScriptedProvider {
-    fn complete(&mut self, _request: &RunRequest) -> Result<String, ProviderError> {
-        Ok(self.responses.first().cloned().unwrap_or_default())
-    }
-
-    fn stream(
+#[async_trait]
+impl Provider for ToolCallProvider {
+    async fn complete(
         &mut self,
         _request: &RunRequest,
-        on_event: &mut dyn FnMut(AgentEvent),
-    ) -> Result<String, ProviderError> {
-        let response = self
-            .responses
-            .get(self.stream_calls)
-            .cloned()
-            .unwrap_or_default();
-        self.stream_calls += 1;
+    ) -> Result<ProviderResponse, ProviderError> {
+        Ok(ProviderResponse::text(String::new()))
+    }
 
-        on_event(AgentEvent::RunStarted);
-        on_event(AgentEvent::MessageStarted);
-        on_event(AgentEvent::MessageDelta(response.clone()));
-        on_event(AgentEvent::MessageCompleted(response.clone()));
+    async fn stream(
+        &mut self,
+        _request: &RunRequest,
+        _on_event: &mut (dyn FnMut(AgentEvent) + Send),
+    ) -> Result<ProviderResponse, ProviderError> {
+        let call_num = self.stream_calls.fetch_add(1, Ordering::SeqCst);
 
-        Ok(response)
+        if call_num == 0 {
+            Ok(ProviderResponse::tool_calls(vec![ToolCall::new(
+                "danger_call_1".into(),
+                "danger".into(),
+                serde_json::json!({"target": "delete_all"}),
+            )]))
+        } else {
+            Ok(ProviderResponse::text("result:blocked: policy denied execution"))
+        }
+    }
+}
+
+struct DangerTool;
+
+#[async_trait]
+impl ToolExecutor for DangerTool {
+    fn descriptor(&self) -> &ToolDescriptor {
+        static DESC: std::sync::OnceLock<ToolDescriptor> = std::sync::OnceLock::new();
+        DESC.get_or_init(|| ToolDescriptor::new("danger", "dangerous operations"))
+    }
+
+    async fn execute(&self, call: ToolCall) -> ToolResult {
+        ToolResult::error(&call, "blocked: policy denied execution")
     }
 }
 
