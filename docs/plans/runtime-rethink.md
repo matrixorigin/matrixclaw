@@ -33,7 +33,7 @@
 
 **Goal**: Replace 2 hardcoded tools with a proper async tool registry, 13 built-in tools, and JSON function-calling.
 
-**Status**: Stage 1.7 (TUI Chat) In Progress — Stages 1.1–1.6 Complete
+**Status**: Phase 1 Complete — Stage 1.7 (TUI Chat) Implemented
 
 ### Stage 1.1 — Core Types (matrixclaw-tools crate)
 - [x] `ToolDescriptor` with `to_openai_function()` conversion
@@ -70,9 +70,9 @@
 - [x] Remove hardcoded `add` and `host.command` dispatch
 
 ### Stage 1.5 — MCP Client (future plugin path)
-- [ ] MCP client protocol (JSON-RPC over stdio/SSE)
-- [ ] MCP tool adapter wrapping `ToolExecutor`
-- [ ] Dynamic tool discovery from MCP servers
+- [x] MCP client protocol (JSON-RPC over stdio)
+- [x] MCP tool adapter wrapping `ToolExecutor`
+- [x] Dynamic tool discovery from MCP servers
 
 ### Stage 1.6 — Cleanup
 - [x] Delete `ui/` directory

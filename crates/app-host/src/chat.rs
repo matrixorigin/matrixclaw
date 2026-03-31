@@ -30,10 +30,12 @@ pub async fn run_chat(model_override: Option<&str>) -> Result<(), String> {
 
     let home = paths::home_dir();
     let service = SessionBackedLiveRunService::new(&home).await;
+    let tool_count = service.tool_count().await;
     let mut session_id: Option<String> = None;
 
     println!("MatrixClaw chat — type your message and press Enter. Ctrl+C or /quit to exit.");
-    println!("Model: {}\n", provider.model_name());
+    println!("Model: {} | Tools: {}", provider.model_name(), tool_count);
+    println!();
 
     loop {
         print!("> ");

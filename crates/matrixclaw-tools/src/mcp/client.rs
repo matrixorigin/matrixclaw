@@ -124,4 +124,8 @@ impl McpClient {
 
         Ok(result)
     }
+
+    pub fn transport(&self) -> Arc<StdioTransport> {
+        Arc::clone(&self.transport)
+    }
 }

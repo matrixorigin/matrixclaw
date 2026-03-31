@@ -39,6 +39,7 @@ pub struct JsonRpcError {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InitializeResult {
     #[allow(dead_code)]
     pub protocol_version: String,
@@ -55,6 +56,7 @@ pub struct ServerInfo {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ListToolsResult {
     pub tools: Vec<McpTool>,
     #[allow(dead_code)]
@@ -62,6 +64,7 @@ pub struct ListToolsResult {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct McpTool {
     pub name: String,
     #[allow(dead_code)]
@@ -71,6 +74,7 @@ pub struct McpTool {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CallToolResult {
     pub content: Vec<ToolContent>,
     #[allow(dead_code)]

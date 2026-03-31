@@ -5,7 +5,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
 
-use super::types::JsonRpcResponse;
+use super::types::{JsonRpcRequest, JsonRpcResponse};
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 
@@ -61,12 +61,7 @@ impl StdioTransport {
         params: Option<serde_json::Value>,
     ) -> Result<JsonRpcResponse, String> {
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-        let request = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "method": method,
-            "params": params.unwrap_or(serde_json::Value::Null),
-        });
+        let request = JsonRpcRequest::new(id, method, params);
         let mut line = serde_json::to_string(&request)
             .map_err(|e| format!("failed to serialize JSON-RPC request: {e}"))?;
         line.push('\n');

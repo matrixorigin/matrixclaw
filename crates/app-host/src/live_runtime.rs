@@ -51,10 +51,18 @@ impl SessionBackedLiveRunService {
         let registry = Arc::new(ToolRegistry::new());
         let workspace_root = home.as_ref().to_string_lossy().to_string();
         matrixclaw_tools::builtin::register_all(&registry, &workspace_root).await;
+
+        let mcp_config_path = paths::config_dir(&home).join("mcp.json");
+        let _report = matrixclaw_tools::mcp::registration::register_mcp_tools(&registry, &mcp_config_path).await;
+
         Self {
             home: home.as_ref().to_path_buf(),
             registry,
         }
+    }
+
+    pub async fn tool_count(&self) -> usize {
+        self.registry.list_descriptors().await.len()
     }
 
     pub async fn new_from_registry(home: impl AsRef<Path>, registry: Arc<ToolRegistry>) -> Self {
