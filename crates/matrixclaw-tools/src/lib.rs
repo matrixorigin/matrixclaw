@@ -1,6 +1,7 @@
 pub mod builtin;
 pub mod descriptor;
 pub mod executor;
+pub mod mcp;
 pub mod registry;
 
 pub use descriptor::{ParameterType, ToolDescriptor, ToolParameter};
