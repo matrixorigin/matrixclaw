@@ -4,6 +4,11 @@ pub enum AgentEvent {
     MessageStarted,
     MessageDelta(String),
     MessageCompleted(String),
+    ToolCallDelta {
+        id: String,
+        name: String,
+        arguments_delta: String,
+    },
     ToolCallReceived(String),
     ToolExecutionStarted(String),
     ToolExecutionCompleted(String),

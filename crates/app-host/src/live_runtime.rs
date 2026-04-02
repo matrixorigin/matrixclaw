@@ -53,7 +53,9 @@ impl SessionBackedLiveRunService {
         matrixclaw_tools::builtin::register_all(&registry, &workspace_root).await;
 
         let mcp_config_path = paths::config_dir(&home).join("mcp.json");
-        let _report = matrixclaw_tools::mcp::registration::register_mcp_tools(&registry, &mcp_config_path).await;
+        let _report =
+            matrixclaw_tools::mcp::registration::register_mcp_tools(&registry, &mcp_config_path)
+                .await;
 
         Self {
             home: home.as_ref().to_path_buf(),
@@ -101,7 +103,13 @@ impl SessionBackedLiveRunService {
         };
 
         let outcome = self
-            .run_inner(model, request, bootstrap_queue, provider, &mut on_agent_event)
+            .run_inner(
+                model,
+                request,
+                bootstrap_queue,
+                provider,
+                &mut on_agent_event,
+            )
             .await?;
 
         let events = collected.lock().map(|g| g.clone()).unwrap_or_default();
@@ -128,8 +136,14 @@ impl SessionBackedLiveRunService {
             seq += 1;
         };
 
-        self.run_inner(model, request, bootstrap_queue, provider, &mut on_agent_event)
-            .await
+        self.run_inner(
+            model,
+            request,
+            bootstrap_queue,
+            provider,
+            &mut on_agent_event,
+        )
+        .await
     }
 
     async fn run_inner(
@@ -145,8 +159,7 @@ impl SessionBackedLiveRunService {
         merge_bootstrap_queue(&mut session, bootstrap_queue.as_ref());
 
         let projection_kind = projection_kind_for_session(&session);
-        let context_messages =
-            build_context_messages(&session, projection_kind, &request.prompt);
+        let context_messages = build_context_messages(&session, projection_kind, &request.prompt);
         let tool_descriptors = self.registry.list_descriptors().await;
 
         let run_request = RunRequest {
@@ -157,15 +170,9 @@ impl SessionBackedLiveRunService {
             max_iterations: 10,
         };
 
-        let trace = run_prompt_with_policy(
-            provider,
-            &run_request,
-            &self.registry,
-            None,
-            on_event,
-        )
-        .await
-        .map_err(|e| e.0.clone())?;
+        let trace = run_prompt_with_policy(provider, &run_request, &self.registry, None, on_event)
+            .await
+            .map_err(|e| e.0.clone())?;
 
         finalize_session_after_run(
             &mut session,
@@ -219,6 +226,14 @@ impl LiveRunEvent {
             AgentEvent::ToolExecutionCompleted(content) => {
                 ("tool_execution_completed".to_string(), Some(content))
             }
+            AgentEvent::ToolCallDelta {
+                id,
+                name,
+                arguments_delta,
+            } => (
+                "tool_call_delta".to_string(),
+                Some(format!("{id}:{name}:{arguments_delta}")),
+            ),
             AgentEvent::RunCompleted => ("run_completed".to_string(), None),
         };
 

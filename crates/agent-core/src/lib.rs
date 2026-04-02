@@ -43,4 +43,4 @@ pub struct RunResult {
     pub iterations: u32,
 }
 
-pub use r#loop::run_prompt;
+pub use r#loop::{run_prompt, run_prompt_with_policy};

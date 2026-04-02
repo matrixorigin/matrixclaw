@@ -20,6 +20,19 @@ pub struct CompatRegistryEntry {
     pub capabilities: Vec<String>,
 }
 
+pub struct PluginInstallPaths {
+    pub source_root: PathBuf,
+    pub installed_root: PathBuf,
+    pub manifest_path: PathBuf,
+    pub provenance_path: PathBuf,
+    pub adapter_path: PathBuf,
+}
+
+pub struct PluginInstallMeta {
+    pub support_tier: String,
+    pub capabilities: Vec<String>,
+}
+
 impl CompatRegistryEntry {
     pub fn from_skill_install(
         name: impl Into<String>,
@@ -44,25 +57,20 @@ impl CompatRegistryEntry {
 
     pub fn from_plugin_install(
         name: impl Into<String>,
-        source_root: impl Into<PathBuf>,
-        installed_root: impl Into<PathBuf>,
-        manifest_path: impl Into<PathBuf>,
-        provenance_path: impl Into<PathBuf>,
-        adapter_path: impl Into<PathBuf>,
-        support_tier: impl Into<String>,
-        capabilities: Vec<String>,
+        paths: PluginInstallPaths,
+        meta: PluginInstallMeta,
     ) -> Self {
         Self {
             schema_version: "1".to_string(),
             kind: "plugin".to_string(),
             name: name.into(),
-            source_root: source_root.into(),
-            installed_root: installed_root.into(),
-            manifest_path: manifest_path.into(),
-            provenance_path: provenance_path.into(),
-            support_tier: Some(support_tier.into()),
-            adapter_path: Some(adapter_path.into()),
-            capabilities,
+            source_root: paths.source_root,
+            installed_root: paths.installed_root,
+            manifest_path: paths.manifest_path,
+            provenance_path: paths.provenance_path,
+            support_tier: Some(meta.support_tier),
+            adapter_path: Some(paths.adapter_path),
+            capabilities: meta.capabilities,
         }
     }
 
@@ -134,13 +142,17 @@ pub fn record_plugin_install(
             .and_then(|value| value.to_str())
             .unwrap_or("plugin")
             .to_string(),
-        source_root.as_ref().to_path_buf(),
-        installed_root.clone(),
-        manifest_path.clone(),
-        provenance_path.clone(),
-        adapter_path.clone(),
-        support_tier,
-        capabilities,
+        PluginInstallPaths {
+            source_root: source_root.as_ref().to_path_buf(),
+            installed_root: installed_root.clone(),
+            manifest_path: manifest_path.clone(),
+            provenance_path: provenance_path.clone(),
+            adapter_path: adapter_path.clone(),
+        },
+        PluginInstallMeta {
+            support_tier,
+            capabilities,
+        },
     );
     let registry_path = runtime_home
         .as_ref()
