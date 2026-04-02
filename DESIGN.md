@@ -8,8 +8,9 @@ One `matrixclaw` binary provides a TUI chat interface, an HTTP/SSE API, and an M
 ## Crate Structure
 
 ```
-matrixclaw-app-host       CLI entry point, HTTP server, chat REPL, OpenAI provider
-├── matrixclaw-agent-core  Async ReAct loop, Provider trait, policy engine
+matrixclaw-app-host       CLI entry point, HTTP server, chat REPL
+├── matrixclaw-provider   Provider control plane (registry, fallback, cost, rate limit, health)
+│   └── matrixclaw-agent-core  Async ReAct loop, Provider trait, policy engine
 ├── matrixclaw-tools       Tool registry, 13 built-in tools, MCP client
 ├── matrixclaw-session-runtime  SQLite storage, queue, compaction, recovery
 ├── matrixclaw-manifests   Plugin and skill manifest types
@@ -65,11 +66,46 @@ Tools are namespaced as `mcp__{server}__{name}` and wrapped as `ToolExecutor` im
 ## Provider Layer
 
 The `Provider` trait (`crates/agent-core/src/provider.rs`) defines async `complete()` and `stream()` methods.
-The OpenAI-compatible provider (`crates/app-host/src/openai_compatible.rs`) handles:
+`FallbackProvider` (`crates/provider-plane/src/fallback.rs`) wraps the registry and implements `Provider` —
+the agent loop sees a single provider transparently.
+
+`OpenAiProvider` (`crates/provider-plane/src/openai.rs`) handles:
 
 - Chat completion with function-calling (`tools` / `tool_choice` fields)
 - SSE streaming with incremental tool call argument assembly
-- Works with any OpenAI-compatible endpoint (OpenRouter, etc.)
+- Token usage extraction from response `usage` fields
+- Works with any OpenAI-compatible endpoint (OpenRouter, Ollama `/v1`, etc.)
+
+## Provider Plane
+
+The provider control plane (`crates/provider-plane/`) sits between `agent-core` and `app-host`.
+
+### Registry
+
+`ProviderRegistry` maps named provider configs to `Box<dyn Provider>` instances.
+Providers are configured via `~/.matrixclaw/config/providers.json` or built from env vars.
+
+### Fallback Chains
+
+`FallbackProvider` implements `Provider` and tries providers in chain order.
+Skips unhealthy providers (tracked by `HealthChecker`) and rate-limited providers (tracked by `RateLimiter`).
+On failure, marks provider unhealthy and tries next in chain.
+
+### Token Counting
+
+`TokenUsage` is extracted from OpenAI `usage` response fields. Accumulated in-memory per session/model.
+
+### Cost Tracking
+
+`CostTracker` persists cost records to SQLite. Queryable by session or model.
+
+### Rate Limiting
+
+`RateLimiter` uses an atomic token-bucket per provider (configurable RPM).
+
+### Health Checks
+
+`HealthChecker` tracks healthy/unhealthy state per provider. Supports async HTTP probes.
 
 ## Session Runtime
 
@@ -96,8 +132,9 @@ Chat mode supports:
 
 ```
 ~/.matrixclaw/config/
-├── config.toml        General settings
-└── mcp.json           MCP server definitions
+├── config.json       General settings
+├── mcp.json          MCP server definitions
+└── providers.json    Provider configs and fallback chains
 ```
 
 ## Event Flow

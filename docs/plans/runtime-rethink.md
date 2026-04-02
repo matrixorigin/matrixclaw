@@ -1,7 +1,7 @@
 # MatrixClaw Runtime Rethink — 5-Phase Roadmap
 
 **Date**: 2026-03-31
-**Status**: Phase 1 Complete — Phase 2 Next
+**Status**: Phase 2 Complete — Phase 3 Next
 **Decision**: Drop SvelteKit/Tauri desktop shell. Rebuild as single-binary Rust agent runtime.
 
 ## Differentiators
@@ -97,14 +97,14 @@
 **Goal**: Multi-provider routing, cost optimization, reliability.
 
  **Status**: Phase 2 Complete
-- [ ] Provider registry: OpenAI, Anthropic, Google, local (Ollama), custom endpoints
-- [ ] Fallback chains: primary → secondary → tertiary with automatic failover
-- [ ] Cost tracking: per-session, per-agent, per-model cost accumulation
-- [ ] Prompt caching: Anthropic `system_and_3` strategy (~75% input cost reduction)
-- [ ] Token counting: input/output tracking with budget alerts
-- [ ] Rate limiting: per-provider request throttling
-- [ ] Model routing: route tasks to appropriate models (cheap model for simple tasks, powerful model for complex)
-- [ ] Provider health checks: automatic endpoint monitoring
+- [x] Provider registry: OpenAI, Anthropic, Google, local (Ollama), custom endpoints
+- [x] Fallback chains: primary → secondary → tertiary with automatic failover
+- [x] Cost tracking: per-session, per-agent, per-model cost accumulation (SQLite-backed)
+- [ ] Prompt caching: Anthropic `system_and_3` strategy (~75% input cost reduction) — deferred, requires native Anthropic provider
+- [x] Token counting: input/output tracking from OpenAI `usage` response
+- [x] Rate limiting: per-provider token-bucket request throttling
+- [ ] Model routing: route tasks to appropriate models (cheap model for simple tasks, powerful model for complex) — deferred
+- [x] Provider health checks: automatic endpoint monitoring with probe
 
 ---
 
