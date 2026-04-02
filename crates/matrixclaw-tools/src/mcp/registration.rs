@@ -42,13 +42,15 @@ pub async fn register_mcp_tools(
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
 
-        let client = match McpClient::connect(&server_config.command, &server_config.args, &env_pairs).await {
-            Ok(c) => c,
-            Err(e) => {
-                report.servers_failed.push((name.to_string(), e));
-                continue;
-            }
-        };
+        let client =
+            match McpClient::connect(&server_config.command, &server_config.args, &env_pairs).await
+            {
+                Ok(c) => c,
+                Err(e) => {
+                    report.servers_failed.push((name.to_string(), e));
+                    continue;
+                }
+            };
 
         let client = match client.initialize().await {
             Ok(c) => Arc::new(c),

@@ -20,14 +20,16 @@ use serde_json::{json, Value};
 
 #[tokio::test]
 async fn runtime_execution_node_integration() {
-    let _env_lock = env_lock().lock().expect("env lock");
     let home = temp_home();
     let request_count = Arc::new(AtomicUsize::new(0));
     let provider_url = spawn_fixture_provider(request_count.clone());
 
-    env::set_var("OPENROUTER_API_KEY", "test-key");
-    env::set_var("MATRIXCLAW_OPENAI_BASE_URL", &provider_url);
-    env::set_var("MATRIXCLAW_LLM_MODEL", "moonshotai/kimi-k2.5");
+    {
+        let _env_lock = env_lock().lock().expect("env lock");
+        env::set_var("OPENROUTER_API_KEY", "test-key");
+        env::set_var("MATRIXCLAW_OPENAI_BASE_URL", &provider_url);
+        env::set_var("MATRIXCLAW_LLM_MODEL", "moonshotai/kimi-k2.5");
+    }
 
     let surface = SetupSurface::new(&home, UiAssetLayout::discover());
     let test_server = spawn_test_server(surface).expect("spawn test server");
@@ -52,12 +54,18 @@ async fn runtime_execution_node_integration() {
         .expect("send agent run request");
 
     let status = response.status();
-    let body: Value = response.json().await.expect("agent run response should be JSON");
+    let body: Value = response
+        .json()
+        .await
+        .expect("agent run response should be JSON");
 
     let _ = test_server.shutdown();
-    env::remove_var("OPENROUTER_API_KEY");
-    env::remove_var("MATRIXCLAW_OPENAI_BASE_URL");
-    env::remove_var("MATRIXCLAW_LLM_MODEL");
+    {
+        let _env_lock = env_lock().lock().expect("env lock");
+        env::remove_var("OPENROUTER_API_KEY");
+        env::remove_var("MATRIXCLAW_OPENAI_BASE_URL");
+        env::remove_var("MATRIXCLAW_LLM_MODEL");
+    }
 
     assert_eq!(
         status.as_u16(),
@@ -135,7 +143,7 @@ fn spawn_fixture_provider(request_count: Arc<AtomicUsize>) -> String {
         }
     });
 
-    format!("http://{}", address)
+    format!("http://{address}")
 }
 
 fn read_http_request(stream: &mut std::net::TcpStream) -> String {

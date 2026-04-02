@@ -87,16 +87,11 @@ impl GatewayRuntime {
 
         let envelope = normalize_matrix_inbound_event(home.as_ref(), event)?;
         let mut collected_events: Vec<LiveRunEvent> = Vec::new();
-        let outcome = run_ingress_with_provider_stream(
-            home,
-            model,
-            &envelope,
-            provider,
-            &mut |event| {
+        let outcome =
+            run_ingress_with_provider_stream(home, model, &envelope, provider, &mut |event| {
                 collected_events.push(event);
-            },
-        )
-        .await?;
+            })
+            .await?;
         if let Some(event_id) = event.event_id.as_deref() {
             self.processed_inbound_event_ids.push(event_id.to_string());
         }

@@ -11,7 +11,11 @@ pub struct ToolCall {
 
 impl ToolCall {
     pub fn new(id: String, name: String, arguments: serde_json::Value) -> Self {
-        Self { id, name, arguments }
+        Self {
+            id,
+            name,
+            arguments,
+        }
     }
 }
 

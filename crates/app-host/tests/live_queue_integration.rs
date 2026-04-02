@@ -105,10 +105,7 @@ struct RecordingProvider {
 
 #[async_trait]
 impl Provider for RecordingProvider {
-    async fn complete(
-        &mut self,
-        _request: &RunRequest,
-    ) -> Result<ProviderResponse, ProviderError> {
+    async fn complete(&mut self, _request: &RunRequest) -> Result<ProviderResponse, ProviderError> {
         Err(ProviderError(
             "recording provider only supports streamed live runs".to_string(),
         ))
@@ -154,10 +151,7 @@ fn assert_prompt_contains_in_order(prompt: &str, needles: &[&str], message: &str
 
     for needle in needles {
         let Some(relative) = prompt[cursor..].find(needle) else {
-            panic!(
-                "{}: missing {:?} after byte {} in prompt {:?}",
-                message, needle, cursor, prompt
-            );
+            panic!("{message}: missing {needle:?} after byte {cursor} in prompt {prompt:?}");
         };
         cursor += relative + needle.len();
     }
@@ -193,9 +187,8 @@ fn temp_home() -> PathBuf {
         .as_nanos();
 
     let home = std::env::temp_dir().join(format!(
-        "matrixclaw-live-queue-home-{}-{}",
-        std::process::id(),
-        nanos
+        "matrixclaw-live-queue-home-{}-{nanos}",
+        std::process::id()
     ));
     fs::create_dir_all(&home).expect("create temp home");
     home

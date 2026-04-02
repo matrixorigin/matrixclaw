@@ -194,10 +194,7 @@ impl ScriptedProvider {
 
 #[async_trait]
 impl Provider for ScriptedProvider {
-    async fn complete(
-        &mut self,
-        _request: &RunRequest,
-    ) -> Result<ProviderResponse, ProviderError> {
+    async fn complete(&mut self, _request: &RunRequest) -> Result<ProviderResponse, ProviderError> {
         Ok(ProviderResponse::text(
             self.responses
                 .first()
@@ -231,9 +228,7 @@ impl Provider for ScriptedProvider {
                 }
                 Ok(ProviderResponse::text(text.clone()))
             }
-            None => {
-                Ok(ProviderResponse::text(String::new()))
-            }
+            None => Ok(ProviderResponse::text(String::new())),
         }
     }
 }

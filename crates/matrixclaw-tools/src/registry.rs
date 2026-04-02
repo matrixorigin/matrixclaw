@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use tokio::sync::RwLock;
 
-use crate::executor::{ToolCall, ToolExecutor, ToolResult};
 use crate::descriptor::ToolDescriptor;
+use crate::executor::{ToolCall, ToolExecutor, ToolResult};
 
 pub struct ToolRegistry {
     tools: RwLock<HashMap<String, Arc<dyn ToolExecutor>>>,

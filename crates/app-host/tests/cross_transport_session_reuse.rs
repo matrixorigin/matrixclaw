@@ -16,15 +16,17 @@ use serde_json::{json, Value};
 
 #[tokio::test]
 async fn cross_transport_session_reuse() {
-    let _env_lock = env_lock().lock().expect("env lock");
     let home = temp_home();
     let request_count = Arc::new(AtomicUsize::new(0));
     let request_bodies = Arc::new(Mutex::new(Vec::new()));
     let server_url = spawn_fixture_server(request_count.clone(), request_bodies.clone());
 
-    env::set_var("OPENROUTER_API_KEY", "test-key");
-    env::set_var("MATRIXCLAW_OPENAI_BASE_URL", &server_url);
-    env::set_var("MATRIXCLAW_LLM_MODEL", "moonshotai/kimi-k2.5");
+    {
+        let _env_lock = env_lock().lock().expect("env lock");
+        env::set_var("OPENROUTER_API_KEY", "test-key");
+        env::set_var("MATRIXCLAW_OPENAI_BASE_URL", &server_url);
+        env::set_var("MATRIXCLAW_LLM_MODEL", "moonshotai/kimi-k2.5");
+    }
 
     let surface = SetupSurface::new(&home, UiAssetLayout::discover());
     let test_server = spawn_test_server(surface).expect("spawn test server");
@@ -49,7 +51,10 @@ async fn cross_transport_session_reuse() {
         200,
         "browser route should succeed"
     );
-    let browser_body: Value = browser_response.json().await.expect("browser response JSON");
+    let browser_body: Value = browser_response
+        .json()
+        .await
+        .expect("browser response JSON");
     assert_eq!(
         browser_body.get("session_id").and_then(Value::as_str),
         Some(session_id),
@@ -115,16 +120,22 @@ async fn cross_transport_session_reuse() {
         .await
         .expect("send openclaw request");
 
-    env::remove_var("OPENROUTER_API_KEY");
-    env::remove_var("MATRIXCLAW_OPENAI_BASE_URL");
-    env::remove_var("MATRIXCLAW_LLM_MODEL");
+    {
+        let _env_lock = env_lock().lock().expect("env lock");
+        env::remove_var("OPENROUTER_API_KEY");
+        env::remove_var("MATRIXCLAW_OPENAI_BASE_URL");
+        env::remove_var("MATRIXCLAW_LLM_MODEL");
+    }
 
     assert_eq!(
         openclaw_response.status().as_u16(),
         200,
         "openclaw route should succeed"
     );
-    let openclaw_body: Value = openclaw_response.json().await.expect("openclaw response JSON");
+    let openclaw_body: Value = openclaw_response
+        .json()
+        .await
+        .expect("openclaw response JSON");
     assert_eq!(
         openclaw_body.get("conversation_id").and_then(Value::as_str),
         Some(session_id),
@@ -241,7 +252,7 @@ fn spawn_fixture_server(
         }
     });
 
-    format!("http://{}", address)
+    format!("http://{address}")
 }
 
 fn read_http_request(stream: &mut std::net::TcpStream) -> String {

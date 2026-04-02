@@ -75,10 +75,10 @@ pub fn persist_setup_submission(
 
 pub fn startup_mode_for_home(home: impl AsRef<Path>) -> io::Result<StartupMode> {
     let home = home.as_ref();
-    let execution_paths = execution::execution_contract_paths(&home);
+    let execution_paths = execution::execution_contract_paths(home);
     if !execution_paths.execution_config_path.exists() {
         let contract = execution::default_execution_contract();
-        let _ = contract.save_to_home(&home)?;
+        let _ = contract.save_to_home(home)?;
     }
 
     if setup_required(home) {

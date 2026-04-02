@@ -684,6 +684,7 @@ dependencies = [
  "matrixclaw-agent-core",
  "matrixclaw-compat-openclaw",
  "matrixclaw-manifests",
+ "matrixclaw-provider",
  "matrixclaw-session-runtime",
  "matrixclaw-tools",
  "reqwest",
@@ -709,6 +710,21 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+]
+
+[[package]]
+name = "matrixclaw-provider"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "futures-util",
+ "matrixclaw-agent-core",
+ "reqwest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]

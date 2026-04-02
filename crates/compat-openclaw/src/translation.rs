@@ -61,7 +61,7 @@ where
     let runtime_messages = request
         .messages
         .iter()
-        .filter_map(|message| translate_chat_message(message))
+        .filter_map(translate_chat_message)
         .collect();
 
     let runtime_request = ChatRequest {

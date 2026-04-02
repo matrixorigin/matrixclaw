@@ -19,9 +19,11 @@ use matrixclaw_session_runtime::RuntimeMessage;
 
 #[tokio::test]
 async fn openclaw_transport_reuses_the_shared_live_runtime() {
-    let _env_lock = env_lock().lock().expect("env lock");
     let home = temp_home();
-    env::set_var("HOME", &home);
+    {
+        let _env_lock = env_lock().lock().expect("env lock");
+        env::set_var("HOME", &home);
+    }
 
     let conversation_id = format!(
         "openclaw-shared-runtime-{}",
@@ -159,7 +161,10 @@ async fn openclaw_transport_reuses_the_shared_live_runtime() {
         "the live runtime should append its own assistant completion to the shared session"
     );
 
-    env::remove_var("HOME");
+    {
+        let _env_lock = env_lock().lock().expect("env lock");
+        env::remove_var("HOME");
+    }
 }
 
 struct RecordingProvider {
@@ -188,10 +193,7 @@ impl RecordingProvider {
 
 #[async_trait]
 impl Provider for RecordingProvider {
-    async fn complete(
-        &mut self,
-        _request: &RunRequest,
-    ) -> Result<ProviderResponse, ProviderError> {
+    async fn complete(&mut self, _request: &RunRequest) -> Result<ProviderResponse, ProviderError> {
         Err(ProviderError(
             "recording provider only supports streamed live runs".to_string(),
         ))

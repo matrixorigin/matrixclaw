@@ -1,6 +1,6 @@
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use matrixclaw_app_host::http::workspace_api::{workspace_surface_for_home, WorkspaceEntryKind};
@@ -15,7 +15,7 @@ fn temp_home() -> PathBuf {
     home
 }
 
-fn temp_workspace(home: &PathBuf) -> PathBuf {
+fn temp_workspace(home: &Path) -> PathBuf {
     let root = home.join(".matrixclaw").join("config").join("workspace");
     fs::create_dir_all(root.join("notes").join("2026")).expect("create notes tree");
     fs::create_dir_all(root.join("projects").join("alpha")).expect("create project tree");

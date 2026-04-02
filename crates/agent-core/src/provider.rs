@@ -40,10 +40,7 @@ impl ProviderResponse {
 
 #[async_trait]
 pub trait Provider: Send + Sync {
-    async fn complete(
-        &mut self,
-        request: &RunRequest,
-    ) -> Result<ProviderResponse, ProviderError>;
+    async fn complete(&mut self, request: &RunRequest) -> Result<ProviderResponse, ProviderError>;
 
     async fn stream(
         &mut self,

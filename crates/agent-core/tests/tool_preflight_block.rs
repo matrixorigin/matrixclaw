@@ -47,10 +47,7 @@ impl BlockedToolProvider {
 
 #[async_trait]
 impl Provider for BlockedToolProvider {
-    async fn complete(
-        &mut self,
-        _request: &RunRequest,
-    ) -> Result<ProviderResponse, ProviderError> {
+    async fn complete(&mut self, _request: &RunRequest) -> Result<ProviderResponse, ProviderError> {
         Ok(ProviderResponse::text("ignored"))
     }
 
@@ -103,10 +100,9 @@ async fn tool_preflight_block() {
         "tool preflight should consult the blocking policy before execution"
     );
     assert!(
-        trace
-            .events
-            .iter()
-            .any(|e| matches!(e, AgentEvent::ToolExecutionCompleted(msg) if msg.starts_with("blocked:"))),
+        trace.events.iter().any(
+            |e| matches!(e, AgentEvent::ToolExecutionCompleted(msg) if msg.starts_with("blocked:"))
+        ),
         "expected a structured blocked tool-result message"
     );
     assert_eq!(

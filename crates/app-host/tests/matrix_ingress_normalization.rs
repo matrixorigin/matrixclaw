@@ -18,8 +18,10 @@ use matrixclaw_session_runtime::RuntimeMessage;
 
 #[tokio::test]
 async fn matrix_ingress_normalization() {
-    let _env_lock = env_lock().lock().expect("env lock");
     let home = temp_home();
+    {
+        let _env_lock = env_lock().lock().expect("env lock");
+    }
     let session_id = "matrix-session-1";
     seed_persisted_session(&home, session_id);
 
@@ -99,10 +101,7 @@ impl RecordingProvider {
 
 #[async_trait]
 impl Provider for RecordingProvider {
-    async fn complete(
-        &mut self,
-        _request: &RunRequest,
-    ) -> Result<ProviderResponse, ProviderError> {
+    async fn complete(&mut self, _request: &RunRequest) -> Result<ProviderResponse, ProviderError> {
         Err(ProviderError(
             "recording provider only supports streamed live runs".to_string(),
         ))

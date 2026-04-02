@@ -15,6 +15,7 @@ path = "src/main.rs"
 async-trait = "0.1"
 base64 = "0.22"
 matrixclaw-agent-core = { path = "../agent-core" }
+matrixclaw-provider = { path = "../provider-plane" }
 matrixclaw-compat-openclaw = { path = "../compat-openclaw" }
 matrixclaw-manifests = { path = "../manifests" }
 matrixclaw-tools = { path = "../matrixclaw-tools" }

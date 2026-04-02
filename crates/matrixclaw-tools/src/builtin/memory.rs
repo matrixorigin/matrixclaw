@@ -11,10 +11,20 @@ pub struct MemoryTool {
     store: Arc<Mutex<HashMap<String, String>>>,
 }
 
+impl Default for MemoryTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryTool {
     pub fn new() -> Self {
         Self {
-            descriptor: ToolDescriptor::new("memory", "Key-value memory store for persisting information across tool calls").with_parameters(vec![
+            descriptor: ToolDescriptor::new(
+                "memory",
+                "Key-value memory store for persisting information across tool calls",
+            )
+            .with_parameters(vec![
                 ToolParameter::required("action", ParameterType::String, "Action to perform")
                     .enum_values(&["store", "retrieve", "list", "delete"]),
                 ToolParameter::optional("key", ParameterType::String, "Key for the memory entry"),
@@ -60,7 +70,7 @@ impl ToolExecutor for MemoryTool {
                 };
                 let mut store = self.store.lock().unwrap();
                 store.insert(key.clone(), value);
-                ToolResult::success(&call, format!("stored {}", key))
+                ToolResult::success(&call, format!("stored {key}"))
             }
             "retrieve" => {
                 let key = match call.arguments.get("key").and_then(|v| v.as_str()) {
@@ -70,7 +80,7 @@ impl ToolExecutor for MemoryTool {
                 let store = self.store.lock().unwrap();
                 match store.get(key) {
                     Some(val) => ToolResult::success(&call, val.clone()),
-                    None => ToolResult::error(&call, format!("key not found: {}", key)),
+                    None => ToolResult::error(&call, format!("key not found: {key}")),
                 }
             }
             "list" => {
@@ -89,11 +99,11 @@ impl ToolExecutor for MemoryTool {
                 };
                 let mut store = self.store.lock().unwrap();
                 match store.remove(key) {
-                    Some(_) => ToolResult::success(&call, format!("deleted {}", key)),
-                    None => ToolResult::error(&call, format!("key not found: {}", key)),
+                    Some(_) => ToolResult::success(&call, format!("deleted {key}")),
+                    None => ToolResult::error(&call, format!("key not found: {key}")),
                 }
             }
-            _ => ToolResult::error(&call, format!("unknown action: {}", action)),
+            _ => ToolResult::error(&call, format!("unknown action: {action}")),
         }
     }
 }

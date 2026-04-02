@@ -39,7 +39,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> i32 {
     let _ = args.next();
     match args.next().as_deref() {
         Some("version") => {
-            println!("MatrixClaw {}", VERSION);
+            println!("MatrixClaw {VERSION}");
             0
         }
         Some("serve") => {

@@ -37,7 +37,7 @@ impl StdioTransport {
 
         let mut child = cmd
             .spawn()
-            .map_err(|e| format!("failed to spawn MCP server '{}': {e}", command))?;
+            .map_err(|e| format!("failed to spawn MCP server '{command}': {e}"))?;
 
         let stdin = child
             .stdin
@@ -84,11 +84,8 @@ impl StdioTransport {
             .await
             .map_err(|e| format!("failed to read from MCP server stdout: {e}"))?;
 
-        let response: JsonRpcResponse = serde_json::from_str(response_line.trim()).map_err(|e| {
-            format!(
-                "failed to parse JSON-RPC response: {e}; line={response_line}"
-            )
-        })?;
+        let response: JsonRpcResponse = serde_json::from_str(response_line.trim())
+            .map_err(|e| format!("failed to parse JSON-RPC response: {e}; line={response_line}"))?;
 
         Ok(response)
     }

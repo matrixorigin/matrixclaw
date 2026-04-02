@@ -8,14 +8,29 @@ pub struct WebFetchTool {
     client: reqwest::Client,
 }
 
+impl Default for WebFetchTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WebFetchTool {
     pub fn new() -> Self {
         Self {
-            descriptor: ToolDescriptor::new("web_fetch", "Fetch content from a URL").with_parameters(vec![
-                ToolParameter::required("url", ParameterType::String, "URL to fetch"),
-                ToolParameter::optional("method", ParameterType::String, "HTTP method (default GET)"),
-                ToolParameter::optional("headers", ParameterType::Object, "HTTP headers to include"),
-            ]),
+            descriptor: ToolDescriptor::new("web_fetch", "Fetch content from a URL")
+                .with_parameters(vec![
+                    ToolParameter::required("url", ParameterType::String, "URL to fetch"),
+                    ToolParameter::optional(
+                        "method",
+                        ParameterType::String,
+                        "HTTP method (default GET)",
+                    ),
+                    ToolParameter::optional(
+                        "headers",
+                        ParameterType::Object,
+                        "HTTP headers to include",
+                    ),
+                ]),
             client: reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(30))
                 .build()
@@ -49,7 +64,7 @@ impl ToolExecutor for WebFetchTool {
             "DELETE" => self.client.delete(url),
             "HEAD" => self.client.head(url),
             "PATCH" => self.client.patch(url),
-            _ => return ToolResult::error(&call, format!("unsupported HTTP method: {}", method)),
+            _ => return ToolResult::error(&call, format!("unsupported HTTP method: {method}")),
         };
 
         if let Some(headers) = call.arguments.get("headers").and_then(|v| v.as_object()) {
@@ -66,16 +81,22 @@ impl ToolExecutor for WebFetchTool {
                 match response.text().await {
                     Ok(body) => {
                         let truncated = if body.len() > 50000 {
-                            format!("{}...\n(truncated, {} chars total)", &body[..50000], body.len())
+                            format!(
+                                "{}...\n(truncated, {} chars total)",
+                                &body[..50000],
+                                body.len()
+                            )
                         } else {
                             body
                         };
-                        ToolResult::success(&call, format!("HTTP {}:\n{}", status, truncated))
+                        ToolResult::success(&call, format!("HTTP {status}:\n{truncated}"))
                     }
-                    Err(e) => ToolResult::error(&call, format!("failed to read response body: {}", e)),
+                    Err(e) => {
+                        ToolResult::error(&call, format!("failed to read response body: {e}"))
+                    }
                 }
             }
-            Err(e) => ToolResult::error(&call, format!("request failed: {}", e)),
+            Err(e) => ToolResult::error(&call, format!("request failed: {e}")),
         }
     }
 }
@@ -84,12 +105,21 @@ pub struct WebSearchTool {
     descriptor: ToolDescriptor,
 }
 
+impl Default for WebSearchTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WebSearchTool {
     pub fn new() -> Self {
         Self {
-            descriptor: ToolDescriptor::new("web_search", "Search the web for information").with_parameters(vec![
-                ToolParameter::required("query", ParameterType::String, "Search query"),
-            ]),
+            descriptor: ToolDescriptor::new("web_search", "Search the web for information")
+                .with_parameters(vec![ToolParameter::required(
+                    "query",
+                    ParameterType::String,
+                    "Search query",
+                )]),
         }
     }
 }
@@ -101,6 +131,9 @@ impl ToolExecutor for WebSearchTool {
     }
 
     async fn execute(&self, call: ToolCall) -> ToolResult {
-        ToolResult::error(&call, "web_search requires a search provider API key (not yet configured)")
+        ToolResult::error(
+            &call,
+            "web_search requires a search provider API key (not yet configured)",
+        )
     }
 }

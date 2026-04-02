@@ -76,8 +76,7 @@ fn session_backed_live_run_service() {
     let session_path = session_db_path(&home, session_id);
     assert!(
         session_path.exists(),
-        "live runtime should persist session state at {:?}",
-        session_path
+        "live runtime should persist session state at {session_path:?}"
     );
 
     let storage = SqliteStorage::open(&session_path).expect("open persisted session");
@@ -101,14 +100,11 @@ fn session_db_path_stays_inside_runtime_home() {
 
     assert!(
         path.starts_with(&sessions_root),
-        "session paths must stay inside {:?}, got {:?}",
-        sessions_root,
-        path
+        "session paths must stay inside {sessions_root:?}, got {path:?}"
     );
     assert!(
         !path.to_string_lossy().contains("../"),
-        "session paths must not preserve traversal segments: {:?}",
-        path
+        "session paths must not preserve traversal segments: {path:?}"
     );
 }
 
@@ -137,7 +133,7 @@ fn spawn_fixture_server(request_count: Arc<AtomicUsize>) -> String {
             .expect("write fixture response");
     });
 
-    format!("http://{}", address)
+    format!("http://{address}")
 }
 
 fn read_http_request(stream: &mut std::net::TcpStream) -> String {

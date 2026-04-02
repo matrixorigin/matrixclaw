@@ -47,8 +47,9 @@ impl MatrixGatewayTransport {
 
         let mut runtime =
             GatewayRuntime::load_or_default(&self.home).map_err(|error| error.to_string())?;
-        let outcome =
-            runtime.process_matrix_event(&self.home, &self.config.model, &event, provider).await?;
+        let outcome = runtime
+            .process_matrix_event(&self.home, &self.config.model, &event, provider)
+            .await?;
         let report = match outcome.status {
             GatewayRunStatus::Duplicate => MatrixTransportCycleReport {
                 status: GatewayRunStatus::Duplicate,

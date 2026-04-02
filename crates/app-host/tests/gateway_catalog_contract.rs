@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use matrixclaw_app_host::agent_store::{agent_profile_path, AgentProfile};
-use matrixclaw_app_host::http::{HttpRequest, SetupSurface};
 use matrixclaw_app_host::http::gateway_api::gateway_catalog_path;
+use matrixclaw_app_host::http::{HttpRequest, SetupSurface};
 use matrixclaw_app_host::session_binding_store::session_bindings_path;
 use matrixclaw_app_host::ui_assets::UiAssetLayout;
 use serde_json::json;
@@ -44,7 +44,8 @@ fn gateway_catalog_contract_uses_file_backed_snapshot_or_defaults() {
     .expect("write profile");
 
     let snapshot_path = gateway_catalog_path(&home);
-    fs::create_dir_all(snapshot_path.parent().expect("snapshot parent")).expect("create snapshot dir");
+    fs::create_dir_all(snapshot_path.parent().expect("snapshot parent"))
+        .expect("create snapshot dir");
     fs::write(
         &snapshot_path,
         json!([
@@ -59,7 +60,8 @@ fn gateway_catalog_contract_uses_file_backed_snapshot_or_defaults() {
     .expect("write gateway snapshot");
 
     let bindings_path = session_bindings_path(&home);
-    fs::create_dir_all(bindings_path.parent().expect("bindings parent")).expect("create bindings dir");
+    fs::create_dir_all(bindings_path.parent().expect("bindings parent"))
+        .expect("create bindings dir");
     fs::write(&bindings_path, "{not-json").expect("write malformed bindings");
 
     let surface = SetupSurface::new(&home, UiAssetLayout::discover());

@@ -4,7 +4,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct McpConfig {
     #[serde(default)]
     pub servers: HashMap<String, McpServerConfig>,
@@ -37,14 +37,6 @@ impl McpConfig {
             .filter(|(_, config)| !config.disabled)
             .map(|(name, config)| (name.as_str(), config))
             .collect()
-    }
-}
-
-impl Default for McpConfig {
-    fn default() -> Self {
-        Self {
-            servers: HashMap::new(),
-        }
     }
 }
 

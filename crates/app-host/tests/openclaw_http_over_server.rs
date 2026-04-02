@@ -13,15 +13,17 @@ use serde_json::{json, Value};
 
 #[tokio::test]
 async fn openclaw_http_over_server() {
-    let _env_lock = env_lock().lock().expect("env lock");
     let home = temp_home();
     let request_count = Arc::new(AtomicUsize::new(0));
     let request_bodies = Arc::new(Mutex::new(Vec::new()));
     let server_url = spawn_fixture_server(request_count.clone(), request_bodies.clone());
 
-    env::set_var("OPENROUTER_API_KEY", "test-key");
-    env::set_var("MATRIXCLAW_OPENAI_BASE_URL", &server_url);
-    env::set_var("MATRIXCLAW_LLM_MODEL", "moonshotai/kimi-k2.5");
+    {
+        let _env_lock = env_lock().lock().expect("env lock");
+        env::set_var("OPENROUTER_API_KEY", "test-key");
+        env::set_var("MATRIXCLAW_OPENAI_BASE_URL", &server_url);
+        env::set_var("MATRIXCLAW_LLM_MODEL", "moonshotai/kimi-k2.5");
+    }
 
     let surface = SetupSurface::new(&home, UiAssetLayout::discover());
     let test_server = spawn_test_server(surface).expect("spawn test server");
@@ -44,9 +46,12 @@ async fn openclaw_http_over_server() {
         .await
         .expect("send openclaw http request");
 
-    env::remove_var("OPENROUTER_API_KEY");
-    env::remove_var("MATRIXCLAW_OPENAI_BASE_URL");
-    env::remove_var("MATRIXCLAW_LLM_MODEL");
+    {
+        let _env_lock = env_lock().lock().expect("env lock");
+        env::remove_var("OPENROUTER_API_KEY");
+        env::remove_var("MATRIXCLAW_OPENAI_BASE_URL");
+        env::remove_var("MATRIXCLAW_LLM_MODEL");
+    }
 
     assert_eq!(
         response.status().as_u16(),
@@ -157,7 +162,7 @@ fn spawn_fixture_server(
             .expect("write fixture response");
     });
 
-    format!("http://{}", address)
+    format!("http://{address}")
 }
 
 fn read_http_request(stream: &mut std::net::TcpStream) -> String {

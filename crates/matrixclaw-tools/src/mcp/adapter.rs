@@ -66,11 +66,7 @@ fn convert_descriptor(tool: &McpTool) -> ToolDescriptor {
                 .as_ref()
                 .and_then(|s| s.get("required"))
                 .and_then(|r| r.as_array())
-                .map(|arr| {
-                    arr.iter()
-                        .filter_map(|v| v.as_str())
-                        .collect::<Vec<_>>()
-                })
+                .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
                 .unwrap_or_default();
 
             props

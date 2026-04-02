@@ -329,17 +329,8 @@ pub struct ManagedAssetsSettings {
     pub browser: BrowserAssetSettings,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct BrowserAssetSettings {
     pub enabled: bool,
     pub version: String,
-}
-
-impl Default for BrowserAssetSettings {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            version: String::new(),
-        }
-    }
 }

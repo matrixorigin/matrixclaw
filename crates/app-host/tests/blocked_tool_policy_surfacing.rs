@@ -25,8 +25,7 @@ async fn blocked_tool_policy_surfacing() {
     registry.register(Arc::new(DangerTool)).await;
 
     let mut provider = ToolCallProvider::new();
-    let service = SessionBackedLiveRunService::new_from_registry(&home, registry)
-        .await;
+    let service = SessionBackedLiveRunService::new_from_registry(&home, registry).await;
 
     let outcome = service
         .run_with_provider(
@@ -86,10 +85,7 @@ impl ToolCallProvider {
 
 #[async_trait]
 impl Provider for ToolCallProvider {
-    async fn complete(
-        &mut self,
-        _request: &RunRequest,
-    ) -> Result<ProviderResponse, ProviderError> {
+    async fn complete(&mut self, _request: &RunRequest) -> Result<ProviderResponse, ProviderError> {
         Ok(ProviderResponse::text(String::new()))
     }
 
@@ -107,7 +103,9 @@ impl Provider for ToolCallProvider {
                 serde_json::json!({"target": "delete_all"}),
             )]))
         } else {
-            Ok(ProviderResponse::text("result:blocked: policy denied execution"))
+            Ok(ProviderResponse::text(
+                "result:blocked: policy denied execution",
+            ))
         }
     }
 }

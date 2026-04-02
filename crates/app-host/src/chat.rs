@@ -1,8 +1,13 @@
 use std::env;
 use std::io::{self, Write};
+use std::sync::Arc;
+
+use matrixclaw_provider::backend::{ProviderConfig, ProviderType};
+use matrixclaw_provider::config::load_or_default_config;
+use matrixclaw_provider::fallback::FallbackProvider;
+use matrixclaw_provider::registry::ProviderRegistry;
 
 use crate::live_runtime::{LiveRunEvent, LiveRunRequest, SessionBackedLiveRunService};
-use crate::openai_compatible::OpenAiCompatibleProvider;
 use crate::paths;
 
 const DEFAULT_MODEL: &str = "moonshotai/kimi-k2.5";
@@ -14,35 +19,66 @@ fn resolve_model(model_override: Option<&str>) -> String {
     env::var("MATRIXCLAW_LLM_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string())
 }
 
-pub async fn run_chat(model_override: Option<&str>) -> Result<(), String> {
-    let api_key = env::var("OPENROUTER_API_KEY")
-        .map_err(|_| "OPENROUTER_API_KEY is not set. Set it to an OpenRouter API key.".to_string())?;
-
+async fn build_provider_from_env(api_key: &str, model: &str) -> Result<FallbackProvider, String> {
+    let registry = ProviderRegistry::new();
     let base_url = env::var("MATRIXCLAW_OPENAI_BASE_URL");
-    let model = resolve_model(model_override);
-
-    let mut provider = match base_url {
-        Ok(url) => OpenAiCompatibleProvider::with_base_url(&url, &api_key, model)
-            .map_err(|e| e.0)?,
-        Err(_) => OpenAiCompatibleProvider::for_openrouter(&api_key, model)
-            .map_err(|e| e.0)?,
+    let provider_type = if base_url.is_ok() {
+        ProviderType::Custom
+    } else {
+        ProviderType::OpenAi
     };
 
+    let config = ProviderConfig {
+        name: "default".to_string(),
+        provider_type,
+        base_url: base_url.ok(),
+        api_key: Some(api_key.to_string()),
+        models: vec![model.to_string()],
+        rpm_limit: None,
+    };
+    let registry = Arc::new(registry);
+    registry.register(config).await?;
+    Ok(FallbackProvider::new(registry, vec!["default".to_string()]))
+}
+
+pub async fn run_chat(model_override: Option<&str>) -> Result<(), String> {
+    let model = resolve_model(model_override);
     let home = paths::home_dir();
+
+    let config_path = paths::config_dir(&home).join("providers.json");
+    let plane_config = load_or_default_config(Some(&config_path));
+
+    let mut provider: FallbackProvider = if !plane_config.providers.is_empty() {
+        let registry = Arc::new(ProviderRegistry::new());
+        for pc in &plane_config.providers {
+            registry.register(pc.clone()).await?;
+        }
+        FallbackProvider::new(registry, plane_config.fallback_chain.clone())
+    } else {
+        let api_key = env::var("OPENROUTER_API_KEY").map_err(|_| {
+            "OPENROUTER_API_KEY is not set. Set it to an OpenRouter API key, or create ~/.matrixclaw/config/providers.json".to_string()
+        })?;
+        build_provider_from_env(&api_key, &model).await?
+    };
+
     let service = SessionBackedLiveRunService::new(&home).await;
     let tool_count = service.tool_count().await;
     let mut session_id: Option<String> = None;
 
     println!("MatrixClaw chat — type your message and press Enter. Ctrl+C or /quit to exit.");
-    println!("Model: {} | Tools: {}", provider.model_name(), tool_count);
+    println!("Model: {model} | Tools: {tool_count}");
     println!();
 
     loop {
         print!("> ");
-        io::stdout().flush().map_err(|e| format!("flush failed: {e}"))?;
+        io::stdout()
+            .flush()
+            .map_err(|e| format!("flush failed: {e}"))?;
 
         let mut input = String::new();
-        io::stdin().read_line(&mut input).map_err(|e| format!("read failed: {e}"))?;
+        io::stdin()
+            .read_line(&mut input)
+            .map_err(|e| format!("read failed: {e}"))?;
         let input = input.trim();
 
         if input.is_empty() {
@@ -61,19 +97,8 @@ pub async fn run_chat(model_override: Option<&str>) -> Result<(), String> {
             print_help();
             continue;
         }
-        if let Some(model_arg) = input.strip_prefix("/model ") {
-            let new_model = model_arg.trim();
-            if new_model.is_empty() {
-                println!("Usage: /model <model-id>");
-                continue;
-            }
-            provider = match env::var("MATRIXCLAW_OPENAI_BASE_URL") {
-                Ok(ref url) => OpenAiCompatibleProvider::with_base_url(url, &api_key, new_model)
-                    .map_err(|e| e.0)?,
-                Err(_) => OpenAiCompatibleProvider::for_openrouter(&api_key, new_model)
-                    .map_err(|e| e.0)?,
-            };
-            println!("Switched to model: {}\n", provider.model_name());
+        if let Some(_model_arg) = input.strip_prefix("/model ") {
+            println!("Note: /model switching is not supported with the provider control plane. Configure providers in providers.json.\n");
             continue;
         }
 
@@ -111,13 +136,7 @@ pub async fn run_chat(model_override: Option<&str>) -> Result<(), String> {
         };
 
         let result = service
-            .run_with_provider_and_queue_stream(
-                &provider.model_name().to_string(),
-                request,
-                None,
-                &mut provider,
-                &mut on_event,
-            )
+            .run_with_provider_and_queue_stream(&model, request, None, &mut provider, &mut on_event)
             .await?;
 
         session_id = Some(result.session_id);
@@ -130,7 +149,6 @@ fn print_help() {
     println!("  /quit       Exit chat");
     println!("  /exit       Exit chat");
     println!("  /clear      Clear session history");
-    println!("  /model <id> Switch model mid-conversation");
     println!();
 }
 

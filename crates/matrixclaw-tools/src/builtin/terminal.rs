@@ -11,11 +11,25 @@ pub struct TerminalTool {
 impl TerminalTool {
     pub fn new(workspace_root: &str) -> Self {
         Self {
-            descriptor: ToolDescriptor::new("terminal", "Execute shell commands").with_parameters(vec![
-                ToolParameter::required("command", ParameterType::String, "The shell command to execute"),
-                ToolParameter::optional("cwd", ParameterType::String, "Working directory for the command"),
-                ToolParameter::optional("timeout", ParameterType::Integer, "Timeout in seconds (default 30)"),
-            ]),
+            descriptor: ToolDescriptor::new("terminal", "Execute shell commands").with_parameters(
+                vec![
+                    ToolParameter::required(
+                        "command",
+                        ParameterType::String,
+                        "The shell command to execute",
+                    ),
+                    ToolParameter::optional(
+                        "cwd",
+                        ParameterType::String,
+                        "Working directory for the command",
+                    ),
+                    ToolParameter::optional(
+                        "timeout",
+                        ParameterType::Integer,
+                        "Timeout in seconds (default 30)",
+                    ),
+                ],
+            ),
             workspace_root: workspace_root.to_string(),
         }
     }
@@ -75,12 +89,16 @@ impl ToolExecutor for TerminalTool {
                 } else {
                     ToolResult::error(
                         &call,
-                        format!("exit code {}: {}", output.status.code().unwrap_or(-1), combined),
+                        format!(
+                            "exit code {}: {}",
+                            output.status.code().unwrap_or(-1),
+                            combined
+                        ),
                     )
                 }
             }
-            Ok(Err(e)) => ToolResult::error(&call, format!("failed to execute command: {}", e)),
-            Err(_) => ToolResult::error(&call, format!("command timed out after {}s", timeout_secs)),
+            Ok(Err(e)) => ToolResult::error(&call, format!("failed to execute command: {e}")),
+            Err(_) => ToolResult::error(&call, format!("command timed out after {timeout_secs}s")),
         }
     }
 }

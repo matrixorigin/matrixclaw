@@ -45,8 +45,7 @@ fn embedded_ui_assets() {
     assert_eq!(shell, layout.entry_html());
     assert!(
         shell.exists(),
-        "fixture-backed shell document should exist at {:?}",
-        shell
+        "fixture-backed shell document should exist at {shell:?}"
     );
 
     let client_route = layout.shell_document_for_route("/workspace");

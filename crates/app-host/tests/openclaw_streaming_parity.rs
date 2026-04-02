@@ -48,8 +48,7 @@ fn openclaw_streaming_parity() {
 
     assert!(
         first_elapsed < Duration::from_millis(150),
-        "first assistant frame should arrive before the upstream stream finishes, got {:?}",
-        first_elapsed
+        "first assistant frame should arrive before the upstream stream finishes, got {first_elapsed:?}"
     );
     assert_eq!(
         first.get("type").and_then(Value::as_str),
@@ -124,7 +123,7 @@ fn spawn_slow_fixture_server() -> String {
         stream.flush().expect("flush done");
     });
 
-    format!("http://{}", address)
+    format!("http://{address}")
 }
 
 fn websocket_connect(address: std::net::SocketAddr) -> TcpStream {

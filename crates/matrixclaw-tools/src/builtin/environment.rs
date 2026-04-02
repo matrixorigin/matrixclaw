@@ -7,13 +7,27 @@ pub struct EnvironmentTool {
     descriptor: ToolDescriptor,
 }
 
+impl Default for EnvironmentTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EnvironmentTool {
     pub fn new() -> Self {
         Self {
-            descriptor: ToolDescriptor::new("environment", "Get environment variables and system information").with_parameters(vec![
+            descriptor: ToolDescriptor::new(
+                "environment",
+                "Get environment variables and system information",
+            )
+            .with_parameters(vec![
                 ToolParameter::required("action", ParameterType::String, "Action to perform")
                     .enum_values(&["get_var", "list_vars", "system_info"]),
-                ToolParameter::optional("name", ParameterType::String, "Name of environment variable (for get_var)"),
+                ToolParameter::optional(
+                    "name",
+                    ParameterType::String,
+                    "Name of environment variable (for get_var)",
+                ),
             ]),
         }
     }
@@ -46,7 +60,9 @@ impl ToolExecutor for EnvironmentTool {
                 };
                 match std::env::var(name) {
                     Ok(val) => ToolResult::success(&call, val),
-                    Err(_) => ToolResult::error(&call, format!("environment variable not found: {}", name)),
+                    Err(_) => {
+                        ToolResult::error(&call, format!("environment variable not found: {name}"))
+                    }
                 }
             }
             "list_vars" => {
@@ -64,10 +80,10 @@ impl ToolExecutor for EnvironmentTool {
                     .unwrap_or_else(|_| "unknown".to_string());
                 ToolResult::success(
                     &call,
-                    format!("os: {}\narch: {}\nhostname: {}\ncwd: {}", os, arch, hostname, cwd),
+                    format!("os: {os}\narch: {arch}\nhostname: {hostname}\ncwd: {cwd}"),
                 )
             }
-            _ => ToolResult::error(&call, format!("unknown action: {}", action)),
+            _ => ToolResult::error(&call, format!("unknown action: {action}")),
         }
     }
 }

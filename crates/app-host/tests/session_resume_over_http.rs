@@ -179,7 +179,7 @@ fn spawn_fixture_server(
             .expect("write fixture response");
     });
 
-    format!("http://{}", address)
+    format!("http://{address}")
 }
 
 fn read_http_request(stream: &mut std::net::TcpStream) -> String {

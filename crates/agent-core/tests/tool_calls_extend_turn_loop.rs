@@ -22,10 +22,7 @@ impl ToolCallProvider {
 
 #[async_trait]
 impl Provider for ToolCallProvider {
-    async fn complete(
-        &mut self,
-        _request: &RunRequest,
-    ) -> Result<ProviderResponse, ProviderError> {
+    async fn complete(&mut self, _request: &RunRequest) -> Result<ProviderResponse, ProviderError> {
         Ok(ProviderResponse::text("ignored"))
     }
 
@@ -71,19 +68,11 @@ async fn tool_calls_extend_turn_loop() {
     let mut provider = ToolCallProvider::new();
     let request = RunRequest::new("add 2 and 3");
     let registry = ToolRegistry::new();
-    registry
-        .register(Arc::new(SumTool))
-        .await;
+    registry.register(Arc::new(SumTool)).await;
 
-    let trace = run_prompt_with_policy(
-        &mut provider,
-        &request,
-        &registry,
-        None,
-        &mut |_| {},
-    )
-    .await
-    .expect("run prompt");
+    let trace = run_prompt_with_policy(&mut provider, &request, &registry, None, &mut |_| {})
+        .await
+        .expect("run prompt");
 
     assert_eq!(
         provider.stream_calls.load(Ordering::SeqCst),

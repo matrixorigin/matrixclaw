@@ -93,7 +93,13 @@ fn browser_matrix_session_reuse() {
         .enable_all()
         .build()
         .expect("build tokio runtime");
-    let outcome = rt.block_on(runtime.process_matrix_event(&home, "moonshotai/kimi-k2.5", &event, &mut provider))
+    let outcome = rt
+        .block_on(runtime.process_matrix_event(
+            &home,
+            "moonshotai/kimi-k2.5",
+            &event,
+            &mut provider,
+        ))
         .expect("resume mapped Matrix event");
 
     env::remove_var("OPENROUTER_API_KEY");
@@ -161,10 +167,7 @@ impl RecordingProvider {
 
 #[async_trait]
 impl Provider for RecordingProvider {
-    async fn complete(
-        &mut self,
-        _request: &RunRequest,
-    ) -> Result<ProviderResponse, ProviderError> {
+    async fn complete(&mut self, _request: &RunRequest) -> Result<ProviderResponse, ProviderError> {
         Err(ProviderError(
             "recording provider only supports streamed live runs".to_string(),
         ))
@@ -230,7 +233,7 @@ fn spawn_fixture_server(
             .expect("write fixture response");
     });
 
-    format!("http://{}", address)
+    format!("http://{address}")
 }
 
 fn read_http_request(stream: &mut std::net::TcpStream) -> String {

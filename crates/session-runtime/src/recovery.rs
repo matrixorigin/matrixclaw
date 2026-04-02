@@ -28,7 +28,7 @@ pub enum RecoveryError {
 impl fmt::Display for RecoveryError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RecoveryError::Storage(error) => write!(f, "storage recovery error: {}", error),
+            RecoveryError::Storage(error) => write!(f, "storage recovery error: {error}"),
         }
     }
 }

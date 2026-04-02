@@ -258,6 +258,48 @@ fn generate_session_id() -> String {
     format!("session-{}-{}", std::process::id(), nanos)
 }
 
+pub(crate) fn resolve_model(surface: &SetupSurface) -> String {
+    env::var("MATRIXCLAW_LLM_MODEL")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| {
+            surface
+                .app_config()
+                .ok()
+                .map(|config| config.provider.model)
+        })
+        .unwrap_or_else(|| "moonshotai/kimi-k2.5".to_string())
+}
+
+pub(crate) fn build_provider_from_env(
+    surface: &SetupSurface,
+    model: &str,
+) -> Result<OpenAiCompatibleProvider, HttpResponse> {
+    let Ok(api_key) = env::var("OPENROUTER_API_KEY") else {
+        return Err(HttpResponse::json(
+            500,
+            json!({ "error": "OPENROUTER_API_KEY is not set" }).to_string(),
+        ));
+    };
+
+    let _ = surface;
+    build_provider(&api_key, model)
+        .map_err(|error| HttpResponse::json(500, json!({ "error": error.0 }).to_string()))
+}
+
+fn build_provider(
+    api_key: &str,
+    model: &str,
+) -> Result<OpenAiCompatibleProvider, matrixclaw_agent_core::provider::ProviderError> {
+    if let Ok(base_url) = env::var("MATRIXCLAW_OPENAI_BASE_URL") {
+        if !base_url.trim().is_empty() {
+            return OpenAiCompatibleProvider::with_base_url(base_url, api_key, model);
+        }
+    }
+
+    OpenAiCompatibleProvider::for_openrouter(api_key, model)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -300,46 +342,4 @@ mod tests {
         assert_eq!(envelope.conversation.session_id, "session-a");
         assert_eq!(envelope.target_agent.as_deref(), Some("atlas"));
     }
-}
-
-pub(crate) fn resolve_model(surface: &SetupSurface) -> String {
-    env::var("MATRIXCLAW_LLM_MODEL")
-        .ok()
-        .filter(|value| !value.trim().is_empty())
-        .or_else(|| {
-            surface
-                .app_config()
-                .ok()
-                .map(|config| config.provider.model)
-        })
-        .unwrap_or_else(|| "moonshotai/kimi-k2.5".to_string())
-}
-
-pub(crate) fn build_provider_from_env(
-    surface: &SetupSurface,
-    model: &str,
-) -> Result<OpenAiCompatibleProvider, HttpResponse> {
-    let Ok(api_key) = env::var("OPENROUTER_API_KEY") else {
-        return Err(HttpResponse::json(
-            500,
-            json!({ "error": "OPENROUTER_API_KEY is not set" }).to_string(),
-        ));
-    };
-
-    let _ = surface;
-    build_provider(&api_key, model)
-        .map_err(|error| HttpResponse::json(500, json!({ "error": error.0 }).to_string()))
-}
-
-fn build_provider(
-    api_key: &str,
-    model: &str,
-) -> Result<OpenAiCompatibleProvider, matrixclaw_agent_core::provider::ProviderError> {
-    if let Ok(base_url) = env::var("MATRIXCLAW_OPENAI_BASE_URL") {
-        if !base_url.trim().is_empty() {
-            return OpenAiCompatibleProvider::with_base_url(base_url, api_key, model);
-        }
-    }
-
-    OpenAiCompatibleProvider::for_openrouter(api_key, model)
 }

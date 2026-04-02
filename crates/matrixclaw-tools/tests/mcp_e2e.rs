@@ -28,13 +28,10 @@ async fn mcp_e2e_connect_list_and_call() {
     let dir = tempfile::tempdir().unwrap();
     let script = create_mock_server(dir.path());
 
-    let client = matrixclaw_tools::mcp::client::McpClient::connect(
-        script.to_str().unwrap(),
-        &[],
-        &[],
-    )
-    .await
-    .unwrap();
+    let client =
+        matrixclaw_tools::mcp::client::McpClient::connect(script.to_str().unwrap(), &[], &[])
+            .await
+            .unwrap();
 
     let client = Arc::new(client.initialize().await.unwrap());
     let tools = client.list_tools().await.unwrap();
@@ -56,13 +53,10 @@ async fn mcp_adapter_registers_and_executes() {
 
     let registry = matrixclaw_tools::ToolRegistry::new();
 
-    let client = matrixclaw_tools::mcp::client::McpClient::connect(
-        script.to_str().unwrap(),
-        &[],
-        &[],
-    )
-    .await
-    .unwrap();
+    let client =
+        matrixclaw_tools::mcp::client::McpClient::connect(script.to_str().unwrap(), &[], &[])
+            .await
+            .unwrap();
 
     let client = Arc::new(client.initialize().await.unwrap());
     let tools = client.list_tools().await.unwrap();
@@ -70,7 +64,8 @@ async fn mcp_adapter_registers_and_executes() {
     let tool = &tools[0];
     let mut namespaced = tool.clone();
     namespaced.name = format!("mcp__mock__{}", tool.name);
-    let adapter = matrixclaw_tools::mcp::adapter::McpToolAdapter::new(&namespaced, Arc::clone(&client));
+    let adapter =
+        matrixclaw_tools::mcp::adapter::McpToolAdapter::new(&namespaced, Arc::clone(&client));
     registry.register(Arc::new(adapter)).await;
 
     assert!(registry.has("mcp__mock__echo").await);

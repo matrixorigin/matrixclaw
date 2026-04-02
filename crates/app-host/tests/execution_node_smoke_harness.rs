@@ -20,14 +20,16 @@ use serde_json::{json, Value};
 
 #[tokio::test]
 async fn execution_node_smoke_harness() {
-    let _env_lock = env_lock().lock().expect("env lock");
     let home = temp_home();
     let request_count = Arc::new(AtomicUsize::new(0));
     let provider_url = spawn_fixture_provider(request_count.clone());
 
-    env::set_var("OPENROUTER_API_KEY", "test-key");
-    env::set_var("MATRIXCLAW_OPENAI_BASE_URL", &provider_url);
-    env::set_var("MATRIXCLAW_LLM_MODEL", "moonshotai/kimi-k2.5");
+    {
+        let _env_lock = env_lock().lock().expect("env lock");
+        env::set_var("OPENROUTER_API_KEY", "test-key");
+        env::set_var("MATRIXCLAW_OPENAI_BASE_URL", &provider_url);
+        env::set_var("MATRIXCLAW_LLM_MODEL", "moonshotai/kimi-k2.5");
+    }
 
     let surface = SetupSurface::new(&home, UiAssetLayout::discover());
     let test_server = spawn_test_server(surface).expect("spawn test server");
@@ -58,7 +60,10 @@ async fn execution_node_smoke_harness() {
         "the host should still serve the execution node through the app-host boundary"
     );
 
-    let body: Value = response.json().await.expect("execution node smoke response JSON");
+    let body: Value = response
+        .json()
+        .await
+        .expect("execution node smoke response JSON");
     assert_eq!(
         body.get("session_id").and_then(Value::as_str),
         Some(session_id),
@@ -121,9 +126,12 @@ async fn execution_node_smoke_harness() {
 
     test_server.shutdown().expect("shutdown test server");
 
-    env::remove_var("OPENROUTER_API_KEY");
-    env::remove_var("MATRIXCLAW_OPENAI_BASE_URL");
-    env::remove_var("MATRIXCLAW_LLM_MODEL");
+    {
+        let _env_lock = env_lock().lock().expect("env lock");
+        env::remove_var("OPENROUTER_API_KEY");
+        env::remove_var("MATRIXCLAW_OPENAI_BASE_URL");
+        env::remove_var("MATRIXCLAW_LLM_MODEL");
+    }
 }
 
 fn spawn_fixture_provider(request_count: Arc<AtomicUsize>) -> String {
@@ -168,7 +176,7 @@ fn spawn_fixture_provider(request_count: Arc<AtomicUsize>) -> String {
         }
     });
 
-    format!("http://{}", address)
+    format!("http://{address}")
 }
 
 fn read_http_request(stream: &mut std::net::TcpStream) -> String {

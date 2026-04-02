@@ -17,8 +17,10 @@ use matrixclaw_app_host::gateway::{GatewayOutboundDelivery, OutboundDeliveryKind
 
 #[tokio::test]
 async fn matrix_gateway_transport_runner_streams_deliveries() {
-    let _env_lock = env_lock().lock().expect("env lock");
     let home = temp_home();
+    {
+        let _env_lock = env_lock().lock().expect("env lock");
+    }
 
     let mut store = GatewaySessionStore::load_or_default(&home).expect("load gateway store");
     store
@@ -73,8 +75,10 @@ async fn matrix_gateway_transport_runner_streams_deliveries() {
 
 #[tokio::test]
 async fn matrix_gateway_transport_runner_records_and_flushes_retries() {
-    let _env_lock = env_lock().lock().expect("env lock");
     let home = temp_home();
+    {
+        let _env_lock = env_lock().lock().expect("env lock");
+    }
 
     let inbound = MatrixInboundEvent {
         sender_id: "@alice:example.org".to_string(),
@@ -176,10 +180,7 @@ impl StreamingProvider {
 
 #[async_trait]
 impl Provider for StreamingProvider {
-    async fn complete(
-        &mut self,
-        _request: &RunRequest,
-    ) -> Result<ProviderResponse, ProviderError> {
+    async fn complete(&mut self, _request: &RunRequest) -> Result<ProviderResponse, ProviderError> {
         Err(ProviderError(
             "streaming provider only supports streamed live runs".to_string(),
         ))

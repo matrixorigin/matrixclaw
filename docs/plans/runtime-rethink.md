@@ -1,7 +1,7 @@
 # MatrixClaw Runtime Rethink — 5-Phase Roadmap
 
 **Date**: 2026-03-31
-**Status**: Phase 1 In Progress
+**Status**: Phase 1 Complete — Phase 2 Next
 **Decision**: Drop SvelteKit/Tauri desktop shell. Rebuild as single-binary Rust agent runtime.
 
 ## Differentiators
@@ -33,7 +33,7 @@
 
 **Goal**: Replace 2 hardcoded tools with a proper async tool registry, 13 built-in tools, and JSON function-calling.
 
-**Status**: Phase 1 Complete — Stage 1.7 (TUI Chat) Implemented
+**Status**: Phase 1 Complete
 
 ### Stage 1.1 — Core Types (matrixclaw-tools crate)
 - [x] `ToolDescriptor` with `to_openai_function()` conversion
@@ -81,11 +81,11 @@
 - [x] Update CLAUDE.md
 
 ### Stage 1.7 — TUI Chat Mode (USER PRIORITY)
-- [ ] Add `matrixclaw chat` subcommand (or make bare `matrixclaw` launch chat)
-- [ ] Readline-based REPL with streaming output
-- [ ] Session persistence across chat turns
-- [ ] Tool call/result display in terminal
-- [ ] Model selection via `--model` flag or config
+- [x] Add `matrixclaw chat` subcommand (or make bare `matrixclaw` launch chat)
+- [x] Readline-based REPL with streaming output
+- [x] Session persistence across chat turns
+- [x] Tool call/result display in terminal
+- [x] Model selection via `--model` flag or config
 
 **Tool Plugin Strategy**: WASM deferred in favor of MCP protocol for third-party tools. MCP is the industry standard (Anthropic-led), supports any language, provides OS-level process isolation for free.
 

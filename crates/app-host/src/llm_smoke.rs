@@ -2,9 +2,8 @@ use std::env;
 
 use matrixclaw_agent_core::r#loop::run_prompt;
 use matrixclaw_agent_core::{RunRequest, RunResult};
+use matrixclaw_provider::openai::OpenAiProvider;
 use matrixclaw_tools::ToolRegistry;
-
-use crate::openai_compatible::OpenAiCompatibleProvider;
 
 const EXPECTED_SENTINEL: &str = "MATRIXCLAW_KIMI_SMOKE_OK";
 
@@ -12,8 +11,7 @@ pub async fn run_openrouter_smoke(model: &str) -> Result<String, String> {
     let api_key = env::var("OPENROUTER_API_KEY")
         .map_err(|_| "OPENROUTER_API_KEY is not set in the environment".to_string())?;
 
-    let mut provider =
-        OpenAiCompatibleProvider::for_openrouter(api_key, model).map_err(|error| error.0)?;
+    let mut provider = OpenAiProvider::for_openrouter(api_key, model).map_err(|error| error.0)?;
 
     let request = RunRequest::new(format!(
         "Reply with exactly `{EXPECTED_SENTINEL}` and nothing else."

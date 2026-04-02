@@ -56,10 +56,9 @@ impl McpClient {
             ));
         }
 
-        let result: InitializeResult = serde_json::from_value(
-            response.result.ok_or("MCP initialize returned no result")?,
-        )
-        .map_err(|e| format!("failed to parse initialize result: {e}"))?;
+        let result: InitializeResult =
+            serde_json::from_value(response.result.ok_or("MCP initialize returned no result")?)
+                .map_err(|e| format!("failed to parse initialize result: {e}"))?;
 
         self.server_info = Some(ServerInfoOwned {
             name: result.server_info.name,
@@ -87,10 +86,9 @@ impl McpClient {
             ));
         }
 
-        let result: ListToolsResult = serde_json::from_value(
-            response.result.ok_or("MCP tools/list returned no result")?,
-        )
-        .map_err(|e| format!("failed to parse tools/list result: {e}"))?;
+        let result: ListToolsResult =
+            serde_json::from_value(response.result.ok_or("MCP tools/list returned no result")?)
+                .map_err(|e| format!("failed to parse tools/list result: {e}"))?;
 
         Ok(result.tools)
     }
@@ -117,10 +115,9 @@ impl McpClient {
             ));
         }
 
-        let result: CallToolResult = serde_json::from_value(
-            response.result.ok_or("MCP tools/call returned no result")?,
-        )
-        .map_err(|e| format!("failed to parse tools/call result: {e}"))?;
+        let result: CallToolResult =
+            serde_json::from_value(response.result.ok_or("MCP tools/call returned no result")?)
+                .map_err(|e| format!("failed to parse tools/call result: {e}"))?;
 
         Ok(result)
     }

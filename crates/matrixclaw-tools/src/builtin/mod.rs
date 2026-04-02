@@ -28,12 +28,18 @@ pub async fn register_all(registry: &ToolRegistry, workspace_root: &str) {
         .await;
     registry.register(Arc::new(web::WebFetchTool::new())).await;
     registry.register(Arc::new(web::WebSearchTool::new())).await;
-    registry.register(Arc::new(calculator::CalculatorTool::new())).await;
-    registry.register(Arc::new(environment::EnvironmentTool::new())).await;
+    registry
+        .register(Arc::new(calculator::CalculatorTool::new()))
+        .await;
+    registry
+        .register(Arc::new(environment::EnvironmentTool::new()))
+        .await;
     registry.register(Arc::new(memory::MemoryTool::new())).await;
     registry
         .register(Arc::new(stubs::CodeInterpreterTool::new()))
         .await;
-    registry.register(Arc::new(stubs::DelegateTool::new())).await;
+    registry
+        .register(Arc::new(stubs::DelegateTool::new()))
+        .await;
     registry.register(Arc::new(stubs::SkillsTool::new())).await;
 }

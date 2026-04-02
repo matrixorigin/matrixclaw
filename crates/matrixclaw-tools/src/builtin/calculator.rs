@@ -7,12 +7,21 @@ pub struct CalculatorTool {
     descriptor: ToolDescriptor,
 }
 
+impl Default for CalculatorTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CalculatorTool {
     pub fn new() -> Self {
         Self {
-            descriptor: ToolDescriptor::new("calculator", "Evaluate mathematical expressions").with_parameters(vec![
-                ToolParameter::required("expression", ParameterType::String, "Mathematical expression to evaluate"),
-            ]),
+            descriptor: ToolDescriptor::new("calculator", "Evaluate mathematical expressions")
+                .with_parameters(vec![ToolParameter::required(
+                    "expression",
+                    ParameterType::String,
+                    "Mathematical expression to evaluate",
+                )]),
         }
     }
 }
@@ -31,7 +40,7 @@ impl ToolExecutor for CalculatorTool {
 
         let mut parser = Parser::new(expression);
         match parser.parse_expr() {
-            Ok(result) => ToolResult::success(&call, format!("{}", result)),
+            Ok(result) => ToolResult::success(&call, format!("{result}")),
             Err(e) => ToolResult::error(&call, e),
         }
     }
@@ -145,9 +154,9 @@ impl Parser {
                 }
                 num_str
                     .parse::<f64>()
-                    .map_err(|e| format!("invalid number: {}", e))
+                    .map_err(|e| format!("invalid number: {e}"))
             }
-            Some(ch) => Err(format!("unexpected character: '{}'", ch)),
+            Some(ch) => Err(format!("unexpected character: '{ch}'")),
             None => Err("unexpected end of expression".to_string()),
         }
     }

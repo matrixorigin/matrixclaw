@@ -22,10 +22,7 @@ impl ProbeProvider {
 
 #[async_trait]
 impl Provider for ProbeProvider {
-    async fn complete(
-        &mut self,
-        request: &RunRequest,
-    ) -> Result<ProviderResponse, ProviderError> {
+    async fn complete(&mut self, request: &RunRequest) -> Result<ProviderResponse, ProviderError> {
         self.complete_calls.fetch_add(1, Ordering::SeqCst);
         Ok(ProviderResponse::text(format!("probe: {}", request.prompt)))
     }

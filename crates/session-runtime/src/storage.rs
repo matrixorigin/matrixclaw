@@ -12,7 +12,7 @@ pub enum StorageError {
 impl fmt::Display for StorageError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            StorageError::Sqlite(error) => write!(f, "sqlite error: {}", error),
+            StorageError::Sqlite(error) => write!(f, "sqlite error: {error}"),
         }
     }
 }

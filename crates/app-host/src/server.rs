@@ -395,7 +395,8 @@ fn ensure_demo_fixture(home: &Path) -> io::Result<DemoFixture> {
         &AgentProfile {
             agent_name: "atlas".to_string(),
             title: "Atlas".to_string(),
-            crown_job: "Research topics and synthesize findings for the active workspace.".to_string(),
+            crown_job: "Research topics and synthesize findings for the active workspace."
+                .to_string(),
             memory_summary: "Keeps long-running workspace context and remembers project landmarks."
                 .to_string(),
             memory_signal_count: 14,

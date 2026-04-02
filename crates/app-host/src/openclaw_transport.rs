@@ -95,7 +95,8 @@ pub async fn openclaw_chat_websocket(
     metadata: &OpenClawIngressMetadata,
     provider: &mut dyn Provider,
 ) -> Result<ChatWebSocketConversation, String> {
-    openclaw_chat_websocket_with_provider_and_metadata(home, model, request, metadata, provider).await
+    openclaw_chat_websocket_with_provider_and_metadata(home, model, request, metadata, provider)
+        .await
 }
 
 pub async fn stream_openclaw_chat_websocket(
@@ -131,7 +132,8 @@ pub async fn stream_openclaw_chat_websocket_with_metadata(
             if let Some(frame) = projector.on_event(&event) {
                 on_frame(frame);
             }
-        }).await?;
+        })
+        .await?;
 
     Ok(ChatWebSocketConversation {
         capability: CapabilityDescriptor {

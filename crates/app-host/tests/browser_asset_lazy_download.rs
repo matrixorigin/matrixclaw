@@ -78,7 +78,6 @@ fn browser_asset_lazy_download() {
 
     assert_eq!(
         downloader.downloads, 1,
-        "expected browser asset to download once and then reuse the cached manifest at {:?}",
-        expected_browser_manifest
+        "expected browser asset to download once and then reuse the cached manifest at {expected_browser_manifest:?}"
     );
 }

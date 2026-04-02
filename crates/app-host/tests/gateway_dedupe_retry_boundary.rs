@@ -17,8 +17,10 @@ use matrixclaw_app_host::gateway::OutboundDeliveryKind;
 
 #[tokio::test]
 async fn gateway_dedupe_retry_boundary() {
-    let _env_lock = env_lock().lock().expect("env lock");
     let home = temp_home();
+    {
+        let _env_lock = env_lock().lock().expect("env lock");
+    }
 
     let mut store = GatewaySessionStore::load_or_default(&home).expect("load gateway store");
     store
@@ -80,10 +82,7 @@ struct CountingProvider {
 
 #[async_trait]
 impl Provider for CountingProvider {
-    async fn complete(
-        &mut self,
-        _request: &RunRequest,
-    ) -> Result<ProviderResponse, ProviderError> {
+    async fn complete(&mut self, _request: &RunRequest) -> Result<ProviderResponse, ProviderError> {
         Err(ProviderError(
             "counting provider only supports streamed live runs".to_string(),
         ))

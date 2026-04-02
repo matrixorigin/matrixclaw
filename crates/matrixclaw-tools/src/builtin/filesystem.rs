@@ -49,11 +49,25 @@ pub struct ReadFileTool {
 impl ReadFileTool {
     pub fn new(workspace_root: &str) -> Self {
         Self {
-            descriptor: ToolDescriptor::new("read_file", "Read file contents").with_parameters(vec![
-                ToolParameter::required("path", ParameterType::String, "Path to the file (relative to workspace)"),
-                ToolParameter::optional("offset", ParameterType::Integer, "Starting line number (1-indexed)"),
-                ToolParameter::optional("limit", ParameterType::Integer, "Maximum number of lines to return"),
-            ]),
+            descriptor: ToolDescriptor::new("read_file", "Read file contents").with_parameters(
+                vec![
+                    ToolParameter::required(
+                        "path",
+                        ParameterType::String,
+                        "Path to the file (relative to workspace)",
+                    ),
+                    ToolParameter::optional(
+                        "offset",
+                        ParameterType::Integer,
+                        "Starting line number (1-indexed)",
+                    ),
+                    ToolParameter::optional(
+                        "limit",
+                        ParameterType::Integer,
+                        "Maximum number of lines to return",
+                    ),
+                ],
+            ),
             workspace_root: workspace_root.to_string(),
         }
     }
@@ -78,7 +92,7 @@ impl ToolExecutor for ReadFileTool {
 
         let content = match tokio::fs::read_to_string(&validated).await {
             Ok(c) => c,
-            Err(e) => return ToolResult::error(&call, format!("failed to read file: {}", e)),
+            Err(e) => return ToolResult::error(&call, format!("failed to read file: {e}")),
         };
 
         let lines: Vec<&str> = content.lines().collect();
@@ -117,10 +131,15 @@ pub struct WriteFileTool {
 impl WriteFileTool {
     pub fn new(workspace_root: &str) -> Self {
         Self {
-            descriptor: ToolDescriptor::new("write_file", "Write content to a file").with_parameters(vec![
-                ToolParameter::required("path", ParameterType::String, "Path to the file (relative to workspace)"),
-                ToolParameter::required("content", ParameterType::String, "Content to write"),
-            ]),
+            descriptor: ToolDescriptor::new("write_file", "Write content to a file")
+                .with_parameters(vec![
+                    ToolParameter::required(
+                        "path",
+                        ParameterType::String,
+                        "Path to the file (relative to workspace)",
+                    ),
+                    ToolParameter::required("content", ParameterType::String, "Content to write"),
+                ]),
             workspace_root: workspace_root.to_string(),
         }
     }
@@ -150,13 +169,13 @@ impl ToolExecutor for WriteFileTool {
 
         if let Some(parent) = validated.parent() {
             if let Err(e) = tokio::fs::create_dir_all(parent).await {
-                return ToolResult::error(&call, format!("failed to create directories: {}", e));
+                return ToolResult::error(&call, format!("failed to create directories: {e}"));
             }
         }
 
         match tokio::fs::write(&validated, content).await {
-            Ok(_) => ToolResult::success(&call, format!("wrote {}", path)),
-            Err(e) => ToolResult::error(&call, format!("failed to write file: {}", e)),
+            Ok(_) => ToolResult::success(&call, format!("wrote {path}")),
+            Err(e) => ToolResult::error(&call, format!("failed to write file: {e}")),
         }
     }
 }
@@ -169,10 +188,19 @@ pub struct ListDirectoryTool {
 impl ListDirectoryTool {
     pub fn new(workspace_root: &str) -> Self {
         Self {
-            descriptor: ToolDescriptor::new("list_directory", "List directory contents").with_parameters(vec![
-                ToolParameter::required("path", ParameterType::String, "Path to the directory (relative to workspace)"),
-                ToolParameter::optional("recursive", ParameterType::Boolean, "List recursively (default false)"),
-            ]),
+            descriptor: ToolDescriptor::new("list_directory", "List directory contents")
+                .with_parameters(vec![
+                    ToolParameter::required(
+                        "path",
+                        ParameterType::String,
+                        "Path to the directory (relative to workspace)",
+                    ),
+                    ToolParameter::optional(
+                        "recursive",
+                        ParameterType::Boolean,
+                        "List recursively (default false)",
+                    ),
+                ]),
             workspace_root: workspace_root.to_string(),
         }
     }
@@ -203,7 +231,7 @@ impl ToolExecutor for ListDirectoryTool {
 
         let mut entries = Vec::new();
         if let Err(e) = list_entries(&validated, &validated, recursive, &mut entries).await {
-            return ToolResult::error(&call, format!("failed to list directory: {}", e));
+            return ToolResult::error(&call, format!("failed to list directory: {e}"));
         }
 
         ToolResult::success(&call, entries.join("\n"))
@@ -222,10 +250,7 @@ async fn list_entries(
     while let Some(entry) = reader.next_entry().await? {
         let name = entry.file_name().to_string_lossy().to_string();
         let file_type = entry.file_type().await?;
-        let relative = current
-            .strip_prefix(base)
-            .unwrap_or(current)
-            .to_path_buf();
+        let relative = current.strip_prefix(base).unwrap_or(current).to_path_buf();
 
         let prefix = if relative == PathBuf::new() {
             String::new()
@@ -234,12 +259,12 @@ async fn list_entries(
         };
 
         if file_type.is_dir() {
-            entries.push(format!("{}{}/", prefix, name));
+            entries.push(format!("{prefix}{name}/"));
             if recursive {
                 subdirs.push(entry.path());
             }
         } else {
-            entries.push(format!("{}{}", prefix, name));
+            entries.push(format!("{prefix}{name}"));
         }
     }
 
@@ -262,11 +287,24 @@ pub struct EditFileTool {
 impl EditFileTool {
     pub fn new(workspace_root: &str) -> Self {
         Self {
-            descriptor: ToolDescriptor::new("edit_file", "Edit a file by replacing text").with_parameters(vec![
-                ToolParameter::required("path", ParameterType::String, "Path to the file (relative to workspace)"),
-                ToolParameter::required("old_text", ParameterType::String, "Text to find in the file"),
-                ToolParameter::required("new_text", ParameterType::String, "Text to replace with"),
-            ]),
+            descriptor: ToolDescriptor::new("edit_file", "Edit a file by replacing text")
+                .with_parameters(vec![
+                    ToolParameter::required(
+                        "path",
+                        ParameterType::String,
+                        "Path to the file (relative to workspace)",
+                    ),
+                    ToolParameter::required(
+                        "old_text",
+                        ParameterType::String,
+                        "Text to find in the file",
+                    ),
+                    ToolParameter::required(
+                        "new_text",
+                        ParameterType::String,
+                        "Text to replace with",
+                    ),
+                ]),
             workspace_root: workspace_root.to_string(),
         }
     }
@@ -301,7 +339,7 @@ impl ToolExecutor for EditFileTool {
 
         let content = match tokio::fs::read_to_string(&validated).await {
             Ok(c) => c,
-            Err(e) => return ToolResult::error(&call, format!("failed to read file: {}", e)),
+            Err(e) => return ToolResult::error(&call, format!("failed to read file: {e}")),
         };
 
         if !content.contains(old_text) {
@@ -312,8 +350,10 @@ impl ToolExecutor for EditFileTool {
         let new_content = content.replace(old_text, new_text);
 
         match tokio::fs::write(&validated, new_content).await {
-            Ok(_) => ToolResult::success(&call, format!("replaced {} occurrence(s) in {}", count, path)),
-            Err(e) => ToolResult::error(&call, format!("failed to write file: {}", e)),
+            Ok(_) => {
+                ToolResult::success(&call, format!("replaced {count} occurrence(s) in {path}"))
+            }
+            Err(e) => ToolResult::error(&call, format!("failed to write file: {e}")),
         }
     }
 }

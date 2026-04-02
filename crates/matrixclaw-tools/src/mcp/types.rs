@@ -104,14 +104,11 @@ impl CallToolResult {
     pub fn text_output(&self) -> String {
         let mut out = String::new();
         for content in &self.content {
-            match content {
-                ToolContent::Text { text } => {
-                    if !out.is_empty() {
-                        out.push('\n');
-                    }
-                    out.push_str(text);
+            if let ToolContent::Text { text } = content {
+                if !out.is_empty() {
+                    out.push('\n');
                 }
-                _ => {}
+                out.push_str(text);
             }
         }
         out
