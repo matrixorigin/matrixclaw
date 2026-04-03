@@ -42,46 +42,6 @@ impl ToolExecutor for CodeInterpreterTool {
     }
 }
 
-pub struct DelegateTool {
-    descriptor: ToolDescriptor,
-}
-
-impl Default for DelegateTool {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl DelegateTool {
-    pub fn new() -> Self {
-        Self {
-            descriptor: ToolDescriptor::new(
-                "delegate",
-                "Delegate a task to a sub-agent (not yet implemented)",
-            )
-            .with_parameters(vec![
-                ToolParameter::required("task", ParameterType::String, "Task description"),
-                ToolParameter::optional(
-                    "agent_profile",
-                    ParameterType::String,
-                    "Agent profile to use",
-                ),
-            ]),
-        }
-    }
-}
-
-#[async_trait]
-impl ToolExecutor for DelegateTool {
-    fn descriptor(&self) -> &ToolDescriptor {
-        &self.descriptor
-    }
-
-    async fn execute(&self, call: ToolCall) -> ToolResult {
-        ToolResult::error(&call, "delegate is not yet implemented (coming in Phase 3)")
-    }
-}
-
 pub struct SkillsTool {
     descriptor: ToolDescriptor,
 }

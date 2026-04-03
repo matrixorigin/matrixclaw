@@ -6,6 +6,8 @@ use matrixclaw_provider::backend::{ProviderConfig, ProviderType};
 use matrixclaw_provider::config::load_or_default_config;
 use matrixclaw_provider::fallback::FallbackProvider;
 use matrixclaw_provider::registry::ProviderRegistry;
+use matrixclaw_tools::builtin::delegate::{SubagentRequest, SubagentResult};
+use tokio::sync::Mutex;
 
 use crate::live_runtime::{LiveRunEvent, LiveRunRequest, SessionBackedLiveRunService};
 use crate::paths;
@@ -48,20 +50,30 @@ pub async fn run_chat(model_override: Option<&str>) -> Result<(), String> {
     let config_path = paths::config_dir(&home).join("providers.json");
     let plane_config = load_or_default_config(Some(&config_path));
 
-    let mut provider: FallbackProvider = if !plane_config.providers.is_empty() {
+    let provider_arc: Arc<Mutex<FallbackProvider>> = if !plane_config.providers.is_empty() {
         let registry = Arc::new(ProviderRegistry::new());
         for pc in &plane_config.providers {
             registry.register(pc.clone()).await?;
         }
-        FallbackProvider::new(registry, plane_config.fallback_chain.clone())
+        Arc::new(Mutex::new(FallbackProvider::new(
+            registry,
+            plane_config.fallback_chain.clone(),
+        )))
     } else {
         let api_key = env::var("OPENROUTER_API_KEY").map_err(|_| {
             "OPENROUTER_API_KEY is not set. Set it to an OpenRouter API key, or create ~/.matrixclaw/config/providers.json".to_string()
         })?;
-        build_provider_from_env(&api_key, &model).await?
+        Arc::new(Mutex::new(build_provider_from_env(&api_key, &model).await?))
     };
 
     let service = SessionBackedLiveRunService::new(&home).await;
+
+    {
+        let reg_clone = service.registry();
+        let delegate_runner = make_subagent_runner(provider_arc.clone(), reg_clone);
+        service.register_delegate_tool(delegate_runner).await;
+    }
+
     let tool_count = service.tool_count().await;
     let mut session_id: Option<String> = None;
 
@@ -135,9 +147,17 @@ pub async fn run_chat(model_override: Option<&str>) -> Result<(), String> {
             _ => {}
         };
 
+        let mut provider_guard = provider_arc.lock().await;
         let result = service
-            .run_with_provider_and_queue_stream(&model, request, None, &mut provider, &mut on_event)
+            .run_with_provider_and_queue_stream(
+                &model,
+                request,
+                None,
+                &mut *provider_guard,
+                &mut on_event,
+            )
             .await?;
+        drop(provider_guard);
 
         session_id = Some(result.session_id);
     }
@@ -159,4 +179,51 @@ fn truncate_str(s: &str, max_len: usize) -> String {
         let truncated: String = s.chars().take(max_len).collect();
         format!("{}...", truncated.replace('\n', "\\n"))
     }
+}
+
+fn make_subagent_runner(
+    provider: Arc<Mutex<FallbackProvider>>,
+    registry: Arc<matrixclaw_tools::ToolRegistry>,
+) -> matrixclaw_tools::builtin::delegate::SubagentRunner {
+    use matrixclaw_agent_core::r#loop::run_prompt;
+    use matrixclaw_agent_core::{RunRequest, ToolChoice};
+    use matrixclaw_tools::builtin::delegate::SubagentRunner;
+
+    Arc::new(move |req: SubagentRequest| {
+        let provider = provider.clone();
+        let registry = registry.clone();
+        Box::pin(async move {
+            let mut provider_guard = provider.lock().await;
+
+            let prompt = if req.context.is_empty() {
+                req.task.clone()
+            } else {
+                format!("{}\n\nAdditional context: {}", req.task, req.context)
+            };
+
+            let descriptors = registry.list_descriptors().await;
+            let run_request = RunRequest {
+                prompt,
+                context_messages: Vec::new(),
+                tools: descriptors,
+                tool_choice: ToolChoice::Auto,
+                max_iterations: 30,
+            };
+
+            match run_prompt(&mut *provider_guard, &run_request, &registry, &mut |_| {}).await {
+                Ok(result) => SubagentResult {
+                    final_message: result.final_message,
+                    iterations: result.iterations,
+                    tool_calls: result.tool_calls_made,
+                    error: None,
+                },
+                Err(e) => SubagentResult {
+                    final_message: String::new(),
+                    iterations: 0,
+                    tool_calls: 0,
+                    error: Some(e.0),
+                },
+            }
+        }) as std::pin::Pin<Box<dyn std::future::Future<Output = SubagentResult> + Send>>
+    }) as SubagentRunner
 }

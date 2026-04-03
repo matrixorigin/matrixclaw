@@ -1,4 +1,5 @@
 pub mod calculator;
+pub mod delegate;
 pub mod environment;
 pub mod filesystem;
 pub mod memory;
@@ -37,9 +38,6 @@ pub async fn register_all(registry: &ToolRegistry, workspace_root: &str) {
     registry.register(Arc::new(memory::MemoryTool::new())).await;
     registry
         .register(Arc::new(stubs::CodeInterpreterTool::new()))
-        .await;
-    registry
-        .register(Arc::new(stubs::DelegateTool::new()))
         .await;
     registry.register(Arc::new(stubs::SkillsTool::new())).await;
 }

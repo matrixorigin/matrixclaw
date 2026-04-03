@@ -12,6 +12,7 @@ use matrixclaw_session_runtime::recovery::{restore_session, SessionRecoveryStore
 use matrixclaw_session_runtime::session::Session;
 use matrixclaw_session_runtime::sqlite::SqliteStorage;
 use matrixclaw_session_runtime::RuntimeMessage;
+use matrixclaw_tools::builtin::delegate::{DelegateTool, SubagentRunner};
 use matrixclaw_tools::ToolRegistry;
 use serde::{Deserialize, Serialize};
 
@@ -65,6 +66,15 @@ impl SessionBackedLiveRunService {
 
     pub async fn tool_count(&self) -> usize {
         self.registry.list_descriptors().await.len()
+    }
+
+    pub async fn register_delegate_tool(&self, runner: SubagentRunner) {
+        let tool = DelegateTool::new(runner, 0);
+        self.registry.register(Arc::new(tool)).await;
+    }
+
+    pub fn registry(&self) -> Arc<ToolRegistry> {
+        self.registry.clone()
     }
 
     pub async fn new_from_registry(home: impl AsRef<Path>, registry: Arc<ToolRegistry>) -> Self {
