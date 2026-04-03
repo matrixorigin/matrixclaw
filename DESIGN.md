@@ -31,6 +31,8 @@ The loop emits `AgentEvent` variants for observability: `RunStarted`, `MessageSt
 `ToolExecutionCompleted`, `IterationPressure`, `RunCompleted`.
 
 A `ToolPreflightPolicy` can intercept and block tool calls before execution.
+`CompositeHook` dispatches lifecycle events to registered `LifecycleHook` implementations,
+enabling pre/post interception of LLM calls, tool calls, and session events.
 
 ## Tool System
 
@@ -152,6 +154,32 @@ Context compression (`crates/session-runtime/src/compression.rs`) implements a 4
 Hermes-style strategy: prune tool results → identify turn boundaries → summarize old turns →
 reassemble compressed context.
 
+## Lifecycle Hooks
+
+The hook system (`crates/agent-core/src/hooks.rs`) provides extensible interception points
+throughout the agent loop. Hooks are dispatched from `run_prompt_with_policy` in `loop.rs`.
+
+### Types
+
+- **`HookPoint`** — enum with six variants: `PreLlmCall`, `PostLlmCall`, `PreToolCall`,
+  `PostToolCall`, `OnSessionStart`, `OnSessionEnd`
+- **`HookPayload`** — structured event payload carrying `hook_point`, `session_id`,
+  `tool_name`, `tool_arguments`, `tool_result`, `llm_response`, and `iteration`
+- **`HookAction`** — return type with `block: bool` and optional `reason`. `HookAction::allow()`
+  permits continuation; `HookAction::block(reason)` halts execution with a message
+- **`LifecycleHook`** — async trait (`on_event`, `name`) that hook implementations satisfy
+- **`CompositeHook`** — holds `Vec<Box<dyn LifecycleHook>>`, dispatches events in order,
+  short-circuits on first block
+
+### Dispatch Points in the Agent Loop
+
+1. **Pre-LLM call** — before `Provider::stream()`. A blocking hook terminates the run.
+2. **Post-LLM call** — after receiving provider response. Observation only.
+3. **Pre-tool call** — before `ToolRegistry::execute()`. A blocking hook returns a hooked
+   result to the provider instead of executing the tool.
+4. **Post-tool call** — after tool execution completes. Observation only.
+5. **On session start/end** — dispatched by session lifecycle management.
+
 ## Command Approval
 
 `ApprovalChecker` (`crates/agent-core/src/approval.rs`) inspects terminal commands
@@ -207,10 +235,14 @@ Chat mode supports:
 ```
 User prompt
   → Agent loop (run_prompt / run_prompt_with_policy)
+    → LifecycleHook dispatch (PreLlmCall) — optional, can block
     → Provider::stream() → SSE chunks → AgentEvent::MessageDelta
+    → LifecycleHook dispatch (PostLlmCall) — observation only
     → Tool calls parsed from JSON → AgentEvent::ToolCallReceived
+    → LifecycleHook dispatch (PreToolCall) — optional, can block
     → Policy check (optional) → allow or block
     → ToolRegistry::execute() → AgentEvent::ToolExecutionCompleted
+    → LifecycleHook dispatch (PostToolCall) — observation only
     → Results appended to context
     → Loop back to provider
   → Final text response → AgentEvent::RunCompleted

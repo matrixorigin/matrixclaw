@@ -1,7 +1,7 @@
 # MatrixClaw Runtime Rethink — 8-Phase Roadmap
 
 **Date**: 2026-03-31
-**Status**: Phase 7 In Progress — Phase 8 Next
+**Status**: Phase 7 In Progress (6.5 Hooks Complete, 7.3 Browser In Progress) — Phase 8 Next
 **Decision**: Drop SvelteKit/Tauri desktop shell. Rebuild as single-binary Rust agent runtime.
 
 ## Differentiators
@@ -163,13 +163,33 @@
 
 **Goal**: Scheduled tasks, command safety, prompt caching, MCP server mode.
 
-**Status**: Phase 6 Mostly Complete (plugin lifecycle hooks deferred)
+**Status**: Phase 6 Complete
 
 - [x] Cron scheduling: SQLite-backed `CronjobTool` with cron expressions, add/remove/list/tick
 - [x] Command approval: regex-based dangerous pattern detection (`ApprovalChecker`)
 - [x] Prompt caching: Anthropic/Gemini models via OpenRouter `cache_control` in system prompt
 - [x] MCP server mode: `matrixclaw mcp-serve` exposing tools over JSON-RPC stdio
-- [ ] Plugin lifecycle hooks: MCP server-based hooks for pre/post tool/LLM events — deferred to Phase 6.5
+- [x] Plugin lifecycle hooks: `LifecycleHook` trait with `CompositeHook` dispatcher — Phase 6.5 complete
+
+---
+
+## Phase 6.5: Lifecycle Hooks
+
+**Goal**: Extensible interception points for the agent loop — pre/post LLM calls, pre/post tool calls, session lifecycle.
+
+**Status**: Phase 6.5 Complete
+
+### Implementation
+
+- [x] `HookPoint` enum: `PreLlmCall`, `PostLlmCall`, `PreToolCall`, `PostToolCall`, `OnSessionStart`, `OnSessionEnd`
+- [x] `HookPayload` struct: typed event data (hook_point, session_id, tool_name, tool_arguments, tool_result, llm_response, iteration)
+- [x] `HookAction` return type: `allow()` or `block(reason)` — blocks short-circuit the hook chain
+- [x] `LifecycleHook` async trait: `on_event(&HookPayload) -> HookAction` + `name() -> &str`
+- [x] `CompositeHook`: ordered dispatch over `Vec<Box<dyn LifecycleHook>>`, stops at first block
+- [x] Agent loop integration: `run_prompt_with_policy` accepts `Option<&CompositeHook>` and dispatches at all six hook points
+- [x] Pre-LLM call block terminates the run with the hook's reason
+- [x] Pre-tool call block returns a `hooked: {reason}` tool result to the provider (does not execute the tool)
+- [x] Full test coverage: allow/block/stop-at-first-block/empty-composite/serialization roundtrip
 
 ---
 
@@ -182,7 +202,7 @@
 - [x] Docker sandbox backend: `DockerSandbox` with resource limits and automatic cleanup
 - [x] `code_interpreter` tool: real implementation replacing stub, using Docker sandbox
 - [x] `web_search` tool: real implementation with SearXNG backend replacing stub
-- [ ] Browser automation: headless Chromium tools (navigate, screenshot, extract) — not started
+- [ ] Browser automation: headless Chromium tools (navigate, screenshot, extract) — in progress
 - [ ] SSH sandbox backend: remote execution over SSH — not started
 - [x] Iteration pressure warnings wired into chat mode
 
@@ -204,39 +224,52 @@
 ## Architecture Diagram
 
 ```
-┌─────────────────────────────────────────────────┐
-│                  matrixclaw binary               │
-├─────────────────────────────────────────────────┤
-│  HTTP/SSE API (tiny_http)                       │
-│  ├── Agent API    ├── Session API               │
-│  ├── Skills API   ├── MCP API                   │
-│  └── Gateway API  └── Queue API                 │
-├─────────────────────────────────────────────────┤
-│  Agent Core (agent-core)                        │
-│  ├── Async ReAct loop    ├── Policy engine      │
-│  ├── JSON function-calling   └── Streaming      │
-├─────────────────────────────────────────────────┤
-│  Tool System (matrixclaw-tools)                 │
-│  ├── Tool Registry      ├── 18 Built-in Tools   │
-│  ├── MCP Client         └── MCP Server          │
-├─────────────────────────────────────────────────┤
-│  Provider Plane (Phase 2)                       │
-│  ├── Provider Registry   ├── Fallback Chains    │
-│  ├── Cost Tracking       ├── Prompt Caching     │
-│  ├── Rate Limiting       └── Health Checks      │
-├─────────────────────────────────────────────────┤
-│  Session Runtime (session-runtime)              │
-│  ├── SQLite Storage     ├── Queue & Compaction  │
-│  ├── Recovery           ├── Message Projection  │
-│  ├── FTS5 Search        └── Context Compression │
-├─────────────────────────────────────────────────┤
-│  Sandbox Backends (Phase 7)                     │
-│  ├── Docker              └── (SSH, Local TBD)   │
-├─────────────────────────────────────────────────┤
-│  Automation (Phase 6)                           │
-│  ├── Cron Scheduling    ├── Command Approval    │
-│  └── MCP Server Mode                            │
-└─────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│                    matrixclaw binary                   │
+├──────────────────────────────────────────────────────┤
+│  Interfaces                                           │
+│  ├── TUI Chat (readline + streaming)                  │
+│  ├── HTTP/SSE API (tiny_http)                         │
+│  ├── MCP Server (stdio JSON-RPC)           [Phase 6]  │
+│  └── Cron Scheduler                        [Phase 6]  │
+├──────────────────────────────────────────────────────┤
+│  Agent Core (agent-core)                              │
+│  ├── Async ReAct loop       ├── Policy engine         │
+│  ├── JSON function-calling  ├── Iteration budget      │
+│  ├── Lifecycle Hooks (Phase 6.5)                      │
+│  │   ├── HookPoint (Pre/Post LLM + Tool, Session)     │
+│  │   ├── CompositeHook dispatcher                      │
+│  │   └── HookAction (allow / block)                    │
+│  ├── Context compression          [Phase 5]           │
+│  └── Command approval             [Phase 6]           │
+├──────────────────────────────────────────────────────┤
+│  Tool System (matrixclaw-tools)                       │
+│  ├── Tool Registry               ├── 18 Built-in      │
+│  │   ├── filesystem (read/write/edit/list/search)     │
+│  │   ├── terminal + process                           │
+│  │   ├── web (fetch + search)       [Phase 7]         │
+│  │   ├── memory (SQLite + search)                     │
+│  │   ├── skills (list/read/create)                    │
+│  │   ├── delegate (subagent spawning)                 │
+│  │   ├── todo + clarify + session_search [Phase 5]    │
+│  │   ├── code_interpreter            [Phase 7]        │
+│  │   ├── browser automation          [Phase 7, WIP]   │
+│  │   └── cronjob                     [Phase 6]        │
+│  └── MCP Client + Server            [Phase 6]         │
+├──────────────────────────────────────────────────────┤
+│  Provider Plane (provider-plane)                      │
+│  ├── Provider Registry   ├── Fallback Chains          │
+│  ├── Cost Tracking       ├── Rate Limiting            │
+│  ├── Health Checks       └── Prompt Caching [Phase 6] │
+├──────────────────────────────────────────────────────┤
+│  Session Runtime (session-runtime)                    │
+│  ├── SQLite Storage (FTS5)  ├── Queue & Compaction    │
+│  ├── Recovery               ├── Message Projection    │
+│  └── Context Compression              [Phase 5]       │
+├──────────────────────────────────────────────────────┤
+│  Sandbox Backends                           [Phase 7] │
+│  ├── Docker              └── (SSH, Local TBD)         │
+└──────────────────────────────────────────────────────┘
 ```
 
 ## Competitive Landscape
