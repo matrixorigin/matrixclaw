@@ -3,7 +3,7 @@
 ## Overview
 
 MatrixClaw is a single-binary Rust agent runtime. No Node.js, no Electron, no Tauri.
-One `matrixclaw` binary provides a TUI chat interface, an HTTP/SSE API, and an MCP client.
+One `matrixclaw` binary provides a TUI chat interface, an HTTP/SSE API, an MCP client, and an MCP server.
 
 ## Crate Structure
 
@@ -11,7 +11,7 @@ One `matrixclaw` binary provides a TUI chat interface, an HTTP/SSE API, and an M
 matrixclaw-app-host       CLI entry point, HTTP server, chat REPL
 ├── matrixclaw-provider   Provider control plane (registry, fallback, cost, rate limit, health)
 │   └── matrixclaw-agent-core  Async ReAct loop, Provider trait, policy engine
-├── matrixclaw-tools       Tool registry, 13 built-in tools, MCP client
+├── matrixclaw-tools       Tool registry, 18 built-in tools, MCP client
 ├── matrixclaw-session-runtime  SQLite storage, queue, compaction, recovery
 ├── matrixclaw-manifests   Plugin and skill manifest types
 └── matrixclaw-compat-openclaw  OpenClaw gateway adapter
@@ -39,7 +39,7 @@ A `ToolPreflightPolicy` can intercept and block tool calls before execution.
 `ToolRegistry` holds `Arc<dyn ToolExecutor>` entries behind `RwLock<HashMap>`.
 Tools are registered by name and discovered by the agent loop via `ToolDescriptor::to_openai_function()`.
 
-### Built-in Tools (13)
+### Built-in Tools (18)
 
 | Tool | Status | Description |
 |------|--------|-------------|
@@ -49,11 +49,11 @@ Tools are registered by name and discovered by the agent loop via `ToolDescripto
 | list_directory | full | Directory listing with optional recursion |
 | edit_file | full | Find/replace file editing |
 | web_fetch | full | HTTP requests via reqwest |
-| web_search | stub | Requires search provider API key |
+| web_search | full | SearXNG-backed web search |
 | calculator | full | Expression evaluator (+, -, *, /, parens) |
 | environment | full | Env vars and system info |
 | memory | full | Persistent key-value store with search, survives restarts (SQLite) |
-| code_interpreter | stub | Phase 7 |
+| code_interpreter | full | Docker sandbox for code execution |
 | delegate | full | Subagent spawning with callback-based architecture |
 | skills | full | List, read, and create skills in ~/.matrixclaw/skills/ |
 | search_files | full | Ripgrep-backed content search with path traversal protection |
@@ -61,6 +61,7 @@ Tools are registered by name and discovered by the agent loop via `ToolDescripto
 | clarify | full | Structured user questions with optional multiple-choice |
 | process | full | Background process management (list/register/kill) |
 | session_search | full | FTS5 full-text search across conversation history |
+| cronjob | full | Scheduled task execution with SQLite-backed job store |
 
 ### MCP Client
 
@@ -80,6 +81,7 @@ the agent loop sees a single provider transparently.
 - SSE streaming with incremental tool call argument assembly
 - Token usage extraction from response `usage` fields
 - Works with any OpenAI-compatible endpoint (OpenRouter, Ollama `/v1`, etc.)
+- Prompt caching hints for Anthropic/Gemini models via OpenRouter `cache_control` in system prompt
 
 ## Provider Plane
 
@@ -145,12 +147,43 @@ Sessions are persisted in SQLite (`crates/session-runtime/src/sqlite.rs`).
 Each session stores the full message history, supports compaction for long conversations,
 and can be recovered after crashes.
 
+FTS5 virtual tables enable full-text search across all session message history.
+Context compression (`crates/session-runtime/src/compression.rs`) implements a 4-phase
+Hermes-style strategy: prune tool results → identify turn boundaries → summarize old turns →
+reassemble compressed context.
+
+## Command Approval
+
+`ApprovalChecker` (`crates/agent-core/src/approval.rs`) inspects terminal commands
+before execution. Regex patterns detect dangerous operations (rm -rf, sudo, chmod 777, etc.).
+Approval policies (AllowAll, DenyDangerous, RequireApproval) are configurable per session.
+
+## Cron Scheduling
+
+`CronjobTool` (`crates/matrixclaw-tools/src/builtin/cronjob.rs`) enables agents to schedule
+recurring tasks. Jobs are stored in SQLite with cron expressions. The store supports add, remove,
+list, and tick (execute due jobs). Integrated with the agent's tool system so scheduled jobs
+run as agent prompts.
+
+## MCP Server Mode
+
+`matrixclaw mcp-serve` starts an MCP server (JSON-RPC over stdio) that exposes MatrixClaw's
+tools to external clients (IDEs, other agents, scripts). Implements the MCP protocol's
+`tools/list` and `tools/call` methods.
+
+## Sandbox Backends
+
+`DockerSandbox` (`crates/matrixclaw-tools/src/sandbox.rs`) provides isolated code execution
+in Docker containers. Used by `code_interpreter` to safely run arbitrary code with resource
+limits and automatic cleanup.
+
 ## CLI
 
 ```
 matrixclaw                Launch TUI chat REPL
 matrixclaw chat           Same as above (explicit subcommand)
 matrixclaw llm-smoke      Run a single LLM round-trip (requires API key)
+matrixclaw mcp-serve      Start MCP server (JSON-RPC over stdio)
 ```
 
 Chat mode supports:

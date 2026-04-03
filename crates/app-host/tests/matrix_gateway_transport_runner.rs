@@ -1,8 +1,8 @@
 use std::env;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use matrixclaw_agent_core::event::AgentEvent;
@@ -206,14 +206,12 @@ fn env_lock() -> &'static Mutex<()> {
 }
 
 fn temp_home() -> PathBuf {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("clock before unix epoch")
-        .as_nanos();
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let seq = COUNTER.fetch_add(1, Ordering::Relaxed);
     let home = env::temp_dir().join(format!(
         "matrixclaw-matrix-transport-home-{}-{}",
         std::process::id(),
-        nanos
+        seq
     ));
     fs::create_dir_all(&home).expect("create temp home");
     home

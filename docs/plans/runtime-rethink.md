@@ -1,7 +1,7 @@
-# MatrixClaw Runtime Rethink — 5-Phase Roadmap
+# MatrixClaw Runtime Rethink — 8-Phase Roadmap
 
 **Date**: 2026-03-31
-**Status**: Phase 5 Complete — Phase 6 Next
+**Status**: Phase 7 In Progress — Phase 8 Next
 **Decision**: Drop SvelteKit/Tauri desktop shell. Rebuild as single-binary Rust agent runtime.
 
 ## Differentiators
@@ -100,10 +100,10 @@
 - [x] Provider registry: OpenAI, Anthropic, Google, local (Ollama), custom endpoints
 - [x] Fallback chains: primary → secondary → tertiary with automatic failover
 - [x] Cost tracking: per-session, per-agent, per-model cost accumulation (SQLite-backed)
-- [ ] Prompt caching: Anthropic `system_and_3` strategy (~75% input cost reduction) — deferred, requires native Anthropic provider
+- [x] Prompt caching: Anthropic `system_and_3` strategy via OpenRouter `cache_control` in system prompt
 - [x] Token counting: input/output tracking from OpenAI `usage` response
 - [x] Rate limiting: per-provider token-bucket request throttling
-- [ ] Model routing: route tasks to appropriate models (cheap model for simple tasks, powerful model for complex) — deferred
+- [ ] Model routing: route tasks to appropriate models (cheap model for simple tasks, powerful model for complex) — Phase 8
 - [x] Provider health checks: automatic endpoint monitoring with probe
 
 ---
@@ -132,7 +132,7 @@
 **Status**: Phase 4 Complete (core features)
 
 - [x] Persistent memory: SQLite-backed key-value store surviving restarts
-- [ ] Cross-session search: FTS5 full-text search across all session history — deferred
+- [x] Cross-session search: FTS5 full-text search across all session history
 - [ ] User modeling: per-user preferences, patterns, and context — deferred
 - [x] Skill auto-creation: agents create reusable skills via the skills tool
 - [ ] Progressive skill loading: 3-tier (category → list → full → file) for token efficiency — deferred
@@ -156,7 +156,48 @@
 - [x] FTS5 session search: full-text search across all conversation history
 - [x] Context compression: 4-phase Hermes-style (prune → boundaries → summarize → reassemble)
 - [ ] `patch` tool: fuzzy file editing with multiple matching strategies — deferred
+
+---
+
+## Phase 6: Automation Platform
+
+**Goal**: Scheduled tasks, command safety, prompt caching, MCP server mode.
+
+**Status**: Phase 6 Mostly Complete (plugin lifecycle hooks deferred)
+
+- [x] Cron scheduling: SQLite-backed `CronjobTool` with cron expressions, add/remove/list/tick
+- [x] Command approval: regex-based dangerous pattern detection (`ApprovalChecker`)
+- [x] Prompt caching: Anthropic/Gemini models via OpenRouter `cache_control` in system prompt
+- [x] MCP server mode: `matrixclaw mcp-serve` exposing tools over JSON-RPC stdio
+- [ ] Plugin lifecycle hooks: MCP server-based hooks for pre/post tool/LLM events — deferred to Phase 6.5
+
+---
+
+## Phase 7: Sandbox & Advanced
+
+**Goal**: Isolated code execution, web search, browser automation, SSH sandbox.
+
+**Status**: Phase 7 Partially Complete
+
+- [x] Docker sandbox backend: `DockerSandbox` with resource limits and automatic cleanup
+- [x] `code_interpreter` tool: real implementation replacing stub, using Docker sandbox
+- [x] `web_search` tool: real implementation with SearXNG backend replacing stub
+- [ ] Browser automation: headless Chromium tools (navigate, screenshot, extract) — not started
+- [ ] SSH sandbox backend: remote execution over SSH — not started
 - [x] Iteration pressure warnings wired into chat mode
+
+---
+
+## Phase 8: Differentiation
+
+**Goal**: Profiles, self-evolving skills, messaging gateway.
+
+**Status**: Not Started
+
+- [ ] Multi-instance profiles: per-agent configuration with scoped capabilities
+- [ ] Self-evolving skills: DSPy-style skill improvement from execution feedback
+- [ ] Messaging gateway: Matrix, Discord, Slack, Telegram adapters
+- [ ] Model routing: automatic task-to-model assignment
 
 ---
 
@@ -176,19 +217,25 @@
 │  ├── JSON function-calling   └── Streaming      │
 ├─────────────────────────────────────────────────┤
 │  Tool System (matrixclaw-tools)                 │
-│  ├── Tool Registry      ├── 13 Built-in Tools   │
-│  └── MCP Client (future plugin path)            │
+│  ├── Tool Registry      ├── 18 Built-in Tools   │
+│  ├── MCP Client         └── MCP Server          │
 ├─────────────────────────────────────────────────┤
 │  Provider Plane (Phase 2)                       │
 │  ├── Provider Registry   ├── Fallback Chains    │
-│  ├── Cost Tracking       └── Prompt Caching     │
+│  ├── Cost Tracking       ├── Prompt Caching     │
+│  ├── Rate Limiting       └── Health Checks      │
 ├─────────────────────────────────────────────────┤
 │  Session Runtime (session-runtime)              │
 │  ├── SQLite Storage     ├── Queue & Compaction  │
-│  ├── Recovery           └── Message Projection  │
+│  ├── Recovery           ├── Message Projection  │
+│  ├── FTS5 Search        └── Context Compression │
 ├─────────────────────────────────────────────────┤
-│  Sandbox Backends (Phase 5)                     │
-│  ├── Docker    ├── SSH      └── Local           │
+│  Sandbox Backends (Phase 7)                     │
+│  ├── Docker              └── (SSH, Local TBD)   │
+├─────────────────────────────────────────────────┤
+│  Automation (Phase 6)                           │
+│  ├── Cron Scheduling    ├── Command Approval    │
+│  └── MCP Server Mode                            │
 └─────────────────────────────────────────────────┘
 ```
 
