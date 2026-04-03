@@ -59,7 +59,7 @@ impl OpenAiProvider {
     fn request_body(&self, request: &RunRequest, stream: bool) -> Value {
         let mut body = json!({
             "model": self.model,
-            "messages": request_messages(request),
+            "messages": request_messages(request, &self.model),
             "stream": stream,
             "temperature": 0
         });
@@ -230,7 +230,12 @@ impl Provider for OpenAiProvider {
     }
 }
 
-fn request_messages(request: &RunRequest) -> Vec<Value> {
+fn should_cache(model: &str) -> bool {
+    let lower = model.to_lowercase();
+    lower.contains("claude") || lower.contains("anthropic") || lower.contains("gemini")
+}
+
+fn request_messages(request: &RunRequest, model: &str) -> Vec<Value> {
     let messages = if request.context_messages.is_empty() {
         vec![matrixclaw_agent_core::RunMessage::user(
             request.prompt.clone(),
@@ -239,7 +244,29 @@ fn request_messages(request: &RunRequest) -> Vec<Value> {
         request.context_messages.clone()
     };
 
-    messages.into_iter().map(message_to_openai).collect()
+    let mut msgs: Vec<Value> = messages.into_iter().map(message_to_openai).collect();
+
+    if should_cache(model) {
+        let user_indices: Vec<usize> = msgs
+            .iter()
+            .enumerate()
+            .filter(|(_, m)| m.get("role").and_then(Value::as_str) == Some("user"))
+            .map(|(i, _)| i)
+            .collect();
+
+        let last_3_users: Vec<usize> = user_indices.into_iter().rev().take(3).collect();
+
+        for (i, msg) in msgs.iter_mut().enumerate() {
+            let is_system = msg.get("role").and_then(Value::as_str) == Some("system") && i == 0;
+            let is_cached_user = last_3_users.contains(&i);
+
+            if is_system || is_cached_user {
+                msg["cache_control"] = json!({"type": "ephemeral"});
+            }
+        }
+    }
+
+    msgs
 }
 
 fn message_to_openai(message: matrixclaw_agent_core::RunMessage) -> Value {
@@ -535,5 +562,153 @@ mod tests {
         assert!(response.is_tool_call());
         assert_eq!(response.tool_calls.len(), 1);
         assert_eq!(response.tool_calls[0].name, "terminal");
+    }
+
+    #[test]
+    fn cache_control_added_for_claude_models() {
+        use matrixclaw_agent_core::RunMessage;
+
+        let request = RunRequest {
+            prompt: "current prompt".into(),
+            context_messages: vec![
+                RunMessage::system("system instructions"),
+                RunMessage::user("first user"),
+                RunMessage::assistant("response 1"),
+                RunMessage::user("second user"),
+                RunMessage::assistant("response 2"),
+                RunMessage::user("third user"),
+                RunMessage::assistant("response 3"),
+                RunMessage::user("fourth user"),
+            ],
+            tools: vec![],
+            tool_choice: ToolChoice::Auto,
+            max_iterations: 10,
+        };
+
+        let messages = request_messages(&request, "anthropic/claude-3.5-sonnet");
+
+        let system_msg = &messages[0];
+        assert_eq!(system_msg["role"], "system");
+        assert_eq!(
+            system_msg["cache_control"],
+            json!({"type": "ephemeral"})
+        );
+
+        let user_indices: Vec<usize> = messages
+            .iter()
+            .enumerate()
+            .filter(|(_, m)| m["role"] == "user")
+            .map(|(i, _)| i)
+            .collect();
+
+        assert_eq!(user_indices.len(), 4);
+
+        assert_eq!(
+            messages[user_indices[0]]["cache_control"],
+            Value::Null,
+            "first user should NOT have cache_control"
+        );
+        for &idx in &user_indices[1..] {
+            assert_eq!(
+                messages[idx]["cache_control"],
+                json!({"type": "ephemeral"}),
+                "last 3 user messages should have cache_control at index {idx}"
+            );
+        }
+    }
+
+    #[test]
+    fn no_cache_control_for_non_claude() {
+        use matrixclaw_agent_core::RunMessage;
+
+        let request = RunRequest {
+            prompt: "current prompt".into(),
+            context_messages: vec![
+                RunMessage::system("system instructions"),
+                RunMessage::user("hello"),
+            ],
+            tools: vec![],
+            tool_choice: ToolChoice::Auto,
+            max_iterations: 10,
+        };
+
+        let messages = request_messages(&request, "openai/gpt-4o");
+
+        for msg in &messages {
+            assert!(
+                msg.get("cache_control").is_none(),
+                "non-claude model should not have cache_control"
+            );
+        }
+    }
+
+    #[test]
+    fn cache_control_added_for_gemini_models() {
+        use matrixclaw_agent_core::RunMessage;
+
+        let request = RunRequest {
+            prompt: "current prompt".into(),
+            context_messages: vec![
+                RunMessage::system("system instructions"),
+                RunMessage::user("hello"),
+            ],
+            tools: vec![],
+            tool_choice: ToolChoice::Auto,
+            max_iterations: 10,
+        };
+
+        let messages = request_messages(&request, "google/gemini-2.5-flash");
+
+        assert_eq!(
+            messages[0]["cache_control"],
+            json!({"type": "ephemeral"})
+        );
+        assert_eq!(
+            messages[1]["cache_control"],
+            json!({"type": "ephemeral"})
+        );
+    }
+
+    #[test]
+    fn cache_control_with_fewer_than_three_user_messages() {
+        use matrixclaw_agent_core::RunMessage;
+
+        let request = RunRequest {
+            prompt: "current prompt".into(),
+            context_messages: vec![
+                RunMessage::system("system instructions"),
+                RunMessage::user("only user"),
+            ],
+            tools: vec![],
+            tool_choice: ToolChoice::Auto,
+            max_iterations: 10,
+        };
+
+        let messages = request_messages(&request, "anthropic/claude-3.5-sonnet");
+
+        assert_eq!(messages[0]["role"], "system");
+        assert_eq!(
+            messages[0]["cache_control"],
+            json!({"type": "ephemeral"})
+        );
+        assert_eq!(messages[1]["role"], "user");
+        assert_eq!(
+            messages[1]["cache_control"],
+            json!({"type": "ephemeral"})
+        );
+    }
+
+    #[test]
+    fn cache_control_default_prompt_no_context() {
+        let request = RunRequest::new("hello");
+
+        let messages = request_messages(&request, "anthropic/claude-3.5-sonnet");
+
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0]["role"], "user");
+        assert_eq!(
+            messages[0]["cache_control"],
+            json!({"type": "ephemeral"})
+        );
     }
 }
