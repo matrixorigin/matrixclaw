@@ -35,7 +35,13 @@ pub async fn register_all(registry: &ToolRegistry, workspace_root: &str) {
     registry
         .register(Arc::new(environment::EnvironmentTool::new()))
         .await;
-    registry.register(Arc::new(memory::MemoryTool::new())).await;
+    let memory_db_path = memory::MemoryTool::db_path_for_home(std::path::Path::new(workspace_root));
+    match memory::MemoryTool::open(&memory_db_path) {
+        Ok(tool) => {
+            registry.register(Arc::new(tool)).await;
+        }
+        Err(e) => eprintln!("warning: failed to open memory store: {e}"),
+    }
     registry
         .register(Arc::new(stubs::CodeInterpreterTool::new()))
         .await;
