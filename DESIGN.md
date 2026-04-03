@@ -54,7 +54,7 @@ Tools are registered by name and discovered by the agent loop via `ToolDescripto
 | environment | full | Env vars and system info |
 | memory | full | In-memory key-value store |
 | code_interpreter | stub | Phase 5 |
-| delegate | stub | Phase 3 |
+| delegate | full | Subagent spawning with callback-based architecture |
 | skills | stub | Phase 4 |
 
 ### MCP Client
@@ -107,7 +107,26 @@ On failure, marks provider unhealthy and tries next in chain.
 
 `HealthChecker` tracks healthy/unhealthy state per provider. Supports async HTTP probes.
 
-## Session Runtime
+## Multi-Agent Orchestration
+
+The `delegate` tool (`crates/matrixclaw-tools/src/builtin/delegate.rs`) enables an agent to spawn child agents.
+
+### Architecture
+
+Uses a callback pattern to avoid circular dependencies between `matrixclaw-tools` and `agent-core`:
+
+- `SubagentRunner` — `Arc<dyn Fn(SubagentRequest) -> Pin<Box<dyn Future<Output = SubagentResult>>>>` 
+- `DelegateTool` holds a `SubagentRunner` callback and a depth counter
+- The callback is created in `app-host` where both the provider and registry are available
+- `chat.rs` wraps the `FallbackProvider` in `Arc<tokio::sync::Mutex>` for safe sharing between the main loop and subagent runner
+
+### Depth Limiting
+
+Max depth 2. At max depth, `delegate` returns an error instead of spawning. The depth counter increments for each nesting level.
+
+### Wiring
+
+`SessionBackedLiveRunService::register_delegate_tool()` registers a `DelegateTool` into the tool registry. Called once during service setup in `chat.rs`.
 
 Sessions are persisted in SQLite (`crates/session-runtime/src/sqlite.rs`).
 Each session stores the full message history, supports compaction for long conversations,

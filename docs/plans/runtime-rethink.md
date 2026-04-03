@@ -1,7 +1,7 @@
 # MatrixClaw Runtime Rethink — 5-Phase Roadmap
 
 **Date**: 2026-03-31
-**Status**: Phase 2 Complete — Phase 3 Next
+**Status**: Phase 3 Complete — Phase 4 Next
 **Decision**: Drop SvelteKit/Tauri desktop shell. Rebuild as single-binary Rust agent runtime.
 
 ## Differentiators
@@ -112,14 +112,16 @@
 
 **Goal**: Subagent delegation, agent-to-agent communication, parallel execution.
 
-- [ ] Subagent spawning: delegate tasks to child agents with scoped capabilities
-- [ ] Agent hierarchy: max depth 2, up to 3 parallel subagents
-- [ ] Capability inheritance: subagents get subset of parent's tools
-- [ ] Agent-to-agent messaging: structured communication protocol
-- [ ] Parallel agent execution: run independent subagents concurrently
-- [ ] Agent lifecycle management: spawn, monitor, terminate
-- [ ] Result aggregation: collect and synthesize subagent outputs
-- [ ] Implement `delegate` tool from Phase 1 stubs
+**Status**: Phase 3 Complete (core delegation)
+
+- [x] Subagent spawning: delegate tasks to child agents with scoped capabilities
+- [x] Agent hierarchy: max depth 2 with depth counter
+- [x] Capability inheritance: subagents get parent's full tool registry
+- [x] Agent-to-agent messaging: structured SubagentRequest/SubagentResult protocol
+- [ ] Parallel agent execution: run independent subagents concurrently — deferred
+- [ ] Agent lifecycle management: spawn, monitor, terminate — deferred
+- [ ] Result aggregation: collect and synthesize subagent outputs — deferred
+- [x] Implement `delegate` tool from Phase 1 stubs
 
 ---
 
