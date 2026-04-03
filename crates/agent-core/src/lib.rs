@@ -1,3 +1,4 @@
+pub mod approval;
 pub mod event;
 pub mod r#loop;
 pub mod message;
