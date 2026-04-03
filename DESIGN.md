@@ -53,9 +53,14 @@ Tools are registered by name and discovered by the agent loop via `ToolDescripto
 | calculator | full | Expression evaluator (+, -, *, /, parens) |
 | environment | full | Env vars and system info |
 | memory | full | Persistent key-value store with search, survives restarts (SQLite) |
-| code_interpreter | stub | Phase 5 |
+| code_interpreter | stub | Phase 7 |
 | delegate | full | Subagent spawning with callback-based architecture |
 | skills | full | List, read, and create skills in ~/.matrixclaw/skills/ |
+| search_files | full | Ripgrep-backed content search with path traversal protection |
+| todo | full | Session-scoped task list for multi-step work |
+| clarify | full | Structured user questions with optional multiple-choice |
+| process | full | Background process management (list/register/kill) |
+| session_search | full | FTS5 full-text search across conversation history |
 
 ### MCP Client
 

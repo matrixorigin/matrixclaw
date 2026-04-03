@@ -1,7 +1,7 @@
 # MatrixClaw Runtime Rethink — 5-Phase Roadmap
 
 **Date**: 2026-03-31
-**Status**: Phase 4 Complete — Phase 5 Next
+**Status**: Phase 5 Complete — Phase 6 Next
 **Decision**: Drop SvelteKit/Tauri desktop shell. Rebuild as single-binary Rust agent runtime.
 
 ## Differentiators
@@ -143,19 +143,20 @@
 
 ---
 
-## Phase 5: Sandbox & Gateway Expansion
+## Phase 5: Agent Completeness
 
-**Goal**: Secure execution, protocol expansion.
+**Goal**: Close critical functional gaps — search, task tracking, compression, cross-session recall.
 
-- [ ] Docker sandbox backend: containerized tool execution
-- [ ] SSH sandbox backend: remote execution on dedicated hosts
-- [ ] Code execution sandbox: safe Python/Rust execution environment
-- [ ] Implement `code_interpreter` tool from Phase 1 stubs
-- [ ] MCP server protocol: expose MatrixClaw tools to external clients
-- [ ] Gateway expansion: more protocol adapters
-- [ ] Cron scheduling: scheduled task execution
-- [ ] Webhook integration: event-driven automation
-- [ ] Audit logging: comprehensive tool execution audit trail
+**Status**: Phase 5 Complete
+
+- [x] `search_files` tool: ripgrep-backed content search with path traversal protection
+- [x] `todo` tool: session-scoped task list for multi-step work tracking
+- [x] `clarify` tool: structured user questions with optional multiple-choice
+- [x] `process` tool: background process management (list/register/kill)
+- [x] FTS5 session search: full-text search across all conversation history
+- [x] Context compression: 4-phase Hermes-style (prune → boundaries → summarize → reassemble)
+- [ ] `patch` tool: fuzzy file editing with multiple matching strategies — deferred
+- [x] Iteration pressure warnings wired into chat mode
 
 ---
 
