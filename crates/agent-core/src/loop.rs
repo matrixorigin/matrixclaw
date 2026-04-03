@@ -1,6 +1,7 @@
 use matrixclaw_tools::ToolRegistry;
 
 use crate::event::AgentEvent;
+use crate::hooks::{CompositeHook, HookPayload};
 use crate::message::RunMessage;
 use crate::policy::{ToolPreflightDecision, ToolPreflightPolicy};
 use crate::provider::{Provider, ProviderError};
@@ -18,7 +19,7 @@ pub async fn run_prompt(
     registry: &ToolRegistry,
     on_event: &mut (dyn FnMut(AgentEvent) + Send),
 ) -> Result<RunResult, ProviderError> {
-    let trace = run_prompt_with_policy(provider, request, registry, None, on_event).await?;
+    let trace = run_prompt_with_policy(provider, request, registry, None, None, on_event).await?;
     Ok(trace.result)
 }
 
@@ -27,6 +28,7 @@ pub async fn run_prompt_with_policy(
     request: &RunRequest,
     registry: &ToolRegistry,
     policy: Option<&dyn ToolPreflightPolicy>,
+    hooks: Option<&CompositeHook>,
     on_event: &mut (dyn FnMut(AgentEvent) + Send),
 ) -> Result<RunTrace, ProviderError> {
     let mut events: Vec<AgentEvent> = Vec::new();
@@ -75,6 +77,17 @@ pub async fn run_prompt_with_policy(
             max_iterations: request.max_iterations,
         };
 
+        if let Some(hooks) = hooks {
+            let payload = HookPayload::pre_llm_call(None, iterations);
+            let action = hooks.dispatch(&payload).await;
+            if action.block {
+                let reason = action
+                    .reason
+                    .unwrap_or_else(|| "blocked by lifecycle hook".to_string());
+                break reason;
+            }
+        }
+
         emit(&mut events, on_event, AgentEvent::MessageStarted);
         let response = provider.stream(&current_request, on_event).await?;
         emit(
@@ -82,6 +95,15 @@ pub async fn run_prompt_with_policy(
             on_event,
             AgentEvent::MessageCompleted(response.content.clone().unwrap_or_default()),
         );
+
+        if let Some(hooks) = hooks {
+            let payload = HookPayload::post_llm_call(
+                None,
+                iterations,
+                response.content.as_deref().unwrap_or(""),
+            );
+            hooks.dispatch(&payload).await;
+        }
 
         if !response.is_tool_call() {
             break response.content.unwrap_or_default();
@@ -98,6 +120,27 @@ pub async fn run_prompt_with_policy(
                 on_event,
                 AgentEvent::ToolCallReceived(call.name.clone()),
             );
+
+            if let Some(hooks) = hooks {
+                let payload =
+                    HookPayload::pre_tool_call(None, iterations, &call.name, &call.arguments);
+                let action = hooks.dispatch(&payload).await;
+                if action.block {
+                    let reason = action
+                        .reason
+                        .unwrap_or_else(|| "blocked by lifecycle hook".to_string());
+                    emit(
+                        &mut events,
+                        on_event,
+                        AgentEvent::ToolExecutionCompleted(format!("hooked: {reason}")),
+                    );
+                    context.push(RunMessage::tool_result(
+                        &call.id,
+                        format!("hooked: {reason}"),
+                    ));
+                    continue;
+                }
+            }
 
             if let Some(policy) = policy {
                 match policy.before_tool_call(call).await {
@@ -131,6 +174,12 @@ pub async fn run_prompt_with_policy(
                 on_event,
                 AgentEvent::ToolExecutionCompleted(result.output.clone()),
             );
+
+            if let Some(hooks) = hooks {
+                let payload =
+                    HookPayload::post_tool_call(None, iterations, &call.name, &result.output);
+                hooks.dispatch(&payload).await;
+            }
 
             context.push(RunMessage::tool_result(&call.id, &result.output));
             tool_calls_made += 1;

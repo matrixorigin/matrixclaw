@@ -180,9 +180,10 @@ impl SessionBackedLiveRunService {
             max_iterations: 10,
         };
 
-        let trace = run_prompt_with_policy(provider, &run_request, &self.registry, None, on_event)
-            .await
-            .map_err(|e| e.0.clone())?;
+        let trace =
+            run_prompt_with_policy(provider, &run_request, &self.registry, None, None, on_event)
+                .await
+                .map_err(|e| e.0.clone())?;
 
         finalize_session_after_run(
             &mut session,

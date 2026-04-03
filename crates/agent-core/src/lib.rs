@@ -1,5 +1,6 @@
 pub mod approval;
 pub mod event;
+pub mod hooks;
 pub mod r#loop;
 pub mod message;
 pub mod policy;

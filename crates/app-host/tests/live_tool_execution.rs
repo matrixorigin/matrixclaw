@@ -38,6 +38,7 @@ async fn live_tool_execution() {
         &RunRequest::new("add 2 and 3"),
         &registry,
         None,
+        None,
         &mut |_| {},
     )
     .await

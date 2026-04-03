@@ -70,7 +70,7 @@ async fn tool_calls_extend_turn_loop() {
     let registry = ToolRegistry::new();
     registry.register(Arc::new(SumTool)).await;
 
-    let trace = run_prompt_with_policy(&mut provider, &request, &registry, None, &mut |_| {})
+    let trace = run_prompt_with_policy(&mut provider, &request, &registry, None, None, &mut |_| {})
         .await
         .expect("run prompt");
 

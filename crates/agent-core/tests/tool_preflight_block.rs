@@ -89,6 +89,7 @@ async fn tool_preflight_block() {
         &request,
         &registry,
         Some(&policy),
+        None,
         &mut |_| {},
     )
     .await
