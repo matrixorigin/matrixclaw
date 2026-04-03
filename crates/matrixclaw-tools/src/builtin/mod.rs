@@ -1,5 +1,6 @@
 pub mod calculator;
 pub mod clarify;
+pub mod cronjob;
 pub mod delegate;
 pub mod environment;
 pub mod filesystem;
@@ -77,4 +78,13 @@ pub async fn register_all(registry: &ToolRegistry, workspace_root: &str) {
     registry
         .register(Arc::new(process::ProcessTool::new()))
         .await;
+    let cron_db_path = cronjob::CronjobTool::db_path_for_home(std::path::Path::new(
+        workspace_root,
+    ));
+    match cronjob::CronjobTool::open(&cron_db_path) {
+        Ok(tool) => {
+            registry.register(Arc::new(tool)).await;
+        }
+        Err(e) => eprintln!("warning: failed to open cron store: {e}"),
+    }
 }
