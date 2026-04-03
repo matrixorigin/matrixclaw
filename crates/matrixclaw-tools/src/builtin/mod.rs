@@ -6,6 +6,7 @@ pub mod filesystem;
 pub mod memory;
 pub mod process;
 pub mod search_files;
+pub mod session_search;
 pub mod skills;
 pub mod stubs;
 pub mod terminal;
@@ -46,6 +47,17 @@ pub async fn register_all(registry: &ToolRegistry, workspace_root: &str) {
             registry.register(Arc::new(tool)).await;
         }
         Err(e) => eprintln!("warning: failed to open memory store: {e}"),
+    }
+    let session_db_path = session_search::SessionSearchTool::db_path_for_home(
+        std::path::Path::new(workspace_root),
+    );
+    if session_db_path.exists() {
+        match session_search::SessionSearchTool::open(&session_db_path) {
+            Ok(tool) => {
+                registry.register(Arc::new(tool)).await;
+            }
+            Err(e) => eprintln!("warning: failed to open session search: {e}"),
+        }
     }
     registry
         .register(Arc::new(stubs::CodeInterpreterTool::new()))
