@@ -1,5 +1,6 @@
 pub mod compaction;
 pub mod compaction_record;
+pub mod compression;
 pub mod context_builder;
 pub mod error;
 pub mod event_sink;

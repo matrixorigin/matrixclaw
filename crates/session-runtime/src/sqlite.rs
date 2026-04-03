@@ -11,6 +11,14 @@ use crate::session::Session;
 use crate::storage::{project_visible_transcript, StorageError, TranscriptStore};
 use crate::RuntimeMessage;
 
+#[derive(Debug, Clone)]
+pub struct SearchResult {
+    pub id: i64,
+    pub kind: String,
+    pub content: String,
+    pub snippet: String,
+}
+
 pub struct SqliteStorage {
     conn: Connection,
 }
@@ -44,10 +52,47 @@ impl SqliteStorage {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 kind TEXT NOT NULL,
                 content TEXT NOT NULL
-            );",
+            );
+            CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+                content,
+                content=transcript,
+                content_rowid=id
+            );
+            CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON transcript BEGIN
+                INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
+            END;
+            CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON transcript BEGIN
+                INSERT INTO messages_fts(messages_fts, rowid, content) VALUES('delete', old.id, old.content);
+            END;
+            CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE ON transcript BEGIN
+                INSERT INTO messages_fts(messages_fts, rowid, content) VALUES('delete', old.id, old.content);
+                INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
+            END;",
         )?;
 
         Ok(Self { conn })
+    }
+
+    pub fn search_messages(
+        &self,
+        query: &str,
+        limit: usize,
+    ) -> Result<Vec<SearchResult>, StorageError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT m.id, m.kind, m.content, snippet(messages_fts, -1, '<<', '>>', '...', 32) as snippet FROM messages_fts f JOIN transcript m ON m.id = f.rowid WHERE messages_fts MATCH ?1 ORDER BY rank LIMIT ?2"
+        )?;
+        let results = stmt
+            .query_map(params![query, limit], |row| {
+                Ok(SearchResult {
+                    id: row.get(0)?,
+                    kind: row.get(1)?,
+                    content: row.get(2)?,
+                    snippet: row.get::<_, Option<String>>(3)?.unwrap_or_default(),
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(results)
     }
 
     pub fn persist_session(&mut self, session: &Session) -> Result<(), StorageError> {
