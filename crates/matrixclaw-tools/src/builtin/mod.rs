@@ -1,3 +1,5 @@
+#[cfg(feature = "browser")]
+pub mod browser;
 pub mod calculator;
 pub mod clarify;
 pub mod code_interpreter;
@@ -83,5 +85,14 @@ pub async fn register_all(registry: &ToolRegistry, workspace_root: &str) {
             registry.register(Arc::new(tool)).await;
         }
         Err(e) => eprintln!("warning: failed to open cron store: {e}"),
+    }
+    #[cfg(feature = "browser")]
+    {
+        let screenshots_dir =
+            std::path::PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string()))
+                .join(".matrixclaw")
+                .join("screenshots");
+        let state = browser::make_shared_state(screenshots_dir);
+        browser::register_all(registry, state).await;
     }
 }
