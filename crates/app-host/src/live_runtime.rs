@@ -244,6 +244,10 @@ impl LiveRunEvent {
                 "tool_call_delta".to_string(),
                 Some(format!("{id}:{name}:{arguments_delta}")),
             ),
+            AgentEvent::IterationPressure { current, max, pct } => (
+                "iteration_pressure".to_string(),
+                Some(format!("iteration {current}/{max} ({pct}%)")),
+            ),
             AgentEvent::RunCompleted => ("run_completed".to_string(), None),
         };
 

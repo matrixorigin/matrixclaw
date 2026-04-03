@@ -39,6 +39,30 @@ pub async fn run_prompt_with_policy(
 
     let final_message = loop {
         iterations += 1;
+
+        if iterations == request.max_iterations * 70 / 100 {
+            emit(
+                &mut events,
+                on_event,
+                AgentEvent::IterationPressure {
+                    current: iterations,
+                    max: request.max_iterations,
+                    pct: 70,
+                },
+            );
+        }
+        if iterations == request.max_iterations * 90 / 100 {
+            emit(
+                &mut events,
+                on_event,
+                AgentEvent::IterationPressure {
+                    current: iterations,
+                    max: request.max_iterations,
+                    pct: 90,
+                },
+            );
+        }
+
         if iterations > request.max_iterations {
             break "max iterations reached".to_string();
         }

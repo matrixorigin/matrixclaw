@@ -12,5 +12,10 @@ pub enum AgentEvent {
     ToolCallReceived(String),
     ToolExecutionStarted(String),
     ToolExecutionCompleted(String),
+    IterationPressure {
+        current: u32,
+        max: u32,
+        pct: u8,
+    },
     RunCompleted,
 }
