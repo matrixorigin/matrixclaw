@@ -1,11 +1,15 @@
 pub mod calculator;
+pub mod clarify;
 pub mod delegate;
 pub mod environment;
 pub mod filesystem;
 pub mod memory;
+pub mod process;
+pub mod search_files;
 pub mod skills;
 pub mod stubs;
 pub mod terminal;
+pub mod todo;
 pub mod web;
 
 use std::sync::Arc;
@@ -50,5 +54,15 @@ pub async fn register_all(registry: &ToolRegistry, workspace_root: &str) {
         .register(Arc::new(skills::SkillsTool::new(std::path::Path::new(
             workspace_root,
         ))))
+        .await;
+    registry.register(Arc::new(todo::TodoTool::new())).await;
+    registry
+        .register(Arc::new(search_files::SearchFilesTool::new(workspace_root)))
+        .await;
+    registry
+        .register(Arc::new(clarify::ClarifyTool::new()))
+        .await;
+    registry
+        .register(Arc::new(process::ProcessTool::new()))
         .await;
 }
