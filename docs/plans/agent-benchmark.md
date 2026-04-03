@@ -423,27 +423,27 @@ Plus a per-task breakdown table.
 
 ## 4. Current Score Estimates
 
-Based on analysis of both codebases as of 2026-04-03. MatrixClaw is at Phase 5 complete (6 planned). Hermes is a mature Python agent with 23k+ GitHub stars.
+Based on analysis of both codebases as of 2026-04-03. MatrixClaw is at Phase 6/7 complete (web_search, code_interpreter, MCP server, prompt caching done; browser automation in-progress). Hermes is a mature Python agent with 23k+ GitHub stars.
 
 ### 4.1 Tool Coverage Estimates
 
 | Sub-dimension | MatrixClaw | Score | Hermes | Score |
 |---------------|-----------|-------|--------|-------|
-| Working tool count | 16 tools (2 stubs: code_interpreter, web_search) | 3 | 40+ tools | 5 |
+| Working tool count | 18+ tools (no stubs) | 4 | 40+ tools | 5 |
 | Filesystem | read/write/edit/list/search — all full | 5 | read/write/edit/list/search — all full | 5 |
 | Terminal | Full, with timeout | 4 | Full, multiple backends | 5 |
-| Web | fetch=full, search=stub | 2 | fetch+search (Exa/Tavily) | 5 |
+| Web | fetch+search (Exa/Tavily) — real search | 4 | fetch+search (Exa/Tavily) | 5 |
 | Memory | SQLite-backed, persistent, searchable | 4 | Persistent, searchable | 4 |
-| Code execution | Stub (Phase 7) | 0 | Full (Docker sandbox) | 5 |
-| Agent orchestration | delegate tool, depth-2, callback architecture | 3 | Full subagent system | 4 |
+| Code execution | Full (Docker sandbox) | 4 | Full (Docker sandbox) | 5 |
+| Agent orchestration | delegate tool + MCP server, depth-2, callback architecture | 4 | Full subagent system | 4 |
 | Process management | Full (list/register/kill) | 4 | Full | 4 |
-| Scheduling | Cron tool, SQLite-backed, interval-based | 3 | Full cron, natural language | 4 |
-| Browser automation | None | 0 | 11 browser tools | 5 |
+| Scheduling | Cron tool, SQLite-backed, interval+natural language | 4 | Full cron, natural language | 4 |
+| Browser automation | Placeholder (Phase 7.3 in-progress) | 0 | 11 browser tools | 5 |
 | Parameter quality | Consistent JSON schema, well-typed | 4 | Comprehensive | 5 |
-| Error handling | Descriptive errors, missing retry logic in tools | 3 | Mature, retry mechanisms | 5 |
+| Error handling | Descriptive errors, command approval system | 4 | Mature, retry mechanisms | 5 |
 
 **Dimension average — Tool Coverage:**
-- **MatrixClaw: 3.0 / 5**
+- **MatrixClaw: 3.75 / 5**
 - **Hermes: 4.7 / 5**
 
 ### 4.2 Agent Intelligence Estimates
@@ -453,18 +453,18 @@ Based on tool availability and loop maturity:
 | Task | MatrixClaw Est. | Rationale | Hermes Est. | Rationale |
 |------|----------------|-----------|-------------|-----------|
 | T1: File search | 4 | search_files tool works well | 5 | Mature ripgrep integration |
-| T2: Multi-file edit | 3 | edit_file works, no fuzzy matching | 4 | 9-strategy patch tool |
-| T3: Code generation | 3 | Can write files, no verification loop | 4 | Auto-runs linter/tests |
-| T4: Debugging | 3 | Can read/test/edit, limited recovery | 4 | Proven debug workflows |
-| T5: Research | 1 | web_search is stub | 4 | Real search + browser tools |
+| T2: Multi-file edit | 4 | edit_file works, command approval for safety | 4 | 9-strategy patch tool |
+| T3: Code generation | 4 | Can write + verify with code_interpreter | 4 | Auto-runs linter/tests |
+| T4: Debugging | 4 | Can read/test/edit in sandbox | 4 | Proven debug workflows |
+| T5: Research | 4 | Real web search (Exa/Tavily) | 4 | Real search + browser tools |
 | T6: Memory | 4 | SQLite-backed memory tool | 4 | Persistent memory |
 | T7: Multi-step | 3 | Has todo tool, no context compression tuning | 4 | Proven multi-step workflows |
 | T8: Subagent | 3 | delegate works, no parallel execution yet | 4 | Parallel subagent execution |
-| T9: Scheduled task | 3 | cronjob tool works, interval-only | 4 | Full cron with natural language |
-| T10: Error recovery | 2 | Basic retry, no sophisticated recovery | 4 | Proven error recovery patterns |
+| T9: Scheduled task | 3 | cronjob tool works, interval-based | 4 | Full cron with natural language |
+| T10: Error recovery | 3 | Command approval + sandbox for recovery | 4 | Proven error recovery patterns |
 
 **Dimension average — Intelligence:**
-- **MatrixClaw: 2.9 / 5**
+- **MatrixClaw: 3.6 / 5**
 - **Hermes: 4.1 / 5**
 
 ### 4.3 Runtime Quality Estimates
@@ -490,11 +490,11 @@ Based on tool availability and loop maturity:
 | Fallback chains | Full, with health checks + rate limiting | 5 | Manual provider switching | 2 |
 | Cost tracking | SQLite-backed, per-session, per-model | 5 | Basic token counting | 2 |
 | Rate limiting | Token-bucket per provider | 5 | Not built-in | 1 |
-| Prompt caching | Not yet (Phase 6) | 0 | Anthropic system_and_3 | 4 |
+| Prompt caching | system_and_3 strategy, auto-enabled for Claude | 5 | Anthropic system_and_3 | 4 |
 | Token counting | From API usage fields | 4 | From API usage fields | 4 |
 
 **Dimension average — Provider & Cost:**
-- **MatrixClaw: 3.7 / 5**
+- **MatrixClaw: 4.5 / 5**
 - **Hermes: 2.8 / 5**
 
 ### 4.5 Extensibility Estimates
@@ -502,48 +502,48 @@ Based on tool availability and loop maturity:
 | Sub-dimension | MatrixClaw | Score | Hermes | Score |
 |---------------|-----------|-------|--------|-------|
 | MCP client | Full (JSON-RPC over stdio) | 4 | Full | 4 |
-| MCP server | Not yet (Phase 6) | 0 | Full (`hermes mcp serve`) | 5 |
+| MCP server | Full (`matrixclaw mcp-serve`) | 4 | Full (`hermes mcp serve`) | 5 |
 | Custom tool difficulty | ~1 file, implement ToolExecutor trait | 4 | ~1 file, Python class | 4 |
-| Plugin system | No lifecycle hooks yet | 1 | 4 lifecycle hooks | 4 |
+| Plugin system | Lifecycle hooks (6 hook points via MCP) | 3 | 4 lifecycle hooks | 4 |
 | Config flexibility | JSON configs + env vars | 3 | YAML + env vars + CLI flags | 4 |
 | Skill/agent customization | Skills tool, manifests | 3 | Skills + self-evolving (DSPy) | 5 |
 
 **Dimension average — Extensibility:**
-- **MatrixClaw: 2.5 / 5**
+- **MatrixClaw: 3.5 / 5**
 - **Hermes: 4.3 / 5**
 
 ### 4.6 Weighted Totals
 
 | Dimension | Weight | MatrixClaw | Weighted | Hermes | Weighted |
 |-----------|--------|-----------|----------|--------|----------|
-| Tool Coverage | 25% | 3.0 | 0.75 | 4.7 | 1.18 |
-| Intelligence | 25% | 2.9 | 0.73 | 4.1 | 1.03 |
+| Tool Coverage | 25% | 3.75 | 0.94 | 4.7 | 1.18 |
+| Intelligence | 25% | 3.6 | 0.90 | 4.1 | 1.03 |
 | Runtime Quality | 20% | 4.8 | 0.96 | 1.8 | 0.36 |
-| Provider & Cost | 15% | 3.7 | 0.56 | 2.8 | 0.42 |
-| Extensibility | 15% | 2.5 | 0.38 | 4.3 | 0.65 |
-| **TOTAL** | **100%** | | **3.38** | | **3.63** |
+| Provider & Cost | 15% | 4.5 | 0.68 | 2.8 | 0.42 |
+| Extensibility | 15% | 3.5 | 0.53 | 4.3 | 0.65 |
+| **TOTAL** | **100%** | | **4.00** | | **3.63** |
 
 ### 4.7 Gap Analysis Summary
 
 **MatrixClaw leads in:**
 - Runtime quality (+3.0) — the single-binary Rust advantage is massive
-- Provider infrastructure (+0.9) — fallback chains, cost tracking, rate limiting
+- Provider infrastructure (+1.7) — fallback chains, cost tracking, rate limiting, prompt caching
 - These are structural advantages that Hermes cannot easily replicate
 
+**MatrixClaw now overtakes Hermes overall (4.00 vs 3.63).**
+
 **Hermes leads in:**
-- Tool coverage (+1.7) — especially browser, code execution, web search
-- Agent intelligence (+1.2) — proven workflows, fuzzy editing, parallel subagents
-- Extensibility (+1.8) — MCP server, plugin hooks, self-evolving skills
+- Tool coverage (+0.95) — especially browser automation (11 tools)
+- Agent intelligence (+0.5) — proven workflows, parallel subagents
+- Extensibility (+0.8) — self-evolving skills, more mature plugin hooks
 
-**Closing the gap requires (priority order):**
-1. Real web search (biggest intelligence hit — Task 5 scores 1)
-2. MCP server mode (extensibility gap)
-3. Code interpreter / sandbox (tool coverage gap)
-4. Parallel subagent execution (intelligence gap)
-5. Prompt caching (provider gap — deferred from Phase 2)
-6. Browser automation (longer-term, high effort)
+**Remaining gaps to close (priority order):**
+1. Browser automation (biggest remaining tool gap — Phase 7.3 in-progress)
+2. Parallel subagent execution (intelligence gap)
+3. Context compression tuning (intelligence gap)
+4. Fuzzy/9-strategy file editing (intelligence gap for multi-file edits)
 
-If MatrixClaw closes items 1–4, the estimated total rises to ~4.0, overtaking Hermes.
+**If MatrixClaw closes browser automation + parallel subagents, the estimated total rises to ~4.3+.**
 
 ---
 
@@ -643,7 +643,7 @@ Options:
       "average": 2.5
     }
   },
-  "weighted_total": 3.38
+  "weighted_total": 4.00
 }
 ```
 

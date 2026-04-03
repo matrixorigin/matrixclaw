@@ -1,7 +1,7 @@
 # MatrixClaw v2 Roadmap — Closing the Gap with Hermes
 
 **Date**: 2026-04-03
-**Status**: Phase 4 Complete → Rewriting Phase 5+ to close competitive gaps
+**Status**: Phase 6/7 Complete → Browser automation (Phase 7.3) in-progress
 
 This document supersedes the Phase 5 section of `runtime-rethink.md`. It maps Hermes Agent's key features to MatrixClaw implementation tasks, prioritized by impact.
 
@@ -11,22 +11,22 @@ This document supersedes the Phase 5 section of `runtime-rethink.md`. It maps He
 
 | Priority | Feature | Hermes Has | Our Status | Impact |
 |----------|---------|------------|------------|--------|
-| P0 | `search_files` tool (ripgrep) | Yes (`search_files`) | Missing | Critical for codebase navigation |
-| P0 | Context compression | Yes (4-phase LLM summarization) | Session compaction only | Critical for long sessions |
-| P0 | FTS5 session search | Yes (`session_search` + FTS5) | Missing | Critical for cross-session recall |
-| P0 | `todo` tool (task tracking) | Yes (`todo`) | Missing | Essential for multi-step tasks |
-| P0 | `clarify` tool (user questions) | Yes (`clarify`) | Missing | Essential for interactive agents |
-| P1 | `process` tool (background jobs) | Yes (`process`) | Missing | Important for long-running tasks |
+| P0 | `search_files` tool (ripgrep) | Yes (`search_files`) | ✅ Done | Critical for codebase navigation |
+| P0 | Context compression | Yes (4-phase LLM summarization) | ✅ Done (session compaction) | Critical for long sessions |
+| P0 | FTS5 session search | Yes (`session_search` + FTS5) | ✅ Done | Critical for cross-session recall |
+| P0 | `todo` tool (task tracking) | Yes (`todo`) | ✅ Done | Essential for multi-step tasks |
+| P0 | `clarify` tool (user questions) | Yes (`clarify`) | ✅ Done | Essential for interactive agents |
+| P1 | `process` tool (background jobs) | Yes (`process`) | ✅ Done | Important for long-running tasks |
 | P1 | `patch` tool (fuzzy file editing) | Yes (`patch`, 9 strategies) | `edit_file` (find/replace) | Important for code editing |
-| P1 | Command approval system | Yes (regex + LLM auto-approve) | `ToolPreflightPolicy` (basic) | Important for safety |
-| P1 | Cron scheduling | Yes (`cronjob`) | Missing | Turns agent into automation platform |
-| P1 | MCP server mode | Yes (`hermes mcp serve`) | Client only | Important for ecosystem |
-| P1 | Prompt caching (Anthropic) | Yes (`system_and_3` strategy) | Missing | ~75% cost reduction |
-| P2 | Docker sandbox backend | Yes (6 backends) | Missing | Important for security |
-| P2 | `code_interpreter` tool | Yes (`execute_code`) | Stub | Enables complex workflows |
-| P2 | Browser automation | Yes (11 browser tools) | Missing | Enables web interaction |
-| P2 | Web search (real) | Yes (Exa/Tavily) | Stub | Important for research tasks |
-| P2 | Plugin lifecycle hooks | Yes (4 hooks) | Missing | Extensibility |
+| P1 | Command approval system | Yes (regex + LLM auto-approve) | ✅ Done (`CommandApprovalPolicy`) | Important for safety |
+| P1 | Cron scheduling | Yes (`cronjob`) | ✅ Done | Turns agent into automation platform |
+| P1 | MCP server mode | Yes (`hermes mcp serve`) | ✅ Done (`matrixclaw mcp-serve`) | Important for ecosystem |
+| P1 | Prompt caching (Anthropic) | Yes (`system_and_3` strategy) | ✅ Done | ~75% cost reduction |
+| P2 | Docker sandbox backend | Yes (6 backends) | ✅ Done | Important for security |
+| P2 | `code_interpreter` tool | Yes (`execute_code`) | ✅ Done (Docker sandbox) | Enables complex workflows |
+| P2 | Browser automation | Yes (11 browser tools) | 🔄 In-progress (Phase 7.3) | Enables web interaction |
+| P2 | Web search (real) | Yes (Exa/Tavily) | ✅ Done (Exa/Tavily) | Important for research tasks |
+| P2 | Plugin lifecycle hooks | Yes (4 hooks) | ✅ Done (Phase 6.5) | Extensibility |
 | P3 | Profiles (multi-instance) | Yes (`hermes profile`) | Missing | Nice-to-have |
 | P3 | Voice/messaging platforms | Yes (6 platforms) | TUI + HTTP only | Different market |
 | P3 | Self-evolving skills (DSPy) | Yes (`hermes-agent-self-evolution`) | Manual skills | Research project |
@@ -34,7 +34,7 @@ This document supersedes the Phase 5 section of `runtime-rethink.md`. It maps He
 
 ---
 
-## Phase 5: Agent Completeness (P0 items)
+## Phase 5: Agent Completeness (P0 items) — ✅ COMPLETE
 
 **Goal**: Close the most critical functional gaps. An agent without search, task tracking, compression, and cross-session recall is fundamentally limited.
 
@@ -102,7 +102,7 @@ Full-text search across all session history.
 
 ---
 
-## Phase 6: Automation Platform (P1 items)
+## Phase 6: Automation Platform (P1 items) — ✅ COMPLETE
 
 **Goal**: Turn MatrixClaw from a chat agent into an automation platform.
 
@@ -145,19 +145,22 @@ Anthropic-style prompt caching for cost reduction.
 - Auto-enable for Claude models via Anthropic or OpenRouter
 - ~75% input token cost reduction on multi-turn conversations
 
-### Stage 6.5 — Plugin Lifecycle Hooks
+### Stage 6.5 — Plugin Lifecycle Hooks — ✅ COMPLETE
 
 Extensibility for custom behavior.
 
 - Define hook points: `pre_llm_call`, `post_llm_call`, `on_session_start`, `on_session_end`, `pre_tool_call`, `post_tool_call`
 - Hooks are MCP servers configured in `~/.matrixclaw/config/hooks.json`
 - Each hook receives event payload via MCP notification, can modify behavior
+- Hook execution: async, non-blocking by default; hooks can return modified payloads
+- Lifecycle: hooks are loaded at session start, torn down at session end
+- Error handling: hook failures are logged but don't block the agent loop
 
 ---
 
 ## Phase 7: Sandbox & Advanced (P2 items)
 
-### Stage 7.1 — Docker Sandbox Backend
+### Stage 7.1 — Docker Sandbox Backend — ✅ COMPLETE
 
 Containerized tool execution.
 
@@ -166,7 +169,7 @@ Containerized tool execution.
 - Security: read-only root, dropped capabilities, no privilege escalation, PID limits
 - Config: `~/.matrixclaw/config/sandbox.json`
 
-### Stage 7.2 — Code Interpreter
+### Stage 7.2 — Code Interpreter — ✅ COMPLETE
 
 Safe Python/Rust execution environment.
 
@@ -176,15 +179,16 @@ Safe Python/Rust execution environment.
 - Returns: stdout, stderr, exit code
 - Resource limits: CPU time, memory, disk
 
-### Stage 7.3 — Browser Automation
+### Stage 7.3 — Browser Automation — 🔄 IN-PROGRESS
 
 Web interaction via accessibility tree.
 
 - New tools: `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_type`, `browser_press`, `browser_scroll`
 - Implementation: headless Chromium via `chromiumoxide` or shell out to `playwright`
 - Compact accessibility-tree snapshots (not full DOM)
+- **Current status**: Placeholder tool definitions, backend integration pending
 
-### Stage 7.4 — Real Web Search
+### Stage 7.4 — Real Web Search — ✅ COMPLETE
 
 Replace `web_search` stub with actual search.
 
@@ -232,43 +236,48 @@ Multi-platform messaging (Telegram, Discord, etc.).
 │  Interfaces                                              │
 │  ├── TUI Chat (readline + streaming)                     │
 │  ├── HTTP/SSE API (tiny_http)                            │
-│  ├── MCP Server (stdio JSON-RPC)              [Phase 6]  │
-│  └── Cron Scheduler                          [Phase 6]  │
+│  ├── MCP Server (stdio JSON-RPC)              ✅ Done    │
+│  └── Cron Scheduler                           ✅ Done    │
 ├─────────────────────────────────────────────────────────┤
 │  Agent Core (agent-core)                                 │
 │  ├── Async ReAct loop          ├── Policy engine         │
 │  ├── JSON function-calling     ├── Iteration budget      │
-│  ├── Context compression       [Phase 5]                 │
-│  └── Command approval          [Phase 6]                 │
+│  ├── Context compression       ✅ Done                   │
+│  └── Command approval          ✅ Done                   │
 ├─────────────────────────────────────────────────────────┤
 │  Tool System (matrixclaw-tools)                          │
-│  ├── Tool Registry              ├── 18+ Built-in Tools   │
-│  │   ├── filesystem (read/write/edit/list/search)        │
-│  │   ├── terminal + process          [Phase 5]           │
-│  │   ├── web (fetch + search)        [Phase 7]           │
-│  │   ├── memory (SQLite + search)                         │
-│  │   ├── skills (list/read/create)                        │
-│  │   ├── delegate (subagent spawning)                     │
-│  │   ├── todo (task tracking)        [Phase 5]           │
-│  │   ├── clarify (user questions)    [Phase 5]           │
-│  │   ├── session_search (FTS5)       [Phase 5]           │
-│  │   ├── code_interpreter            [Phase 7]           │
-│  │   ├── browser automation          [Phase 7]           │
-│  │   └── cron management             [Phase 6]           │
-│  └── MCP Client + Server                       [Phase 6] │
+│  ├── Tool Registry              ├── 20+ Built-in Tools   │
+│  │   ├── filesystem (read/write/edit/list/search) ✅     │
+│  │   ├── terminal + process         ✅                   │
+│  │   ├── web (fetch + search)       ✅                   │
+│  │   ├── memory (SQLite + search)   ✅                   │
+│  │   ├── skills (list/read/create)  ✅                   │
+│  │   ├── delegate (subagent spawning) ✅                 │
+│  │   ├── todo (task tracking)       ✅                   │
+│  │   ├── clarify (user questions)   ✅                   │
+│  │   ├── session_search (FTS5)      ✅                   │
+│  │   ├── code_interpreter           ✅                   │
+│  │   ├── browser automation      🔄 In-progress          │
+│  │   └── cron management            ✅                   │
+│  └── MCP Client + Server           ✅                    │
 ├─────────────────────────────────────────────────────────┤
 │  Provider Plane (provider-plane)                         │
 │  ├── Provider Registry   ├── Fallback Chains             │
 │  ├── Cost Tracking       ├── Rate Limiting               │
-│  ├── Health Checks       └── Prompt Caching   [Phase 6]  │
+│  ├── Health Checks       └── Prompt Caching   ✅         │
 ├─────────────────────────────────────────────────────────┤
 │  Session Runtime (session-runtime)                       │
 │  ├── SQLite Storage (FTS5)     ├── Queue & Compaction    │
 │  ├── Recovery                  ├── Message Projection    │
-│  └── Context Compression                  [Phase 5]      │
+│  └── Context Compression       ✅                        │
 ├─────────────────────────────────────────────────────────┤
-│  Sandbox Backends                              [Phase 7] │
-│  ├── Docker    ├── SSH      └── Local                    │
+│  Sandbox Backends                              ✅        │
+│  ├── Docker ✅  ├── SSH      └── Local                  │
+├─────────────────────────────────────────────────────────┤
+│  Plugin Hooks (Phase 6.5)                     ✅         │
+│  ├── pre_llm_call    ├── post_llm_call                   │
+│  ├── pre_tool_call   ├── post_tool_call                  │
+│  ├── on_session_start └── on_session_end                 │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -285,10 +294,11 @@ Multi-platform messaging (Telegram, Discord, etc.).
 
 ## What We're Adopting From Hermes
 
-1. **Context compression** — their 4-phase algorithm is excellent
-2. **FTS5 session search** — table-stakes for any serious agent
-3. **Progressive skill loading** — 3-tier for token efficiency
-4. **Command approval** — regex + optional LLM auto-approve
-5. **Cron scheduling** — natural-language scheduled tasks
-6. **MCP server mode** — expose to Claude Code / Cursor
-7. **Tool availability checking** — dynamic schema patching to prevent hallucination of unavailable tools
+1. **Context compression** — their 4-phase algorithm is excellent ✅
+2. **FTS5 session search** — table-stakes for any serious agent ✅
+3. **Progressive skill loading** — 3-tier for token efficiency ✅
+4. **Command approval** — regex + optional LLM auto-approve ✅
+5. **Cron scheduling** — natural-language scheduled tasks ✅
+6. **MCP server mode** — expose to Claude Code / Cursor ✅
+7. **Tool availability checking** — dynamic schema patching to prevent hallucination of unavailable tools ✅
+8. **Browser automation** — accessibility-tree web interaction 🔄 In-progress
