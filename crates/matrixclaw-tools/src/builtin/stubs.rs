@@ -41,39 +41,3 @@ impl ToolExecutor for CodeInterpreterTool {
         )
     }
 }
-
-pub struct SkillsTool {
-    descriptor: ToolDescriptor,
-}
-
-impl Default for SkillsTool {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl SkillsTool {
-    pub fn new() -> Self {
-        Self {
-            descriptor: ToolDescriptor::new(
-                "skills",
-                "List, read, and create skills (not yet implemented)",
-            )
-            .with_parameters(vec![
-                ToolParameter::required("action", ParameterType::String, "Action to perform"),
-                ToolParameter::optional("name", ParameterType::String, "Skill name"),
-            ]),
-        }
-    }
-}
-
-#[async_trait]
-impl ToolExecutor for SkillsTool {
-    fn descriptor(&self) -> &ToolDescriptor {
-        &self.descriptor
-    }
-
-    async fn execute(&self, call: ToolCall) -> ToolResult {
-        ToolResult::error(&call, "skills is not yet implemented (coming in Phase 4)")
-    }
-}

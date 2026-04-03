@@ -3,6 +3,7 @@ pub mod delegate;
 pub mod environment;
 pub mod filesystem;
 pub mod memory;
+pub mod skills;
 pub mod stubs;
 pub mod terminal;
 pub mod web;
@@ -45,5 +46,9 @@ pub async fn register_all(registry: &ToolRegistry, workspace_root: &str) {
     registry
         .register(Arc::new(stubs::CodeInterpreterTool::new()))
         .await;
-    registry.register(Arc::new(stubs::SkillsTool::new())).await;
+    registry
+        .register(Arc::new(skills::SkillsTool::new(std::path::Path::new(
+            workspace_root,
+        ))))
+        .await;
 }
