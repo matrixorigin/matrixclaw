@@ -1,7 +1,7 @@
 # MatrixClaw Runtime Rethink — 5-Phase Roadmap
 
 **Date**: 2026-03-31
-**Status**: Phase 3 Complete — Phase 4 Next
+**Status**: Phase 4 Complete — Phase 5 Next
 **Decision**: Drop SvelteKit/Tauri desktop shell. Rebuild as single-binary Rust agent runtime.
 
 ## Differentiators
@@ -129,15 +129,17 @@
 
 **Goal**: Persistent memory, cross-session search, self-improvement.
 
-- [ ] Persistent memory: SQLite-backed key-value store surviving restarts
-- [ ] Cross-session search: FTS5 full-text search across all session history
-- [ ] User modeling: per-user preferences, patterns, and context
-- [ ] Skill auto-creation: agents create reusable skills from successful patterns
-- [ ] Progressive skill loading: 3-tier (category → list → full → file) for token efficiency
-- [ ] Skill marketplace: share and discover community skills
-- [ ] Self-nudging: agents proactively recall relevant past interactions
-- [ ] Iteration budget: configurable max iterations (default 90) with pressure warnings at 70%/90%
-- [ ] Implement `skills` tool from Phase 1 stubs
+**Status**: Phase 4 Complete (core features)
+
+- [x] Persistent memory: SQLite-backed key-value store surviving restarts
+- [ ] Cross-session search: FTS5 full-text search across all session history — deferred
+- [ ] User modeling: per-user preferences, patterns, and context — deferred
+- [x] Skill auto-creation: agents create reusable skills via the skills tool
+- [ ] Progressive skill loading: 3-tier (category → list → full → file) for token efficiency — deferred
+- [ ] Skill marketplace: share and discover community skills — deferred
+- [ ] Self-nudging: agents proactively recall relevant past interactions — deferred
+- [x] Iteration budget: configurable max iterations (default 90) with pressure warnings at 70%/90%
+- [x] Implement `skills` tool from Phase 1 stubs
 
 ---
 

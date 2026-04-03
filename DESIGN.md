@@ -28,7 +28,7 @@ The agent core runs an async ReAct loop (`crates/agent-core/src/loop.rs`):
 
 The loop emits `AgentEvent` variants for observability: `RunStarted`, `MessageStarted`,
 `MessageDelta`, `MessageCompleted`, `ToolCallReceived`, `ToolExecutionStarted`,
-`ToolExecutionCompleted`, `RunCompleted`.
+`ToolExecutionCompleted`, `IterationPressure`, `RunCompleted`.
 
 A `ToolPreflightPolicy` can intercept and block tool calls before execution.
 
@@ -52,10 +52,10 @@ Tools are registered by name and discovered by the agent loop via `ToolDescripto
 | web_search | stub | Requires search provider API key |
 | calculator | full | Expression evaluator (+, -, *, /, parens) |
 | environment | full | Env vars and system info |
-| memory | full | In-memory key-value store |
+| memory | full | Persistent key-value store with search, survives restarts (SQLite) |
 | code_interpreter | stub | Phase 5 |
 | delegate | full | Subagent spawning with callback-based architecture |
-| skills | stub | Phase 4 |
+| skills | full | List, read, and create skills in ~/.matrixclaw/skills/ |
 
 ### MCP Client
 
@@ -127,6 +127,14 @@ Max depth 2. At max depth, `delegate` returns an error instead of spawning. The 
 ### Wiring
 
 `SessionBackedLiveRunService::register_delegate_tool()` registers a `DelegateTool` into the tool registry. Called once during service setup in `chat.rs`.
+
+## Iteration Budget
+
+The agent loop runs a maximum of 90 iterations (configurable via `RunRequest::max_iterations`).
+Pressure warnings are emitted as `AgentEvent::IterationPressure` at 70% (iteration 63) and 90% (iteration 81).
+The `live_runtime` surfaces these as `"iteration_pressure"` events.
+
+## Session Runtime
 
 Sessions are persisted in SQLite (`crates/session-runtime/src/sqlite.rs`).
 Each session stores the full message history, supports compaction for long conversations,
