@@ -45,7 +45,11 @@ impl ToolExecutor for SessionSearchTool {
             Some(q) => q,
             None => return ToolResult::error(&call, "missing required parameter: query"),
         };
-        let limit_str = call.arguments.get("limit").and_then(|v| v.as_str()).unwrap_or("10");
+        let limit_str = call
+            .arguments
+            .get("limit")
+            .and_then(|v| v.as_str())
+            .unwrap_or("10");
         let limit: usize = limit_str.parse().unwrap_or(10);
 
         let db = match self.db.lock() {
@@ -100,8 +104,9 @@ mod tests {
             );
             CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON transcript BEGIN
                 INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
-            END;"
-        ).unwrap();
+            END;",
+        )
+        .unwrap();
         drop(conn);
         let tool = SessionSearchTool::open(&db_path).unwrap();
         (tool, dir)
@@ -109,7 +114,11 @@ mod tests {
 
     fn insert_message(tool: &SessionSearchTool, kind: &str, content: &str) {
         let db = tool.db.lock().unwrap();
-        db.execute("INSERT INTO transcript (kind, content) VALUES (?1, ?2)", params![kind, content]).unwrap();
+        db.execute(
+            "INSERT INTO transcript (kind, content) VALUES (?1, ?2)",
+            params![kind, content],
+        )
+        .unwrap();
     }
 
     async fn call(tool: &SessionSearchTool, args: &str) -> ToolResult {

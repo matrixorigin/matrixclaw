@@ -29,8 +29,7 @@ impl CronStore {
             std::fs::create_dir_all(parent)
                 .map_err(|e| format!("cron: failed to create db directory: {e}"))?;
         }
-        let conn =
-            Connection::open(path).map_err(|e| format!("cron: failed to open db: {e}"))?;
+        let conn = Connection::open(path).map_err(|e| format!("cron: failed to open db: {e}"))?;
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS cron_jobs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -177,9 +176,7 @@ pub fn parse_interval(schedule: &str) -> Result<i64, String> {
         )
     })?;
     let s = s.trim();
-    let (num_part, unit_part) = s
-        .chars()
-        .partition::<String, _>(|c| c.is_ascii_digit());
+    let (num_part, unit_part) = s.chars().partition::<String, _>(|c| c.is_ascii_digit());
     let num: i64 = num_part
         .parse()
         .map_err(|_| format!("invalid schedule '{schedule}': expected number"))?;
@@ -309,11 +306,7 @@ impl ToolExecutor for CronjobTool {
                 let lines: Vec<String> = jobs
                     .iter()
                     .map(|j| {
-                        let status = if j.enabled {
-                            "enabled"
-                        } else {
-                            "disabled"
-                        };
+                        let status = if j.enabled { "enabled" } else { "disabled" };
                         let next = j
                             .next_run
                             .map(|t| t.to_string())
@@ -341,10 +334,7 @@ impl ToolExecutor for CronjobTool {
                     Some(n) => n,
                     None => return ToolResult::error(&call, "missing required parameter: name"),
                 };
-                let schedule = call
-                    .arguments
-                    .get("schedule")
-                    .and_then(|v| v.as_str());
+                let schedule = call.arguments.get("schedule").and_then(|v| v.as_str());
                 let task = call.arguments.get("task").and_then(|v| v.as_str());
                 let enabled = call.arguments.get("enabled").and_then(|v| v.as_bool());
                 if let Some(s) = schedule {

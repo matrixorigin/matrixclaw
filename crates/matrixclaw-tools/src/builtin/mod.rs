@@ -1,5 +1,6 @@
 pub mod calculator;
 pub mod clarify;
+pub mod code_interpreter;
 pub mod cronjob;
 pub mod delegate;
 pub mod environment;
@@ -9,7 +10,6 @@ pub mod process;
 pub mod search_files;
 pub mod session_search;
 pub mod skills;
-pub mod stubs;
 pub mod terminal;
 pub mod todo;
 pub mod web;
@@ -49,9 +49,8 @@ pub async fn register_all(registry: &ToolRegistry, workspace_root: &str) {
         }
         Err(e) => eprintln!("warning: failed to open memory store: {e}"),
     }
-    let session_db_path = session_search::SessionSearchTool::db_path_for_home(
-        std::path::Path::new(workspace_root),
-    );
+    let session_db_path =
+        session_search::SessionSearchTool::db_path_for_home(std::path::Path::new(workspace_root));
     if session_db_path.exists() {
         match session_search::SessionSearchTool::open(&session_db_path) {
             Ok(tool) => {
@@ -61,7 +60,7 @@ pub async fn register_all(registry: &ToolRegistry, workspace_root: &str) {
         }
     }
     registry
-        .register(Arc::new(stubs::CodeInterpreterTool::new()))
+        .register(Arc::new(code_interpreter::CodeInterpreterTool::new()))
         .await;
     registry
         .register(Arc::new(skills::SkillsTool::new(std::path::Path::new(
@@ -78,9 +77,7 @@ pub async fn register_all(registry: &ToolRegistry, workspace_root: &str) {
     registry
         .register(Arc::new(process::ProcessTool::new()))
         .await;
-    let cron_db_path = cronjob::CronjobTool::db_path_for_home(std::path::Path::new(
-        workspace_root,
-    ));
+    let cron_db_path = cronjob::CronjobTool::db_path_for_home(std::path::Path::new(workspace_root));
     match cronjob::CronjobTool::open(&cron_db_path) {
         Ok(tool) => {
             registry.register(Arc::new(tool)).await;

@@ -114,12 +114,15 @@ impl Default for WebSearchTool {
 impl WebSearchTool {
     pub fn new() -> Self {
         Self {
-            descriptor: ToolDescriptor::new("web_search", "Search the web for information")
-                .with_parameters(vec![ToolParameter::required(
-                    "query",
-                    ParameterType::String,
-                    "Search query",
-                )]),
+            descriptor: ToolDescriptor::new(
+                "web_search",
+                "Search the web for information. Returns up to 5 results with titles, URLs, and snippets.",
+            )
+            .with_parameters(vec![ToolParameter::required(
+                "query",
+                ParameterType::String,
+                "Search query",
+            )]),
         }
     }
 }
@@ -131,9 +134,77 @@ impl ToolExecutor for WebSearchTool {
     }
 
     async fn execute(&self, call: ToolCall) -> ToolResult {
-        ToolResult::error(
-            &call,
-            "web_search requires a search provider API key (not yet configured)",
-        )
+        let query = match call.arguments.get("query").and_then(|v| v.as_str()) {
+            Some(q) => q,
+            None => return ToolResult::error(&call, "missing required parameter: query"),
+        };
+
+        let client = reqwest::Client::new();
+        let url = format!(
+            "https://searx.be/search?q={}&format=json&categories=general",
+            urlencoding::encode(query),
+        );
+
+        let response = match client
+            .get(&url)
+            .header("User-Agent", "MatrixClaw/0.1")
+            .timeout(std::time::Duration::from_secs(10))
+            .send()
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => return ToolResult::error(&call, format!("search request failed: {e}")),
+        };
+
+        let body: serde_json::Value = match response.json().await {
+            Ok(b) => b,
+            Err(e) => {
+                return ToolResult::error(&call, format!("search response parse failed: {e}"))
+            }
+        };
+
+        let results: Vec<String> = body["results"]
+            .as_array()
+            .unwrap_or(&Vec::new())
+            .iter()
+            .take(5)
+            .map(|r| {
+                let title = r["title"].as_str().unwrap_or("");
+                let url = r["url"].as_str().unwrap_or("");
+                let snippet = r["content"].as_str().unwrap_or("");
+                format!("{title}\n  {url}\n  {snippet}")
+            })
+            .collect();
+
+        if results.is_empty() {
+            ToolResult::success(&call, "no results found")
+        } else {
+            ToolResult::success(&call, results.join("\n\n"))
+        }
+    }
+}
+
+#[cfg(test)]
+mod search_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn descriptor_correct() {
+        let tool = WebSearchTool::new();
+        assert_eq!(tool.descriptor().name, "web_search");
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn search_returns_results() {
+        let tool = WebSearchTool::new();
+        let call = ToolCall::new(
+            "1".into(),
+            "web_search".into(),
+            serde_json::json!({"query": "rust programming language"}),
+        );
+        let result = tool.execute(call).await;
+        assert!(!result.is_error);
+        assert!(result.output.contains("rust"));
     }
 }
