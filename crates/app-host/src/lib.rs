@@ -12,6 +12,7 @@ pub mod install;
 pub mod live_runtime;
 pub mod llm_smoke;
 pub mod local_command;
+pub mod mcp_server;
 pub mod node;
 pub mod openai_compatible;
 pub mod openclaw_transport;
@@ -26,6 +27,9 @@ pub mod ui_assets;
 pub const VERSION: &str = "0.1.0";
 
 pub use ui_assets::{UiAssetKind, UiAssetLayout, UiResolvedAsset};
+
+use matrixclaw_tools::ToolRegistry;
+use std::sync::Arc;
 
 fn runtime() -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_current_thread()
@@ -129,6 +133,23 @@ pub fn run(args: impl IntoIterator<Item = String>) -> i32 {
                 }
             }
         }
+        Some("mcp-serve") => {
+            let home = paths::home_dir();
+            let rt = tokio::runtime::Runtime::new().expect("failed to create tokio runtime");
+            let registry = Arc::new(ToolRegistry::new());
+            rt.block_on(matrixclaw_tools::builtin::register_all(
+                &registry,
+                home.to_str().unwrap_or("."),
+            ));
+            let server = mcp_server::McpServer::new(registry);
+            match rt.block_on(server.run()) {
+                Ok(()) => 0,
+                Err(e) => {
+                    eprintln!("mcp server error: {e}");
+                    1
+                }
+            }
+        }
         None => match setup::ensure_first_launch() {
             Ok(setup::StartupMode::Ready) => 0,
             Ok(setup::StartupMode::Setup(surface)) => {
@@ -143,7 +164,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> i32 {
         },
         _ => {
             eprintln!(
-                "usage: matrixclaw version | matrixclaw serve [--fixture demo] | matrixclaw chat [--model <id>] | matrixclaw llm-smoke [--model <id>]"
+                "usage: matrixclaw version | matrixclaw serve [--fixture demo] | matrixclaw chat [--model <id>] | matrixclaw llm-smoke [--model <id>] | matrixclaw mcp-serve"
             );
             1
         }

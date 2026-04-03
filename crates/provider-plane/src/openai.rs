@@ -589,10 +589,7 @@ mod tests {
 
         let system_msg = &messages[0];
         assert_eq!(system_msg["role"], "system");
-        assert_eq!(
-            system_msg["cache_control"],
-            json!({"type": "ephemeral"})
-        );
+        assert_eq!(system_msg["cache_control"], json!({"type": "ephemeral"}));
 
         let user_indices: Vec<usize> = messages
             .iter()
@@ -659,14 +656,8 @@ mod tests {
 
         let messages = request_messages(&request, "google/gemini-2.5-flash");
 
-        assert_eq!(
-            messages[0]["cache_control"],
-            json!({"type": "ephemeral"})
-        );
-        assert_eq!(
-            messages[1]["cache_control"],
-            json!({"type": "ephemeral"})
-        );
+        assert_eq!(messages[0]["cache_control"], json!({"type": "ephemeral"}));
+        assert_eq!(messages[1]["cache_control"], json!({"type": "ephemeral"}));
     }
 
     #[test]
@@ -687,15 +678,9 @@ mod tests {
         let messages = request_messages(&request, "anthropic/claude-3.5-sonnet");
 
         assert_eq!(messages[0]["role"], "system");
-        assert_eq!(
-            messages[0]["cache_control"],
-            json!({"type": "ephemeral"})
-        );
+        assert_eq!(messages[0]["cache_control"], json!({"type": "ephemeral"}));
         assert_eq!(messages[1]["role"], "user");
-        assert_eq!(
-            messages[1]["cache_control"],
-            json!({"type": "ephemeral"})
-        );
+        assert_eq!(messages[1]["cache_control"], json!({"type": "ephemeral"}));
     }
 
     #[test]
@@ -706,9 +691,6 @@ mod tests {
 
         assert_eq!(messages.len(), 1);
         assert_eq!(messages[0]["role"], "user");
-        assert_eq!(
-            messages[0]["cache_control"],
-            json!({"type": "ephemeral"})
-        );
+        assert_eq!(messages[0]["cache_control"], json!({"type": "ephemeral"}));
     }
 }
