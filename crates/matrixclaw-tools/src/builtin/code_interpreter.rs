@@ -71,21 +71,37 @@ impl ToolExecutor for CodeInterpreterTool {
             );
         }
 
-        match self.sandbox.execute(code, language) {
+        let sandbox = self.sandbox.clone();
+        let code_owned = code.to_string();
+        let language_owned = language.to_string();
+        let call_clone = call.clone();
+
+        let result =
+            tokio::task::spawn_blocking(move || sandbox.execute(&code_owned, &language_owned))
+                .await
+                .unwrap_or_else(|e| Err(format!("sandbox task failed: {e}")));
+
+        match result {
             Ok(result) => {
                 let mut output = result.stdout;
                 if !result.stderr.is_empty() {
                     output = format!("{output}\n--- stderr ---\n{}", result.stderr);
                 }
+                if result.timed_out {
+                    return ToolResult::error(
+                        &call_clone,
+                        format!("execution timed out: {output}"),
+                    );
+                }
                 if result.exit_code != 0 {
                     return ToolResult::error(
-                        &call,
+                        &call_clone,
                         format!("exit code {}: {output}", result.exit_code),
                     );
                 }
-                ToolResult::success(&call, output)
+                ToolResult::success(&call_clone, output)
             }
-            Err(e) => ToolResult::error(&call, e),
+            Err(e) => ToolResult::error(&call_clone, e),
         }
     }
 }

@@ -30,11 +30,17 @@ pub fn is_execution_node_route(path: &str) -> bool {
 pub fn execution_visibility_snapshot() -> ExecutionVisibilitySnapshot {
     let local_mode_label = execution_mode_label(&ExecutionMode::Local).to_string();
     let visible_backends = vec![
-        "local".to_string(),
         "docker".to_string(),
-        "boxlite".to_string(),
+        "e2b".to_string(),
+        "daytona".to_string(),
+        "local".to_string(),
     ];
-    let sandbox_priority = vec!["docker".to_string(), "boxlite".to_string()];
+    let sandbox_priority = vec![
+        "docker".to_string(),
+        "e2b".to_string(),
+        "daytona".to_string(),
+        "local".to_string(),
+    ];
 
     ExecutionVisibilitySnapshot {
         mode_label: local_mode_label,

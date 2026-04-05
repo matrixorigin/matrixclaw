@@ -6,6 +6,7 @@ members = [
     "crates/manifests",
     "crates/matrixclaw-tools",
     "crates/provider-plane",
+    "crates/sandwrench",
     "crates/session-runtime",
 ]
 resolver = "2"

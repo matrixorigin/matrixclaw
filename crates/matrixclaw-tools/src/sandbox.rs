@@ -23,6 +23,7 @@ impl Default for SandboxConfig {
     }
 }
 
+#[derive(Clone)]
 pub struct DockerSandbox {
     config: SandboxConfig,
 }
@@ -58,38 +59,45 @@ impl DockerSandbox {
             _ => return Err(format!("unsupported language: {language}")),
         };
 
-        let mut docker_cmd = Command::new("docker");
-        docker_cmd
-            .arg("run")
-            .arg("--rm")
-            .arg("--network")
-            .arg("none")
-            .arg("--memory")
-            .arg(&self.config.memory_limit)
-            .arg("--cpus")
-            .arg(self.config.cpu_limit.to_string())
-            .arg("--pids-limit")
-            .arg("64");
+        let mut docker_args: Vec<String> = vec![
+            "run".into(),
+            "--rm".into(),
+            "--network".into(),
+            "none".into(),
+            "--memory".into(),
+            self.config.memory_limit.clone(),
+            "--cpus".into(),
+            self.config.cpu_limit.to_string(),
+            "--pids-limit".into(),
+            "64".into(),
+        ];
 
         if self.config.read_only_root {
-            docker_cmd.arg("--read-only");
+            docker_args.push("--read-only".into());
         }
 
-        docker_cmd
-            .arg(&self.config.image)
-            .arg("sh")
-            .arg("-c")
-            .arg(&cmd);
+        docker_args.extend_from_slice(&[self.config.image.clone(), "sh".into(), "-c".into(), cmd]);
 
-        let output = docker_cmd
-            .output()
-            .map_err(|e| format!("docker execution failed: {e}"))?;
+        let output = if self.config.timeout_secs > 0 {
+            let mut c = Command::new("timeout");
+            c.arg(format!("{}s", self.config.timeout_secs));
+            c.arg("docker");
+            c.args(&docker_args);
+            c.output()
+        } else {
+            let mut c = Command::new("docker");
+            c.args(&docker_args);
+            c.output()
+        }
+        .map_err(|e| format!("docker execution failed: {e}"))?;
+
+        let exit_code = output.status.code().unwrap_or(-1);
 
         Ok(SandboxResult {
             stdout: String::from_utf8_lossy(&output.stdout).to_string(),
             stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-            exit_code: output.status.code().unwrap_or(-1),
-            timed_out: false,
+            exit_code,
+            timed_out: exit_code == 124,
         })
     }
 }

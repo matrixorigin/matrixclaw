@@ -7,16 +7,22 @@ fn execution_backend_visibility() {
     assert_eq!(
         snapshot.visible_backends,
         vec![
-            "local".to_string(),
             "docker".to_string(),
-            "boxlite".to_string(),
+            "e2b".to_string(),
+            "daytona".to_string(),
+            "local".to_string(),
         ],
         "execution UI should expose the product-facing backend labels"
     );
     assert_eq!(
         snapshot.sandbox_priority,
-        vec!["docker".to_string(), "boxlite".to_string()],
-        "sandbox policy should show docker first and boxlite second"
+        vec![
+            "docker".to_string(),
+            "e2b".to_string(),
+            "daytona".to_string(),
+            "local".to_string(),
+        ],
+        "sandbox policy should show docker, e2b, daytona, then local"
     );
     assert_eq!(
         snapshot.sandbox_failure_message, "sandbox required but unavailable",
