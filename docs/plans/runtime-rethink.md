@@ -1,7 +1,7 @@
 # MatrixClaw Runtime Rethink — 8-Phase Roadmap
 
 **Date**: 2026-03-31
-**Status**: Phase 7 In Progress (6.5 Hooks Complete, 7.3 Browser In Progress) — Phase 8 Next
+**Status**: Phase 7 In Progress (7.5 Sandbox Complete, 7.3 Browser In Progress) — Phase 8 Next
 **Decision**: Drop SvelteKit/Tauri desktop shell. Rebuild as single-binary Rust agent runtime.
 
 ## Differentiators
@@ -197,14 +197,32 @@
 
 **Goal**: Isolated code execution, web search, browser automation, SSH sandbox.
 
-**Status**: Phase 7 Partially Complete
+**Status**: Phase 7 Partially Complete (sandbox abstraction done; SSH + browser remain)
 
 - [x] Docker sandbox backend: `DockerSandbox` with resource limits and automatic cleanup
 - [x] `code_interpreter` tool: real implementation replacing stub, using Docker sandbox
 - [x] `web_search` tool: real implementation with SearXNG backend replacing stub
+- [x] Sandbox abstraction: `sandwrench` crate with `SandboxRuntime` trait, 4 backends, `SandboxProvider` factory
 - [ ] Browser automation: headless Chromium tools (navigate, screenshot, extract) — in progress
 - [ ] SSH sandbox backend: remote execution over SSH — not started
 - [x] Iteration pressure warnings wired into chat mode
+
+---
+
+## Phase 7.5: Sandbox Abstraction (sandwrench)
+
+**Goal**: Extract sandbox backends into a standalone `sandwrench` crate with a unified `SandboxRuntime` trait, multiple backend implementations, and config-driven backend selection.
+
+**Status**: Phase 7.5 Complete
+
+- [x] `SandboxRuntime` trait: `execute_code()` and `execute_command()` async methods
+- [x] Docker backend: wraps existing `DockerSandbox` behind `SandboxRuntime` (default)
+- [x] E2B backend: cloud microVM integration for ephemeral sandboxes
+- [x] Daytona backend: self-hosted workspace API integration
+- [x] Local backend: passthrough execution on host (dev/test only)
+- [x] `SandboxProvider` factory: reads `~/.matrixclaw/config/sandbox.json` and constructs the selected backend
+- [x] `code_interpreter` tool updated to request sandbox via `SandboxProvider` instead of direct Docker dependency
+- [x] Config schema: `sandbox.json` with per-backend settings (image, memory, timeout, API keys)
 
 ---
 
@@ -267,8 +285,9 @@
 │  ├── Recovery               ├── Message Projection    │
 │  └── Context Compression              [Phase 5]       │
 ├──────────────────────────────────────────────────────┤
-│  Sandbox Backends                           [Phase 7] │
-│  ├── Docker              └── (SSH, Local TBD)         │
+│  Sandbox Backends (sandwrench)              [Phase 7] │
+│  ├── Docker (default)    ├── E2B (cloud microVM)       │
+│  ├── Daytona (self-host) └── Local (passthrough/dev)   │
 └──────────────────────────────────────────────────────┘
 ```
 

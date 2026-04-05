@@ -12,6 +12,7 @@ matrixclaw-app-host       CLI entry point, HTTP server, chat REPL
 ├── matrixclaw-provider   Provider control plane (registry, fallback, cost, rate limit, health)
 │   └── matrixclaw-agent-core  Async ReAct loop, Provider trait, policy engine
 ├── matrixclaw-tools       Tool registry, 18 built-in tools, MCP client
+├── sandwrench             Sandbox abstraction — Docker, E2B, Daytona, Local backends
 ├── matrixclaw-session-runtime  SQLite storage, queue, compaction, recovery
 ├── matrixclaw-manifests   Plugin and skill manifest types
 └── matrixclaw-compat-openclaw  OpenClaw gateway adapter
@@ -55,7 +56,7 @@ Tools are registered by name and discovered by the agent loop via `ToolDescripto
 | calculator | full | Expression evaluator (+, -, *, /, parens) |
 | environment | full | Env vars and system info |
 | memory | full | Persistent key-value store with search, survives restarts (SQLite) |
-| code_interpreter | full | Docker sandbox for code execution |
+| code_interpreter | full (sandwrench-backed) | Docker sandbox for code execution |
 | delegate | full | Subagent spawning with callback-based architecture |
 | skills | full | List, read, and create skills in ~/.matrixclaw/skills/ |
 | search_files | full | Ripgrep-backed content search with path traversal protection |
@@ -201,9 +202,51 @@ tools to external clients (IDEs, other agents, scripts). Implements the MCP prot
 
 ## Sandbox Backends
 
-`DockerSandbox` (`crates/matrixclaw-tools/src/sandbox.rs`) provides isolated code execution
-in Docker containers. Used by `code_interpreter` to safely run arbitrary code with resource
-limits and automatic cleanup.
+### Sandwrench (`sandwrench` crate)
+
+`sandwrench` provides a unified sandbox abstraction layer for isolated code and command execution.
+It decouples the `code_interpreter` tool (and future tools) from any single backend implementation.
+
+#### Core Trait
+
+`SandboxRuntime` (`crates/sandwrench/src/lib.rs`) defines the sandbox interface:
+
+- `execute_code(language, code, working_dir) -> SandboxResult` — run code in an isolated environment
+- `execute_command(cmd, args, working_dir, env) -> SandboxResult` — run a shell command in the sandbox
+
+#### Backends
+
+| Backend | Type | Description |
+|---------|------|-------------|
+| Docker | container (default) | Local Docker containers with resource limits and automatic cleanup |
+| E2B | cloud microVM | E2B cloud sandbox for on-demand ephemeral VMs |
+| Daytona | self-hosted | Daytona workspace API for self-hosted sandbox environments |
+| Local | passthrough | Direct execution on the host (no isolation, for development) |
+
+#### Factory
+
+`SandboxProvider` reads backend selection from config and constructs the appropriate
+`SandboxRuntime` implementation. The `code_interpreter` tool requests a sandbox via the provider
+rather than directly depending on any backend.
+
+#### Configuration
+
+Sandbox backend is configured via `~/.matrixclaw/config/sandbox.json`:
+
+```json
+{
+  "backend": "docker",
+  "docker": { "image": "matrixclaw-sandbox:latest", "memory_mb": 512, "timeout_secs": 120 },
+  "e2b": { "api_key_env": "E2B_API_KEY", "template_id": "base" },
+  "daytona": { "server_url": "http://localhost:3986", "api_key_env": "DAYTONA_API_KEY" }
+}
+```
+
+### DockerSandbox
+
+`DockerSandbox` (`crates/matrixclaw-tools/src/sandbox.rs`) is the original Docker backend.
+It is now wrapped by `sandwrench`'s Docker backend implementation, which delegates to the same
+underlying Docker API while conforming to the `SandboxRuntime` trait.
 
 ## CLI
 
@@ -227,7 +270,8 @@ Chat mode supports:
 ~/.matrixclaw/config/
 ├── config.json       General settings
 ├── mcp.json          MCP server definitions
-└── providers.json    Provider configs and fallback chains
+├── providers.json    Provider configs and fallback chains
+└── sandbox.json      Sandbox backend selection and backend-specific config
 ```
 
 ## Event Flow
