@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -15,6 +17,8 @@ pub struct SandboxConfig {
     pub daytona_api_key: Option<String>,
     #[serde(default)]
     pub daytona_server_url: Option<String>,
+    #[serde(default)]
+    pub ssh: Option<SshConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -25,6 +29,37 @@ pub enum SandboxKind {
     Daytona,
     Wasm,
     Local,
+    Ssh,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+#[derive(Default)]
+pub enum SshAuthConfig {
+    Password(String),
+    Key {
+        path: PathBuf,
+        #[serde(default)]
+        passphrase: Option<String>,
+    },
+    #[default]
+    Agent,
+}
+
+fn default_ssh_port() -> u16 {
+    22
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SshConfig {
+    pub host: String,
+    #[serde(default = "default_ssh_port")]
+    pub port: u16,
+    pub username: String,
+    #[serde(default)]
+    pub auth: SshAuthConfig,
+    #[serde(default)]
+    pub working_dir: Option<String>,
 }
 
 impl Default for SandboxConfig {
@@ -39,6 +74,7 @@ impl Default for SandboxConfig {
             e2b_api_key: None,
             daytona_api_key: None,
             daytona_server_url: None,
+            ssh: None,
         }
     }
 }

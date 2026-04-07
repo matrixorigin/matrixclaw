@@ -10,6 +10,7 @@ serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 thiserror = "2"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+russh = { version = "0.60", optional = true }
 
 [features]
 default = ["docker"]
@@ -17,3 +18,4 @@ docker = []
 e2b = []
 daytona = []
 wasm = []
+ssh = ["dep:russh"]

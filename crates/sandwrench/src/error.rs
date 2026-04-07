@@ -18,4 +18,17 @@ pub enum SandboxError {
     HttpError(String),
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
+    #[error("SSH connection failed: {0}")]
+    SshConnection(String),
+    #[error("SSH authentication failed: {0}")]
+    SshAuth(String),
+    #[error("SSH execution error: {0}")]
+    SshExec(String),
+}
+
+#[cfg(feature = "ssh")]
+impl From<russh::Error> for SandboxError {
+    fn from(e: russh::Error) -> Self {
+        SandboxError::SshConnection(e.to_string())
+    }
 }

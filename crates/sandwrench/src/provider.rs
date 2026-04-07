@@ -2,6 +2,8 @@ use crate::backend::daytona::DaytonaBackend;
 use crate::backend::docker::DockerSandboxBackend;
 use crate::backend::e2b::E2bBackend;
 use crate::backend::local::LocalSandboxBackend;
+#[cfg(feature = "ssh")]
+use crate::backend::ssh::SshSandboxBackend;
 use crate::config::{SandboxConfig, SandboxKind};
 use crate::error::SandboxError;
 use crate::runtime::{CodeRequest, CommandRequest, SandboxResult, SandboxRuntime};
@@ -21,6 +23,14 @@ impl SandboxProvider {
             SandboxKind::Wasm => {
                 return Err(SandboxError::BackendUnavailable(
                     "WASM backend not yet implemented".into(),
+                ))
+            }
+            #[cfg(feature = "ssh")]
+            SandboxKind::Ssh => Box::new(SshSandboxBackend::new(config)?),
+            #[cfg(not(feature = "ssh"))]
+            SandboxKind::Ssh => {
+                return Err(SandboxError::BackendUnavailable(
+                    "SSH backend requires the 'ssh' feature flag".into(),
                 ))
             }
         };
