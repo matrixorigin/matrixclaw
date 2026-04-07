@@ -1,7 +1,7 @@
 # MatrixClaw Runtime Rethink — 8-Phase Roadmap
 
 **Date**: 2026-03-31
-**Status**: Phase 7 In Progress (7.5 Sandbox Done, 7.3 Browser In Progress) — Phase 8 Next
+**Status**: Phase 8 In Progress — SSH sandbox, agent lifecycle, self-nudging, messaging gateway done; model routing, profiles, DSPy remain
 **Decision**: Drop SvelteKit/Tauri desktop shell. Rebuild as single-binary Rust agent runtime.
 
 ## Differentiators
@@ -197,14 +197,14 @@
 
 **Goal**: Isolated code execution, web search, browser automation, SSH sandbox.
 
-**Status**: Phase 7 Partially Complete (sandbox abstraction done; SSH + browser remain)
+**Status**: Phase 7 Complete
 
 - [x] Docker sandbox backend: `DockerSandbox` with resource limits and automatic cleanup
 - [x] `code_interpreter` tool: real implementation replacing stub, using Docker sandbox
 - [x] `web_search` tool: real implementation with SearXNG backend replacing stub
 - [x] Sandbox abstraction: `sandwrench` crate with `SandboxRuntime` trait, 4 backends, `SandboxProvider` factory
-- [ ] Browser automation: headless Chromium tools (navigate, screenshot, extract) — in progress
-- [ ] SSH sandbox backend: remote execution over SSH — not started
+- [x] Browser automation: headless Chromium tools (navigate, screenshot, extract) behind `browser` feature flag
+- [x] SSH sandbox backend: remote execution over SSH behind `ssh` feature flag
 - [x] Iteration pressure warnings wired into chat mode
 
 ---
@@ -228,13 +228,16 @@
 
 ## Phase 8: Differentiation
 
-**Goal**: Profiles, self-evolving skills, messaging gateway.
+**Goal**: Profiles, self-evolving skills, messaging gateway, model routing.
 
-**Status**: Not Started
+**Status**: Phase 8 In Progress
 
+- [x] Agent lifecycle management: `SubagentTracker` with `agent_list` and `agent_cancel` tools
+- [x] Progressive skill loading: categories, search, enhanced list with summaries, frontmatter parsing
+- [x] Self-nudging engine: `NudgeEngine` + `MemoryNudgeStore` for context injection
+- [x] Messaging gateway: `MessageGateway` trait, `AgentBridge`, stub adapters (Matrix/Discord/Telegram/Slack), `gateway-serve` CLI
 - [ ] Multi-instance profiles: per-agent configuration with scoped capabilities
 - [ ] Self-evolving skills: DSPy-style skill improvement from execution feedback
-- [ ] Messaging gateway: Matrix, Discord, Slack, Telegram adapters
 - [ ] Model routing: automatic task-to-model assignment
 
 ---
@@ -249,7 +252,8 @@
 │  ├── TUI Chat (readline + streaming)                  │
 │  ├── HTTP/SSE API (tiny_http)                         │
 │  ├── MCP Server (stdio JSON-RPC)           [Phase 6]  │
-│  └── Cron Scheduler                        [Phase 6]  │
+│  ├── Cron Scheduler                        [Phase 6]  │
+│  └── Messaging Gateway                     [Phase 8]  │
 ├──────────────────────────────────────────────────────┤
 │  Agent Core (agent-core)                              │
 │  ├── Async ReAct loop       ├── Policy engine         │
@@ -262,17 +266,19 @@
 │  └── Command approval             [Phase 6]           │
 ├──────────────────────────────────────────────────────┤
 │  Tool System (matrixclaw-tools)                       │
-│  ├── Tool Registry               ├── 18 Built-in      │
-│  │   ├── filesystem (read/write/edit/list/search)     │
+│  ├── Tool Registry               ├── 30+ Built-in     │
+│  │   ├── filesystem (read/write/edit/list/search/patch)│
 │  │   ├── terminal + process                           │
 │  │   ├── web (fetch + search)       [Phase 7]         │
 │  │   ├── memory (SQLite + search)                     │
-│  │   ├── skills (list/read/create)                    │
-│  │   ├── delegate (subagent spawning)                 │
+│  │   ├── skills (list/read/create + progressive) [P8] │
+│  │   ├── delegate + delegate_parallel                 │
+│  │   ├── agent_list + agent_cancel [Phase 8]          │
 │  │   ├── todo + clarify + session_search [Phase 5]    │
 │  │   ├── code_interpreter            [Phase 7]        │
-│  │   ├── browser automation          [Phase 7, WIP]   │
-│  │   └── cronjob                     [Phase 6]        │
+│  │   ├── browser automation          [Phase 7]        │
+│  │   ├── cronjob                     [Phase 6]        │
+│  │   └── nudge_store                 [Phase 8]        │
 │  └── MCP Client + Server            [Phase 6]         │
 ├──────────────────────────────────────────────────────┤
 │  Provider Plane (provider-plane)                      │
@@ -287,7 +293,8 @@
 ├──────────────────────────────────────────────────────┤
 │  Sandbox Backends (sandwrench)              [Phase 7] │
 │  ├── Docker (default)    ├── E2B (cloud microVM)       │
-│  ├── Daytona (self-host) └── Local (passthrough/dev)   │
+│  ├── Daytona (self-host) ├── SSH (russh)    [Phase 7]  │
+│  └── Local (passthrough/dev)                        │
 └──────────────────────────────────────────────────────┘
 ```
 
