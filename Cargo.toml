@@ -4,6 +4,7 @@ members = [
     "crates/app-host",
     "crates/compat-openclaw",
     "crates/manifests",
+    "crates/matrixclaw-hooks",
     "crates/matrixclaw-tools",
     "crates/provider-plane",
     "crates/sandwrench",

@@ -9,6 +9,7 @@ path = "src/lib.rs"
 
 [dependencies]
 async-trait = "0.1"
+matrixclaw-hooks = { path = "../matrixclaw-hooks" }
 matrixclaw-manifests = { path = "../manifests" }
 matrixclaw-tools = { path = "../matrixclaw-tools" }
 regex = "1"

@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
+use async_trait::async_trait;
+use matrixclaw_hooks::{HookAction, HookPayload, HookPoint, LifecycleHook};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 
@@ -266,6 +268,102 @@ impl TraceStore {
     }
 }
 
+pub struct TraceCollector {
+    store: TraceStore,
+    active_skill: Mutex<Option<String>>,
+    active_task: Mutex<Option<String>>,
+    tool_buffer: Mutex<Vec<ToolInvocation>>,
+    iteration_buffer: Mutex<u32>,
+}
+
+impl TraceCollector {
+    pub fn new(store: TraceStore) -> Self {
+        Self {
+            store,
+            active_skill: Mutex::new(None),
+            active_task: Mutex::new(None),
+            tool_buffer: Mutex::new(Vec::new()),
+            iteration_buffer: Mutex::new(0),
+        }
+    }
+
+    pub fn on_skill_read(&self, skill_name: &str, task_summary: &str) {
+        *self.active_skill.lock().unwrap() = Some(skill_name.to_string());
+        *self.active_task.lock().unwrap() = Some(task_summary.to_string());
+        self.tool_buffer.lock().unwrap().clear();
+        *self.iteration_buffer.lock().unwrap() = 0;
+    }
+
+    pub fn finalize(&self, outcome: TraceOutcome, llm_snippet: &str) -> Result<i64, String> {
+        let skill_name = self.active_skill.lock().unwrap().take();
+        let task_summary = self.active_task.lock().unwrap().take();
+        let tool_chain = self.tool_buffer.lock().unwrap().drain(..).collect();
+        let iteration = *self.iteration_buffer.lock().unwrap();
+
+        match (skill_name, task_summary) {
+            (Some(skill), Some(task)) => {
+                let trace = SkillTrace {
+                    id: 0,
+                    skill_name: skill,
+                    task_summary: task,
+                    outcome,
+                    tool_chain,
+                    llm_output_snippet: llm_snippet.chars().take(500).collect(),
+                    iteration,
+                    created_at: now_iso(),
+                };
+                self.store.insert(&trace)
+            }
+            _ => Ok(0),
+        }
+    }
+}
+
+fn now_iso() -> String {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::SystemTime::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let days = secs / 86400;
+    let time_of_day = secs % 86400;
+    let hours = time_of_day / 3600;
+    let minutes = (time_of_day % 3600) / 60;
+    let seconds = time_of_day % 60;
+    let year = 1970 + (days / 365);
+    let day_of_year = days % 365;
+    let month = (day_of_year / 30) + 1;
+    let day = (day_of_year % 30) + 1;
+    format!("{year}-{month:02}-{day:02} {hours:02}:{minutes:02}:{seconds:02}")
+}
+
+#[async_trait]
+impl LifecycleHook for TraceCollector {
+    async fn on_event(&self, payload: &HookPayload) -> HookAction {
+        if payload.hook_point == HookPoint::PostToolCall {
+            if let Some(tool_name) = &payload.tool_name {
+                let inv = ToolInvocation {
+                    tool: tool_name.clone(),
+                    arguments_summary: String::new(),
+                    result_summary: payload
+                        .tool_result
+                        .as_deref()
+                        .unwrap_or("")
+                        .chars()
+                        .take(200)
+                        .collect(),
+                };
+                self.tool_buffer.lock().unwrap().push(inv);
+                *self.iteration_buffer.lock().unwrap() += 1;
+            }
+        }
+        HookAction::allow()
+    }
+
+    fn name(&self) -> &str {
+        "trace_collector"
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -389,5 +487,46 @@ mod tests {
             traces[0].tool_chain[1].arguments_summary,
             "read src/module.rs"
         );
+    }
+
+    #[tokio::test]
+    async fn trace_collector_records_tool_chain() {
+        let dir = TempDir::new().unwrap();
+        let store = TraceStore::open(&dir.path().join("tc.sqlite3")).unwrap();
+        let collector = TraceCollector::new(store);
+        collector.on_skill_read("deploy", "deploy to staging");
+        let payload = HookPayload::post_tool_call(None, 1, "terminal", "cargo build success");
+        collector.on_event(&payload).await;
+        let id = collector.finalize(TraceOutcome::Success, "deployed").unwrap();
+        assert!(id > 0);
+        let traces = collector.store.get_traces_for_skill("deploy", 10).unwrap();
+        assert_eq!(traces.len(), 1);
+        assert_eq!(traces[0].tool_chain.len(), 1);
+        assert_eq!(traces[0].tool_chain[0].tool, "terminal");
+    }
+
+    #[tokio::test]
+    async fn trace_collector_ignores_without_active_skill() {
+        let dir = TempDir::new().unwrap();
+        let store = TraceStore::open(&dir.path().join("tc2.sqlite3")).unwrap();
+        let collector = TraceCollector::new(store);
+        let payload = HookPayload::post_tool_call(None, 1, "terminal", "output");
+        collector.on_event(&payload).await;
+        let id = collector.finalize(TraceOutcome::Success, "done").unwrap();
+        assert_eq!(id, 0);
+    }
+
+    #[tokio::test]
+    async fn trace_collector_accumulates_multiple_tools() {
+        let dir = TempDir::new().unwrap();
+        let store = TraceStore::open(&dir.path().join("tc3.sqlite3")).unwrap();
+        let collector = TraceCollector::new(store);
+        collector.on_skill_read("multi", "complex task");
+        collector.on_event(&HookPayload::post_tool_call(None, 1, "read_file", "contents")).await;
+        collector.on_event(&HookPayload::post_tool_call(None, 2, "terminal", "built")).await;
+        collector.on_event(&HookPayload::post_tool_call(None, 3, "write_file", "wrote")).await;
+        collector.finalize(TraceOutcome::Success, "done").unwrap();
+        let traces = collector.store.get_traces_for_skill("multi", 10).unwrap();
+        assert_eq!(traces[0].tool_chain.len(), 3);
     }
 }
