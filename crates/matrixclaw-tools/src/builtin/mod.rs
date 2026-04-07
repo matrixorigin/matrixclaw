@@ -8,6 +8,7 @@ pub mod delegate;
 pub mod environment;
 pub mod filesystem;
 pub mod memory;
+pub mod patch;
 pub mod process;
 pub mod search_files;
 pub mod session_search;
@@ -72,6 +73,9 @@ pub async fn register_all(registry: &ToolRegistry, workspace_root: &str) {
     registry.register(Arc::new(todo::TodoTool::new())).await;
     registry
         .register(Arc::new(search_files::SearchFilesTool::new(workspace_root)))
+        .await;
+    registry
+        .register(Arc::new(patch::PatchTool::new(workspace_root)))
         .await;
     registry
         .register(Arc::new(clarify::ClarifyTool::new()))

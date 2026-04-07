@@ -913,8 +913,10 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "headless_chrome",
+ "regex",
  "reqwest",
  "rusqlite",
+ "sandwrench",
  "serde",
  "serde_json",
  "tempfile",
