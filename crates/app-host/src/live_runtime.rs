@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use matrixclaw_agent_core::event::AgentEvent;
+use matrixclaw_agent_core::hooks::{CompositeHook, LifecycleHook};
 use matrixclaw_agent_core::provider::Provider;
 use matrixclaw_agent_core::r#loop::run_prompt_with_policy;
 use matrixclaw_agent_core::{RunMessage, RunRequest, ToolChoice};
@@ -14,6 +15,7 @@ use matrixclaw_session_runtime::sqlite::SqliteStorage;
 use matrixclaw_session_runtime::RuntimeMessage;
 use matrixclaw_tools::builtin::delegate::{DelegateTool, SubagentRunner};
 use matrixclaw_tools::builtin::delegate_parallel::{DelegateParallelTool, ParallelSubagentRunner};
+use matrixclaw_tools::builtin::skill_evolver::{SkillEvolveTool, SkillRewriter};
 use matrixclaw_tools::ToolRegistry;
 use serde::{Deserialize, Serialize};
 
@@ -42,10 +44,29 @@ pub struct LiveRunOutcome {
     pub events: Vec<LiveRunEvent>,
 }
 
-#[derive(Debug, Clone)]
 pub struct SessionBackedLiveRunService {
     home: PathBuf,
     registry: Arc<ToolRegistry>,
+    hooks: tokio::sync::Mutex<CompositeHook>,
+}
+
+impl std::fmt::Debug for SessionBackedLiveRunService {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SessionBackedLiveRunService")
+            .field("home", &self.home)
+            .field("registry", &self.registry)
+            .finish_non_exhaustive()
+    }
+}
+
+impl Clone for SessionBackedLiveRunService {
+    fn clone(&self) -> Self {
+        Self {
+            home: self.home.clone(),
+            registry: self.registry.clone(),
+            hooks: tokio::sync::Mutex::new(CompositeHook::new()),
+        }
+    }
 }
 
 impl SessionBackedLiveRunService {
@@ -63,6 +84,7 @@ impl SessionBackedLiveRunService {
         Self {
             home: home.as_ref().to_path_buf(),
             registry,
+            hooks: tokio::sync::Mutex::new(CompositeHook::new()),
         }
     }
 
@@ -80,6 +102,15 @@ impl SessionBackedLiveRunService {
         self.registry.register(Arc::new(tool)).await;
     }
 
+    pub async fn add_hook(&self, hook: Box<dyn LifecycleHook>) {
+        self.hooks.lock().await.add(hook);
+    }
+
+    pub async fn register_skill_evolve_tool(&self, rewriter: Arc<SkillRewriter>) {
+        let tool = SkillEvolveTool::new(rewriter);
+        self.registry.register(Arc::new(tool)).await;
+    }
+
     pub fn registry(&self) -> Arc<ToolRegistry> {
         self.registry.clone()
     }
@@ -88,6 +119,7 @@ impl SessionBackedLiveRunService {
         Self {
             home: home.as_ref().to_path_buf(),
             registry,
+            hooks: tokio::sync::Mutex::new(CompositeHook::new()),
         }
     }
 
@@ -187,10 +219,23 @@ impl SessionBackedLiveRunService {
             max_iterations: 10,
         };
 
-        let trace =
-            run_prompt_with_policy(provider, &run_request, &self.registry, None, None, on_event)
-                .await
-                .map_err(|e| e.0.clone())?;
+        let hooks_guard = self.hooks.lock().await;
+        let hooks_ref = if hooks_guard.is_empty() {
+            None
+        } else {
+            Some(&*hooks_guard)
+        };
+        let trace = run_prompt_with_policy(
+            provider,
+            &run_request,
+            &self.registry,
+            None,
+            hooks_ref,
+            on_event,
+        )
+        .await
+        .map_err(|e| e.0.clone())?;
+        drop(hooks_guard);
 
         finalize_session_after_run(
             &mut session,

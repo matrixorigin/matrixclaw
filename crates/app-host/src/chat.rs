@@ -10,6 +10,8 @@ use matrixclaw_provider::registry::ProviderRegistry;
 use matrixclaw_tools::builtin::delegate::{SubagentRequest, SubagentResult};
 use matrixclaw_tools::builtin::delegate_parallel::ParallelSubagentRunner;
 use matrixclaw_tools::builtin::nudge_store::MemoryNudgeStore;
+use matrixclaw_tools::builtin::skill_evolver::{LlmRewriteFn, SkillRewriter};
+use matrixclaw_tools::builtin::skill_trace::{TraceCollector, TraceStore};
 use tokio::sync::Mutex;
 
 use crate::live_runtime::{LiveRunEvent, LiveRunRequest, SessionBackedLiveRunService};
@@ -89,11 +91,29 @@ pub async fn run_chat(model_override: Option<&str>) -> Result<(), String> {
 
     {
         let reg_clone = service.registry();
-        let parallel_runner =
-            make_parallel_subagent_runner(shared_registry, fallback_chain, reg_clone);
+        let parallel_runner = make_parallel_subagent_runner(
+            shared_registry.clone(),
+            fallback_chain.clone(),
+            reg_clone,
+        );
         service
             .register_parallel_delegate_tool(parallel_runner)
             .await;
+    }
+
+    {
+        let trace_db_path = TraceStore::db_path_for_home(&home);
+        if let Ok(store) = TraceStore::open(&trace_db_path) {
+            let collector = TraceCollector::new(store);
+            service.add_hook(Box::new(collector)).await;
+        }
+
+        if let Ok(store) = TraceStore::open(&trace_db_path) {
+            let skills_dir = home.join(".matrixclaw").join("skills");
+            let llm_call = make_llm_rewrite_fn(shared_registry.clone(), fallback_chain.clone());
+            let rewriter = Arc::new(SkillRewriter::new(store, skills_dir, llm_call));
+            service.register_skill_evolve_tool(rewriter).await;
+        }
     }
 
     let tool_count = service.tool_count().await;
@@ -327,6 +347,30 @@ fn make_parallel_subagent_runner(
                 }
             }
             results
+        })
+    })
+}
+
+fn make_llm_rewrite_fn(registry: Arc<ProviderRegistry>, chain: Vec<String>) -> LlmRewriteFn {
+    use matrixclaw_agent_core::provider::Provider;
+    use matrixclaw_agent_core::{RunRequest, ToolChoice};
+
+    Box::new(move |prompt: String| {
+        let registry = registry.clone();
+        let chain = chain.clone();
+        Box::pin(async move {
+            let mut provider = FallbackProvider::new(registry, chain);
+            let request = RunRequest {
+                prompt,
+                context_messages: Vec::new(),
+                tools: Vec::new(),
+                tool_choice: ToolChoice::None,
+                max_iterations: 1,
+            };
+            match provider.complete(&request).await {
+                Ok(response) => Ok(response.content.unwrap_or_default()),
+                Err(e) => Err(e.0),
+            }
         })
     })
 }
