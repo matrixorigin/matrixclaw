@@ -2,12 +2,14 @@ use std::env;
 use std::io::{self, Write};
 use std::sync::Arc;
 
+use matrixclaw_agent_core::nudge::NudgeEngine;
 use matrixclaw_provider::backend::{ProviderConfig, ProviderType};
 use matrixclaw_provider::config::load_or_default_config;
 use matrixclaw_provider::fallback::FallbackProvider;
 use matrixclaw_provider::registry::ProviderRegistry;
 use matrixclaw_tools::builtin::delegate::{SubagentRequest, SubagentResult};
 use matrixclaw_tools::builtin::delegate_parallel::ParallelSubagentRunner;
+use matrixclaw_tools::builtin::nudge_store::MemoryNudgeStore;
 use tokio::sync::Mutex;
 
 use crate::live_runtime::{LiveRunEvent, LiveRunRequest, SessionBackedLiveRunService};
@@ -97,6 +99,11 @@ pub async fn run_chat(model_override: Option<&str>) -> Result<(), String> {
     let tool_count = service.tool_count().await;
     let mut session_id: Option<String> = None;
 
+    let memory_db_path = MemoryNudgeStore::db_path_for_home(&home);
+    let nudge_engine = MemoryNudgeStore::open(&memory_db_path)
+        .ok()
+        .map(|store| NudgeEngine::new(Box::new(store), 0.6, 3));
+
     println!("MatrixClaw chat — type your message and press Enter. Ctrl+C or /quit to exit.");
     println!("Model: {model} | Tools: {tool_count}");
     println!();
@@ -134,8 +141,17 @@ pub async fn run_chat(model_override: Option<&str>) -> Result<(), String> {
             continue;
         }
 
+        let nudged_input = if let Some(ref engine) = nudge_engine {
+            match engine.nudge(input) {
+                Some(ctx) => format!("{ctx}\n\n{input}"),
+                None => input.to_string(),
+            }
+        } else {
+            input.to_string()
+        };
+
         let request = LiveRunRequest {
-            prompt: input.to_string(),
+            prompt: nudged_input,
             session_id: session_id.clone(),
         };
 

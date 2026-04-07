@@ -1,3 +1,5 @@
+pub mod agent_cancel;
+pub mod agent_list;
 #[cfg(feature = "browser")]
 pub mod browser;
 pub mod calculator;
@@ -9,6 +11,7 @@ pub mod delegate_parallel;
 pub mod environment;
 pub mod filesystem;
 pub mod memory;
+pub mod nudge_store;
 pub mod patch;
 pub mod process;
 pub mod search_files;
@@ -21,8 +24,13 @@ pub mod web;
 use std::sync::Arc;
 
 use crate::registry::ToolRegistry;
+use crate::subagent::SubagentTracker;
 
-pub async fn register_all(registry: &ToolRegistry, workspace_root: &str) {
+pub async fn register_all(
+    registry: &ToolRegistry,
+    workspace_root: &str,
+    tracker: &Arc<SubagentTracker>,
+) {
     registry
         .register(Arc::new(terminal::TerminalTool::new(workspace_root)))
         .await;
@@ -100,4 +108,12 @@ pub async fn register_all(registry: &ToolRegistry, workspace_root: &str) {
         let state = browser::make_shared_state(screenshots_dir);
         browser::register_all(registry, state).await;
     }
+    registry
+        .register(Arc::new(agent_list::AgentListTool::new(tracker.clone())))
+        .await;
+    registry
+        .register(Arc::new(agent_cancel::AgentCancelTool::new(
+            tracker.clone(),
+        )))
+        .await;
 }

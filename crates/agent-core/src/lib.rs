@@ -3,10 +3,14 @@ pub mod event;
 pub mod hooks;
 pub mod r#loop;
 pub mod message;
+pub mod nudge;
 pub mod policy;
 pub mod provider;
 pub mod tool;
 
+pub use matrixclaw_tools::subagent::{
+    SubagentHandle, SubagentResult, SubagentStatus, SubagentTracker,
+};
 pub use matrixclaw_tools::{ToolCall, ToolDescriptor, ToolResult};
 pub use message::{RunMessage, RunMessageRole};
 
