@@ -237,7 +237,7 @@
 - [x] Self-nudging engine: `NudgeEngine` + `MemoryNudgeStore` for context injection
 - [x] Messaging gateway: `MessageGateway` trait, `AgentBridge`, stub adapters (Matrix/Discord/Telegram/Slack), `gateway-serve` CLI
 - [ ] Multi-instance profiles: per-agent configuration with scoped capabilities
-- [ ] Self-evolving skills: DSPy-style skill improvement from execution feedback
+- [x] Self-evolving skills: Rust-native GePA+MiProv2 with TraceCollector, TraceAnalyzer, SkillRewriter
 - [ ] Model routing: automatic task-to-model assignment
 
 ---

@@ -314,3 +314,18 @@ User prompt
     → Loop back to provider
   → Final text response → AgentEvent::RunCompleted
 ```
+
+## Self-Evolving Skills
+
+Skills automatically improve from execution feedback through three components:
+
+1. **TraceCollector** (LifecycleHook) — observes every `PostToolCall` event, buffers tool invocations for the active skill, and records complete execution traces (success/failure/partial) into `~/.matrixclaw/state/skill_traces.sqlite3`
+2. **TraceAnalyzer** — groups traces by skill, computes success rates, detects repeated failure patterns in tool-chain sequences via sliding-window analysis, and gathers success/failure example summaries
+3. **SkillRewriter** — when a skill's success rate drops below 50% with 3+ traces, constructs a rewrite prompt containing the current skill instructions + failure patterns + examples, calls the LLM to generate improved instructions, writes as new version with automatic archival of the previous version
+
+**Key design decisions:**
+- No Python dependency — pure Rust implementation inspired by DSPy's GePA and MiProv2
+- `matrixclaw-hooks` crate extracted to break circular dependency between `matrixclaw-tools` and `agent-core`
+- Callback pattern (`LlmRewriteFn`) for LLM calls avoids direct provider dependency in tools crate
+- Skill versioning archives previous versions to `v<N>.md` before rewriting, enabling rollback
+- Triggered automatically via lifecycle hooks or manually via `skill_evolve` tool
