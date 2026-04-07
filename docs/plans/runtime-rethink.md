@@ -155,7 +155,7 @@
 - [x] `process` tool: background process management (list/register/kill)
 - [x] FTS5 session search: full-text search across all conversation history
 - [x] Context compression: 4-phase Hermes-style (prune → boundaries → summarize → reassemble)
-- [ ] `patch` tool: fuzzy file editing with multiple matching strategies — deferred
+- [x] `patch` tool: fuzzy file editing with 6 matching strategies (exact, prefix, suffix, contains, fuzzy, regex)
 
 ---
 
