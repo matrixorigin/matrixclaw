@@ -79,12 +79,8 @@ impl SandboxRuntime for LocalSandboxBackend {
         .await
         .map_err(|_| SandboxError::Timeout { secs: timeout_secs })?;
 
-        let output = result.map_err(|e| {
-            SandboxError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                e.to_string(),
-            ))
-        })??;
+        let output =
+            result.map_err(|e| SandboxError::Io(std::io::Error::other(e.to_string())))??;
 
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();

@@ -28,7 +28,7 @@ impl ProviderConfig {
     pub fn resolve_base_url(&self) -> &str {
         self.base_url
             .as_deref()
-            .unwrap_or_else(|| match self.provider_type {
+            .unwrap_or(match self.provider_type {
                 ProviderType::OpenAi => "https://openrouter.ai/api/v1",
                 ProviderType::Anthropic => "https://api.anthropic.com/v1",
                 ProviderType::Ollama => "http://localhost:11434",

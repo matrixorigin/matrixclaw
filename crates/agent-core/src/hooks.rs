@@ -107,19 +107,10 @@ impl HookPayload {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct HookAction {
     pub block: bool,
     pub reason: Option<String>,
-}
-
-impl Default for HookAction {
-    fn default() -> Self {
-        Self {
-            block: false,
-            reason: None,
-        }
-    }
 }
 
 impl HookAction {

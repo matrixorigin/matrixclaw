@@ -224,13 +224,11 @@ mod tests {
         assert!(result.was_compressed);
 
         for (i, msg) in result.messages.iter().enumerate() {
-            if matches!(msg, RuntimeMessage::ToolResult(_)) {
-                if i > 0 {
-                    assert!(
-                        !matches!(result.messages[i - 1], RuntimeMessage::RuntimeSummary(_)),
-                        "tool result immediately follows summary boundary"
-                    );
-                }
+            if matches!(msg, RuntimeMessage::ToolResult(_)) && i > 0 {
+                assert!(
+                    !matches!(result.messages[i - 1], RuntimeMessage::RuntimeSummary(_)),
+                    "tool result immediately follows summary boundary"
+                );
             }
         }
     }

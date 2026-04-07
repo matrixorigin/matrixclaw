@@ -5,6 +5,12 @@ pub struct HealthChecker {
     states: Mutex<HashMap<String, bool>>,
 }
 
+impl Default for HealthChecker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HealthChecker {
     pub fn new() -> Self {
         Self {

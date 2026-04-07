@@ -26,6 +26,12 @@ pub struct ProviderRegistry {
     entries: RwLock<HashMap<String, ProviderEntry>>,
 }
 
+impl Default for ProviderRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProviderRegistry {
     pub fn new() -> Self {
         Self {
@@ -47,7 +53,7 @@ impl ProviderRegistry {
                 let base_url = config.resolve_base_url().to_string();
                 let model = config.effective_model("llama3");
                 Box::new(
-                    OpenAiProvider::with_base_url(&format!("{base_url}/v1"), "", &model)
+                    OpenAiProvider::with_base_url(format!("{base_url}/v1"), "", &model)
                         .map_err(|e| e.0)?,
                 )
             }

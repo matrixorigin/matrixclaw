@@ -108,12 +108,8 @@ impl SandboxRuntime for DockerSandboxBackend {
         .await
         .map_err(|_| SandboxError::Timeout { secs: timeout_secs })?;
 
-        let output = result.map_err(|e| {
-            SandboxError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                e.to_string(),
-            ))
-        })??;
+        let output =
+            result.map_err(|e| SandboxError::Io(std::io::Error::other(e.to_string())))??;
 
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -164,8 +160,10 @@ mod tests {
 
     #[test]
     fn rejects_empty_image() {
-        let mut config = SandboxConfig::default();
-        config.docker_image = Some("".into());
+        let config = SandboxConfig {
+            docker_image: Some("".into()),
+            ..Default::default()
+        };
         assert!(DockerSandboxBackend::new(config).is_err());
     }
 
