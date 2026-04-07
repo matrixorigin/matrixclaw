@@ -303,7 +303,8 @@ Output ONLY the improved skill content in Markdown."#,
             rewritten: true,
             reason: format!(
                 "rewrote skill (was {:.0}% success, {} recent failures)",
-                health.success_rate * 100.0, health.recent_failures,
+                health.success_rate * 100.0,
+                health.recent_failures,
             ),
         })
     }
@@ -531,9 +532,11 @@ mod tests {
         let skills_dir = dir.path().join("skills");
         std::fs::create_dir_all(skills_dir.join("good")).unwrap();
         std::fs::write(skills_dir.join("good").join("SKILL.md"), "be good").unwrap();
-        let rewriter = SkillRewriter::new(store, skills_dir, Box::new(|_| {
-            Box::pin(async { Err("should not be called".to_string()) })
-        }));
+        let rewriter = SkillRewriter::new(
+            store,
+            skills_dir,
+            Box::new(|_| Box::pin(async { Err("should not be called".to_string()) })),
+        );
         let result = rewriter.rewrite_skill("good").await.unwrap();
         assert!(!result.rewritten);
     }
@@ -542,7 +545,12 @@ mod tests {
     async fn rewriter_calls_llm_for_failing_skill() {
         let (store, dir) = make_store();
         store
-            .insert(&make_trace("bad", "ok", TraceOutcome::Success, &["terminal"]))
+            .insert(&make_trace(
+                "bad",
+                "ok",
+                TraceOutcome::Success,
+                &["terminal"],
+            ))
             .unwrap();
         for i in 0..3 {
             store
@@ -557,17 +565,20 @@ mod tests {
         let skills_dir = dir.path().join("skills");
         std::fs::create_dir_all(skills_dir.join("bad")).unwrap();
         std::fs::write(skills_dir.join("bad").join("SKILL.md"), "old instructions").unwrap();
-        let rewriter = SkillRewriter::new(store, skills_dir.clone(), Box::new(|prompt| {
-            Box::pin(async move {
-                assert!(prompt.contains("old instructions"));
-                assert!(prompt.contains("Failure"));
-                Ok("improved instructions".to_string())
-            })
-        }));
+        let rewriter = SkillRewriter::new(
+            store,
+            skills_dir.clone(),
+            Box::new(|prompt| {
+                Box::pin(async move {
+                    assert!(prompt.contains("old instructions"));
+                    assert!(prompt.contains("Failure"));
+                    Ok("improved instructions".to_string())
+                })
+            }),
+        );
         let result = rewriter.rewrite_skill("bad").await.unwrap();
         assert!(result.rewritten);
-        let new_content =
-            std::fs::read_to_string(skills_dir.join("bad").join("SKILL.md")).unwrap();
+        let new_content = std::fs::read_to_string(skills_dir.join("bad").join("SKILL.md")).unwrap();
         assert_eq!(new_content, "improved instructions");
     }
 
@@ -603,9 +614,7 @@ mod tests {
             store,
             skills_dir,
             Box::new(|_| {
-                Box::pin(async {
-                    Ok("# Deploy (v2)\nImproved with error handling".to_string())
-                })
+                Box::pin(async { Ok("# Deploy (v2)\nImproved with error handling".to_string()) })
             }),
         ));
         let tool = SkillEvolveTool::new(rewriter);

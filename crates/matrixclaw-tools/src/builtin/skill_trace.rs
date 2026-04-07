@@ -497,7 +497,9 @@ mod tests {
         collector.on_skill_read("deploy", "deploy to staging");
         let payload = HookPayload::post_tool_call(None, 1, "terminal", "cargo build success");
         collector.on_event(&payload).await;
-        let id = collector.finalize(TraceOutcome::Success, "deployed").unwrap();
+        let id = collector
+            .finalize(TraceOutcome::Success, "deployed")
+            .unwrap();
         assert!(id > 0);
         let traces = collector.store.get_traces_for_skill("deploy", 10).unwrap();
         assert_eq!(traces.len(), 1);
@@ -522,9 +524,20 @@ mod tests {
         let store = TraceStore::open(&dir.path().join("tc3.sqlite3")).unwrap();
         let collector = TraceCollector::new(store);
         collector.on_skill_read("multi", "complex task");
-        collector.on_event(&HookPayload::post_tool_call(None, 1, "read_file", "contents")).await;
-        collector.on_event(&HookPayload::post_tool_call(None, 2, "terminal", "built")).await;
-        collector.on_event(&HookPayload::post_tool_call(None, 3, "write_file", "wrote")).await;
+        collector
+            .on_event(&HookPayload::post_tool_call(
+                None,
+                1,
+                "read_file",
+                "contents",
+            ))
+            .await;
+        collector
+            .on_event(&HookPayload::post_tool_call(None, 2, "terminal", "built"))
+            .await;
+        collector
+            .on_event(&HookPayload::post_tool_call(None, 3, "write_file", "wrote"))
+            .await;
         collector.finalize(TraceOutcome::Success, "done").unwrap();
         let traces = collector.store.get_traces_for_skill("multi", 10).unwrap();
         assert_eq!(traces[0].tool_chain.len(), 3);

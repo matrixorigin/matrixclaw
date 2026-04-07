@@ -283,7 +283,11 @@ mod tests {
     #[tokio::test]
     async fn history_shows_no_versions_for_new_skill() {
         let (tool, _dir) = make_tool();
-        call(&tool, r#"{"action":"create","name":"fresh","content":"content"}"#).await;
+        call(
+            &tool,
+            r#"{"action":"create","name":"fresh","content":"content"}"#,
+        )
+        .await;
         let r = call(&tool, r#"{"action":"history","name":"fresh"}"#).await;
         assert!(!r.is_error);
         assert!(r.output.contains("current (SKILL.md)"));
@@ -293,9 +297,21 @@ mod tests {
     #[tokio::test]
     async fn history_multiple_versions() {
         let (tool, _dir) = make_tool();
-        call(&tool, r#"{"action":"create","name":"multi","content":"first"}"#).await;
-        call(&tool, r#"{"action":"create","name":"multi","content":"second"}"#).await;
-        call(&tool, r#"{"action":"create","name":"multi","content":"third"}"#).await;
+        call(
+            &tool,
+            r#"{"action":"create","name":"multi","content":"first"}"#,
+        )
+        .await;
+        call(
+            &tool,
+            r#"{"action":"create","name":"multi","content":"second"}"#,
+        )
+        .await;
+        call(
+            &tool,
+            r#"{"action":"create","name":"multi","content":"third"}"#,
+        )
+        .await;
         let r = call(&tool, r#"{"action":"history","name":"multi"}"#).await;
         assert!(!r.is_error);
         assert!(r.output.contains("v1.md"));
