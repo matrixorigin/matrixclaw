@@ -42,7 +42,7 @@ enabling pre/post interception of LLM calls, tool calls, and session events.
 `ToolRegistry` holds `Arc<dyn ToolExecutor>` entries behind `RwLock<HashMap>`.
 Tools are registered by name and discovered by the agent loop via `ToolDescriptor::to_openai_function()`.
 
-### Built-in Tools (18)
+### Built-in Tools (20 core + 9 browser)
 
 | Tool | Status | Description |
 |------|--------|-------------|
@@ -51,13 +51,15 @@ Tools are registered by name and discovered by the agent loop via `ToolDescripto
 | write_file | full | File creation with auto-mkdir |
 | list_directory | full | Directory listing with optional recursion |
 | edit_file | full | Find/replace file editing |
+| patch | full | Fuzzy file editing with 6 strategies (exact, prefix, suffix, contains, fuzzy, regex) |
 | web_fetch | full | HTTP requests via reqwest |
 | web_search | full | SearXNG-backed web search |
 | calculator | full | Expression evaluator (+, -, *, /, parens) |
 | environment | full | Env vars and system info |
 | memory | full | Persistent key-value store with search, survives restarts (SQLite) |
-| code_interpreter | full (sandwrench-backed) | Docker sandbox for code execution |
+| code_interpreter | full (sandwrench-backed) | Sandboxed code execution via sandwrench abstraction |
 | delegate | full | Subagent spawning with callback-based architecture |
+| delegate_parallel | full | Parallel subagent execution via tokio::spawn |
 | skills | full | List, read, and create skills in ~/.matrixclaw/skills/ |
 | search_files | full | Ripgrep-backed content search with path traversal protection |
 | todo | full | Session-scoped task list for multi-step work |
@@ -65,6 +67,15 @@ Tools are registered by name and discovered by the agent loop via `ToolDescripto
 | process | full | Background process management (list/register/kill) |
 | session_search | full | FTS5 full-text search across conversation history |
 | cronjob | full | Scheduled task execution with SQLite-backed job store |
+| browser_navigate | full (feature-flagged) | Navigate to URL |
+| browser_snapshot | full (feature-flagged) | Page content snapshot |
+| browser_click | full (feature-flagged) | Click element by CSS selector |
+| browser_type | full (feature-flagged) | Type text into element |
+| browser_scroll | full (feature-flagged) | Scroll page up/down |
+| browser_go_back | full (feature-flagged) | Navigate back in history |
+| browser_get_url | full (feature-flagged) | Get current page URL |
+| browser_screenshot | full (feature-flagged) | Capture PNG screenshot |
+| browser_close | full (feature-flagged) | Close browser and release resources |
 
 ### MCP Client
 
@@ -120,14 +131,26 @@ On failure, marks provider unhealthy and tries next in chain.
 ## Multi-Agent Orchestration
 
 The `delegate` tool (`crates/matrixclaw-tools/src/builtin/delegate.rs`) enables an agent to spawn child agents.
+The `delegate_parallel` tool (`crates/matrixclaw-tools/src/builtin/delegate_parallel.rs`) runs multiple child agents concurrently.
 
 ### Architecture
 
 Uses a callback pattern to avoid circular dependencies between `matrixclaw-tools` and `agent-core`:
 
-- `SubagentRunner` — `Arc<dyn Fn(SubagentRequest) -> Pin<Box<dyn Future<Output = SubagentResult>>>>` 
+- `SubagentRunner` — callback for single subagent execution
+- `ParallelSubagentRunner` — callback for parallel subagent execution
 - `DelegateTool` holds a `SubagentRunner` callback and a depth counter
-- The callback is created in `app-host` where both the provider and registry are available
+- `DelegateParallelTool` holds a `ParallelSubagentRunner` callback
+- Callbacks are created in `app-host` where both the provider and registry are available
+
+### Parallel Execution
+
+Each parallel subagent gets its own `FallbackProvider` instance created from the shared `Arc<ProviderRegistry>`.
+This avoids Mutex contention — subagents make LLM calls concurrently via `tokio::spawn`.
+
+- Shared: `Arc<ProviderRegistry>` (cheap clone), `Arc<ToolRegistry>` (thread-safe)
+- Per-subagent: `FallbackProvider` (own rate limiter state)
+- Uses `tokio::spawn` for true parallelism across the tokio thread pool
 - `chat.rs` wraps the `FallbackProvider` in `Arc<tokio::sync::Mutex>` for safe sharing between the main loop and subagent runner
 
 ### Depth Limiting
@@ -136,7 +159,7 @@ Max depth 2. At max depth, `delegate` returns an error instead of spawning. The 
 
 ### Wiring
 
-`SessionBackedLiveRunService::register_delegate_tool()` registers a `DelegateTool` into the tool registry. Called once during service setup in `chat.rs`.
+ `SessionBackedLiveRunService::register_delegate_tool()` registers a `DelegateTool` and `DelegateParallelTool` into the tool registry. Called once during service setup in `chat.rs` and `delegate_parallel` section after the `delegate` section:
 
 ## Iteration Budget
 
