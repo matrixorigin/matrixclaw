@@ -5,8 +5,13 @@
 //! deliveries. They own routing, retry, and dedupe concerns, but they do not
 //! own host capabilities such as screenshots or browser automation.
 
+pub mod adapters;
+pub mod agent_bridge;
+pub mod cli;
 pub mod client;
+pub mod config;
 pub mod matrix;
+pub mod platform;
 pub mod runtime;
 pub mod store;
 pub mod transport;

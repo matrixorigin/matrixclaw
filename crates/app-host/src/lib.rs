@@ -137,15 +137,35 @@ pub fn run(args: impl IntoIterator<Item = String>) -> i32 {
             let home = paths::home_dir();
             let rt = tokio::runtime::Runtime::new().expect("failed to create tokio runtime");
             let registry = Arc::new(ToolRegistry::new());
+            let tracker = Arc::new(matrixclaw_tools::SubagentTracker::new());
             rt.block_on(matrixclaw_tools::builtin::register_all(
                 &registry,
                 home.to_str().unwrap_or("."),
+                &tracker,
             ));
             let server = mcp_server::McpServer::new(registry);
             match rt.block_on(server.run()) {
                 Ok(()) => 0,
                 Err(e) => {
                     eprintln!("mcp server error: {e}");
+                    1
+                }
+            }
+        }
+        Some("gateway-serve") => {
+            let rt = runtime();
+            match gateway::cli::parse_gateway_args(args) {
+                Ok(gateway_args) => {
+                    match rt.block_on(gateway::cli::run_gateway_serve(gateway_args)) {
+                        Ok(()) => 0,
+                        Err(error) => {
+                            eprintln!("gateway failed: {error}");
+                            1
+                        }
+                    }
+                }
+                Err(error) => {
+                    eprintln!("gateway-serve: {error}");
                     1
                 }
             }
@@ -164,7 +184,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> i32 {
         },
         _ => {
             eprintln!(
-                "usage: matrixclaw version | matrixclaw serve [--fixture demo] | matrixclaw chat [--model <id>] | matrixclaw llm-smoke [--model <id>] | matrixclaw mcp-serve"
+                "usage: matrixclaw version | matrixclaw serve [--fixture demo] | matrixclaw chat [--model <id>] | matrixclaw llm-smoke [--model <id>] | matrixclaw mcp-serve | matrixclaw gateway-serve --platform <name> [--config <path>]"
             );
             1
         }
