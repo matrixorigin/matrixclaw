@@ -52,7 +52,8 @@ impl SessionBackedLiveRunService {
     pub async fn new(home: impl AsRef<Path>) -> Self {
         let registry = Arc::new(ToolRegistry::new());
         let workspace_root = home.as_ref().to_string_lossy().to_string();
-        matrixclaw_tools::builtin::register_all(&registry, &workspace_root).await;
+        let tracker = Arc::new(matrixclaw_tools::SubagentTracker::new());
+        matrixclaw_tools::builtin::register_all(&registry, &workspace_root, &tracker).await;
 
         let mcp_config_path = paths::config_dir(&home).join("mcp.json");
         let _report =
