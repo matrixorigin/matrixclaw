@@ -16,6 +16,7 @@ pub mod patch;
 pub mod process;
 pub mod search_files;
 pub mod session_search;
+pub mod skill_trace;
 pub mod skills;
 pub mod terminal;
 pub mod todo;
