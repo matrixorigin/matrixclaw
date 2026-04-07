@@ -7,6 +7,7 @@ use matrixclaw_provider::config::load_or_default_config;
 use matrixclaw_provider::fallback::FallbackProvider;
 use matrixclaw_provider::registry::ProviderRegistry;
 use matrixclaw_tools::builtin::delegate::{SubagentRequest, SubagentResult};
+use matrixclaw_tools::builtin::delegate_parallel::ParallelSubagentRunner;
 use tokio::sync::Mutex;
 
 use crate::live_runtime::{LiveRunEvent, LiveRunRequest, SessionBackedLiveRunService};
@@ -21,7 +22,10 @@ fn resolve_model(model_override: Option<&str>) -> String {
     env::var("MATRIXCLAW_LLM_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string())
 }
 
-async fn build_provider_from_env(api_key: &str, model: &str) -> Result<FallbackProvider, String> {
+async fn build_provider_parts(
+    api_key: &str,
+    model: &str,
+) -> Result<(Arc<ProviderRegistry>, Vec<String>), String> {
     let registry = ProviderRegistry::new();
     let base_url = env::var("MATRIXCLAW_OPENAI_BASE_URL");
     let provider_type = if base_url.is_ok() {
@@ -40,7 +44,7 @@ async fn build_provider_from_env(api_key: &str, model: &str) -> Result<FallbackP
     };
     let registry = Arc::new(registry);
     registry.register(config).await?;
-    Ok(FallbackProvider::new(registry, vec!["default".to_string()]))
+    Ok((registry, vec!["default".to_string()]))
 }
 
 pub async fn run_chat(model_override: Option<&str>) -> Result<(), String> {
@@ -50,28 +54,44 @@ pub async fn run_chat(model_override: Option<&str>) -> Result<(), String> {
     let config_path = paths::config_dir(&home).join("providers.json");
     let plane_config = load_or_default_config(Some(&config_path));
 
-    let provider_arc: Arc<Mutex<FallbackProvider>> = if !plane_config.providers.is_empty() {
+    let (provider_arc, shared_registry, fallback_chain) = if !plane_config.providers.is_empty() {
         let registry = Arc::new(ProviderRegistry::new());
         for pc in &plane_config.providers {
             registry.register(pc.clone()).await?;
         }
-        Arc::new(Mutex::new(FallbackProvider::new(
-            registry,
-            plane_config.fallback_chain.clone(),
-        )))
+        let chain = plane_config.fallback_chain.clone();
+        let provider = Arc::new(Mutex::new(FallbackProvider::new(
+            registry.clone(),
+            chain.clone(),
+        )));
+        (provider, registry, chain)
     } else {
         let api_key = env::var("OPENROUTER_API_KEY").map_err(|_| {
-            "OPENROUTER_API_KEY is not set. Set it to an OpenRouter API key, or create ~/.matrixclaw/config/providers.json".to_string()
-        })?;
-        Arc::new(Mutex::new(build_provider_from_env(&api_key, &model).await?))
+                "OPENROUTER_API_KEY is not set. Set it to an OpenRouter API key, or create ~/.matrixclaw/config/providers.json".to_string()
+            })?;
+        let (registry, chain) = build_provider_parts(&api_key, &model).await?;
+        let provider = Arc::new(Mutex::new(FallbackProvider::new(
+            registry.clone(),
+            chain.clone(),
+        )));
+        (provider, registry, chain)
     };
 
     let service = SessionBackedLiveRunService::new(&home).await;
 
     {
         let reg_clone = service.registry();
-        let delegate_runner = make_subagent_runner(provider_arc.clone(), reg_clone);
+        let delegate_runner = make_subagent_runner(provider_arc.clone(), reg_clone.clone());
         service.register_delegate_tool(delegate_runner).await;
+    }
+
+    {
+        let reg_clone = service.registry();
+        let parallel_runner =
+            make_parallel_subagent_runner(shared_registry, fallback_chain, reg_clone);
+        service
+            .register_parallel_delegate_tool(parallel_runner)
+            .await;
     }
 
     let tool_count = service.tool_count().await;
@@ -226,4 +246,71 @@ fn make_subagent_runner(
             }
         }) as std::pin::Pin<Box<dyn std::future::Future<Output = SubagentResult> + Send>>
     }) as SubagentRunner
+}
+
+fn make_parallel_subagent_runner(
+    registry_ref: Arc<ProviderRegistry>,
+    fallback_chain: Vec<String>,
+    tool_registry: Arc<matrixclaw_tools::ToolRegistry>,
+) -> ParallelSubagentRunner {
+    use matrixclaw_agent_core::r#loop::run_prompt;
+    use matrixclaw_agent_core::{RunRequest, ToolChoice};
+
+    Arc::new(move |requests: Vec<SubagentRequest>| {
+        let registry = registry_ref.clone();
+        let chain = fallback_chain.clone();
+        let tools = tool_registry.clone();
+        Box::pin(async move {
+            let handles: Vec<_> = requests
+                .into_iter()
+                .map(|req| {
+                    let reg = registry.clone();
+                    let ch = chain.clone();
+                    let t = tools.clone();
+                    tokio::spawn(async move {
+                        let mut provider = FallbackProvider::new(reg, ch);
+                        let descriptors = t.list_descriptors().await;
+                        let run_request = RunRequest {
+                            prompt: if req.context.is_empty() {
+                                req.task.clone()
+                            } else {
+                                format!("{}\n\nAdditional context: {}", req.task, req.context)
+                            },
+                            context_messages: Vec::new(),
+                            tools: descriptors,
+                            tool_choice: ToolChoice::Auto,
+                            max_iterations: 30,
+                        };
+                        match run_prompt(&mut provider, &run_request, &t, &mut |_| {}).await {
+                            Ok(result) => SubagentResult {
+                                final_message: result.final_message,
+                                iterations: result.iterations,
+                                tool_calls: result.tool_calls_made,
+                                error: None,
+                            },
+                            Err(e) => SubagentResult {
+                                final_message: String::new(),
+                                iterations: 0,
+                                tool_calls: 0,
+                                error: Some(e.0),
+                            },
+                        }
+                    })
+                })
+                .collect();
+            let mut results = Vec::with_capacity(handles.len());
+            for handle in handles {
+                match handle.await {
+                    Ok(result) => results.push(result),
+                    Err(e) => results.push(SubagentResult {
+                        final_message: String::new(),
+                        iterations: 0,
+                        tool_calls: 0,
+                        error: Some(format!("task panicked: {e}")),
+                    }),
+                }
+            }
+            results
+        })
+    })
 }

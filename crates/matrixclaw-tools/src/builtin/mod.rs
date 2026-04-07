@@ -5,6 +5,7 @@ pub mod clarify;
 pub mod code_interpreter;
 pub mod cronjob;
 pub mod delegate;
+pub mod delegate_parallel;
 pub mod environment;
 pub mod filesystem;
 pub mod memory;

@@ -13,6 +13,7 @@ use matrixclaw_session_runtime::session::Session;
 use matrixclaw_session_runtime::sqlite::SqliteStorage;
 use matrixclaw_session_runtime::RuntimeMessage;
 use matrixclaw_tools::builtin::delegate::{DelegateTool, SubagentRunner};
+use matrixclaw_tools::builtin::delegate_parallel::{DelegateParallelTool, ParallelSubagentRunner};
 use matrixclaw_tools::ToolRegistry;
 use serde::{Deserialize, Serialize};
 
@@ -70,6 +71,11 @@ impl SessionBackedLiveRunService {
 
     pub async fn register_delegate_tool(&self, runner: SubagentRunner) {
         let tool = DelegateTool::new(runner, 0);
+        self.registry.register(Arc::new(tool)).await;
+    }
+
+    pub async fn register_parallel_delegate_tool(&self, runner: ParallelSubagentRunner) {
+        let tool = DelegateParallelTool::new(runner, 0);
         self.registry.register(Arc::new(tool)).await;
     }
 
