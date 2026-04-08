@@ -14,6 +14,8 @@ pub fn load_or_default_config(config_path: Option<&Path>) -> ProviderPlaneConfig
         return ProviderPlaneConfig {
             providers: vec![],
             fallback_chain: vec![],
+            routes: vec![],
+            default_provider: None,
         };
     };
     load_provider_config(path).unwrap_or_else(|e| {
@@ -21,8 +23,21 @@ pub fn load_or_default_config(config_path: Option<&Path>) -> ProviderPlaneConfig
         ProviderPlaneConfig {
             providers: vec![],
             fallback_chain: vec![],
+            routes: vec![],
+            default_provider: None,
         }
     })
+}
+
+impl ProviderPlaneConfig {
+    pub fn build_router(&self, fallback_model: Option<String>) -> crate::router::ModelRouter {
+        let default_provider = self
+            .default_provider
+            .clone()
+            .or_else(|| self.fallback_chain.first().cloned())
+            .unwrap_or_default();
+        crate::router::ModelRouter::new(self.routes.clone(), default_provider, fallback_model)
+    }
 }
 
 #[cfg(test)]

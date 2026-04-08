@@ -53,6 +53,10 @@ pub struct ProviderPlaneConfig {
     pub providers: Vec<ProviderConfig>,
     #[serde(default)]
     pub fallback_chain: Vec<String>,
+    #[serde(default)]
+    pub routes: Vec<crate::router::RoutingRule>,
+    #[serde(default)]
+    pub default_provider: Option<String>,
 }
 
 #[cfg(test)]
@@ -102,5 +106,49 @@ mod tests {
             rpm_limit: None,
         };
         assert_eq!(config.effective_model("default"), "gpt-4o");
+    }
+
+    #[test]
+    fn parses_config_with_routes() {
+        let json = r#"{
+            "providers": [
+                {"name": "openrouter", "type": "open_ai", "api_key": "sk-test"},
+                {"name": "ollama", "type": "ollama"}
+            ],
+            "fallback_chain": ["openrouter", "ollama"],
+            "default_provider": "openrouter",
+            "routes": [
+                {
+                    "name": "code-tasks",
+                    "match": {
+                        "skills": ["coding"],
+                        "keywords": ["code", "debug"],
+                        "max_prompt_chars": 5000,
+                        "tool_count_min": 3
+                    },
+                    "provider": "openrouter",
+                    "model": "moonshotai/kimi-k2.5"
+                },
+                {
+                    "name": "simple-questions",
+                    "match": {
+                        "max_prompt_chars": 200
+                    },
+                    "provider": "ollama",
+                    "model": "llama3"
+                }
+            ]
+        }"#;
+        let config: ProviderPlaneConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.providers.len(), 2);
+        assert_eq!(config.default_provider.as_deref(), Some("openrouter"));
+        assert_eq!(config.routes.len(), 2);
+        assert_eq!(config.routes[0].name, "code-tasks");
+        assert_eq!(config.routes[0].provider, "openrouter");
+        assert_eq!(config.routes[0].match_.skills, vec!["coding"]);
+        assert_eq!(config.routes[0].match_.max_prompt_chars, Some(5000));
+        assert_eq!(config.routes[1].name, "simple-questions");
+        assert_eq!(config.routes[1].provider, "ollama");
+        assert!(config.routes[1].match_.skills.is_empty());
     }
 }
