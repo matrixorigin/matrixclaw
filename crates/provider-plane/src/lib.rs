@@ -6,4 +6,5 @@ pub mod health;
 pub mod openai;
 pub mod rate_limit;
 pub mod registry;
+pub mod router;
 pub mod token_count;
