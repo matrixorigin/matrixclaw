@@ -315,6 +315,16 @@ User prompt
   → Final text response → AgentEvent::RunCompleted
 ```
 
+## Model Routing
+
+Config-driven routing selects the best provider+model for each task based on prompt characteristics.
+
+1. **RoutingRule** — defines a named route with match criteria (skills, keywords, max_prompt_chars, tool_count_min) and target provider+model
+2. **ModelRouter** — evaluates rules in order, first match wins, falls back to the default provider chain
+3. **Config** — routes live in `providers.json` alongside provider definitions, under the `routes` key
+
+Example: short prompts go to a fast local model, skill-heavy prompts go to a capable cloud model, complex multi-tool tasks get routed to the most capable provider.
+
 ## Self-Evolving Skills
 
 Skills automatically improve from execution feedback through three components:

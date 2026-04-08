@@ -238,7 +238,7 @@
 - [x] Messaging gateway: `MessageGateway` trait, `AgentBridge`, stub adapters (Matrix/Discord/Telegram/Slack), `gateway-serve` CLI
 - [ ] Multi-instance profiles: per-agent configuration with scoped capabilities
 - [x] Self-evolving skills: Rust-native GePA+MiProv2 with TraceCollector, TraceAnalyzer, SkillRewriter
-- [ ] Model routing: automatic task-to-model assignment
+- [x] Model routing: config-driven ModelRouter with skill/keyword/token matching
 
 ---
 
