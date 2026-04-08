@@ -2,17 +2,17 @@ use std::env;
 use std::io::{self, Write};
 use std::sync::Arc;
 
-use matrixclaw_agent_core::nudge::NudgeEngine;
-use matrixclaw_provider::backend::{ProviderConfig, ProviderType};
-use matrixclaw_provider::config::load_or_default_config;
-use matrixclaw_provider::fallback::FallbackProvider;
-use matrixclaw_provider::registry::ProviderRegistry;
-use matrixclaw_tools::builtin::delegate::{SubagentRequest, SubagentResult};
-use matrixclaw_tools::builtin::delegate_parallel::ParallelSubagentRunner;
-use matrixclaw_tools::builtin::nudge_store::MemoryNudgeStore;
-use matrixclaw_tools::builtin::skill_evolver::{LlmRewriteFn, SkillRewriter};
-use matrixclaw_tools::builtin::skill_trace::{TraceCollector, TraceStore};
 use tokio::sync::Mutex;
+use zstar_agent_core::nudge::NudgeEngine;
+use zstar_provider::backend::{ProviderConfig, ProviderType};
+use zstar_provider::config::load_or_default_config;
+use zstar_provider::fallback::FallbackProvider;
+use zstar_provider::registry::ProviderRegistry;
+use zstar_tools::builtin::delegate::{SubagentRequest, SubagentResult};
+use zstar_tools::builtin::delegate_parallel::ParallelSubagentRunner;
+use zstar_tools::builtin::nudge_store::MemoryNudgeStore;
+use zstar_tools::builtin::skill_evolver::{LlmRewriteFn, SkillRewriter};
+use zstar_tools::builtin::skill_trace::{TraceCollector, TraceStore};
 
 use crate::live_runtime::{LiveRunEvent, LiveRunRequest, SessionBackedLiveRunService};
 use crate::paths;
@@ -71,7 +71,7 @@ pub async fn run_chat(model_override: Option<&str>) -> Result<(), String> {
         (provider, registry, chain)
     } else {
         let api_key = env::var("OPENROUTER_API_KEY").map_err(|_| {
-                "OPENROUTER_API_KEY is not set. Set it to an OpenRouter API key, or create ~/.matrixclaw/config/providers.json".to_string()
+                "OPENROUTER_API_KEY is not set. Set it to an OpenRouter API key, or create ~/.zstar/config/providers.json".to_string()
             })?;
         let (registry, chain) = build_provider_parts(&api_key, &model).await?;
         let provider = Arc::new(Mutex::new(FallbackProvider::new(
@@ -111,7 +111,7 @@ pub async fn run_chat(model_override: Option<&str>) -> Result<(), String> {
         }
 
         if let Ok(store) = TraceStore::open(&trace_db_path) {
-            let skills_dir = home.join(".matrixclaw").join("skills");
+            let skills_dir = home.join(".zstar").join("skills");
             let llm_call = make_llm_rewrite_fn(shared_registry.clone(), fallback_chain.clone());
             let rewriter = Arc::new(SkillRewriter::new(store, skills_dir, llm_call));
             service.register_skill_evolve_tool(rewriter).await;
@@ -126,7 +126,7 @@ pub async fn run_chat(model_override: Option<&str>) -> Result<(), String> {
         .ok()
         .map(|store| NudgeEngine::new(Box::new(store), 0.6, 3));
 
-    println!("MatrixClaw chat — type your message and press Enter. Ctrl+C or /quit to exit.");
+    println!("ZStar chat — type your message and press Enter. Ctrl+C or /quit to exit.");
     println!("Model: {model} | Tools: {tool_count}");
     println!();
 
@@ -246,11 +246,11 @@ fn truncate_str(s: &str, max_len: usize) -> String {
 
 fn make_subagent_runner(
     provider: Arc<Mutex<FallbackProvider>>,
-    registry: Arc<matrixclaw_tools::ToolRegistry>,
-) -> matrixclaw_tools::builtin::delegate::SubagentRunner {
-    use matrixclaw_agent_core::r#loop::run_prompt;
-    use matrixclaw_agent_core::{RunRequest, ToolChoice};
-    use matrixclaw_tools::builtin::delegate::SubagentRunner;
+    registry: Arc<zstar_tools::ToolRegistry>,
+) -> zstar_tools::builtin::delegate::SubagentRunner {
+    use zstar_agent_core::r#loop::run_prompt;
+    use zstar_agent_core::{RunRequest, ToolChoice};
+    use zstar_tools::builtin::delegate::SubagentRunner;
 
     Arc::new(move |req: SubagentRequest| {
         let provider = provider.clone();
@@ -294,10 +294,10 @@ fn make_subagent_runner(
 fn make_parallel_subagent_runner(
     registry_ref: Arc<ProviderRegistry>,
     fallback_chain: Vec<String>,
-    tool_registry: Arc<matrixclaw_tools::ToolRegistry>,
+    tool_registry: Arc<zstar_tools::ToolRegistry>,
 ) -> ParallelSubagentRunner {
-    use matrixclaw_agent_core::r#loop::run_prompt;
-    use matrixclaw_agent_core::{RunRequest, ToolChoice};
+    use zstar_agent_core::r#loop::run_prompt;
+    use zstar_agent_core::{RunRequest, ToolChoice};
 
     Arc::new(move |requests: Vec<SubagentRequest>| {
         let registry = registry_ref.clone();
@@ -359,8 +359,8 @@ fn make_parallel_subagent_runner(
 }
 
 fn make_llm_rewrite_fn(registry: Arc<ProviderRegistry>, chain: Vec<String>) -> LlmRewriteFn {
-    use matrixclaw_agent_core::provider::Provider;
-    use matrixclaw_agent_core::{RunRequest, ToolChoice};
+    use zstar_agent_core::provider::Provider;
+    use zstar_agent_core::{RunRequest, ToolChoice};
 
     Box::new(move |prompt: String| {
         let registry = registry.clone();

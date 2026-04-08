@@ -4,19 +4,15 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
-use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::provider::{Provider, ProviderError, ProviderResponse};
-use matrixclaw_agent_core::{RunRequest, ToolCall};
-use matrixclaw_app_host::live_runtime::{
-    session_db_path, LiveRunRequest, SessionBackedLiveRunService,
-};
-use matrixclaw_session_runtime::message_projection::{
-    DurableTranscriptEntry, DurableTranscriptKind,
-};
-use matrixclaw_session_runtime::sqlite::SqliteStorage;
-use matrixclaw_session_runtime::storage::TranscriptStore;
-use matrixclaw_tools::{ToolDescriptor, ToolExecutor, ToolRegistry, ToolResult};
 use std::sync::Arc;
+use zstar_agent_core::event::AgentEvent;
+use zstar_agent_core::provider::{Provider, ProviderError, ProviderResponse};
+use zstar_agent_core::{RunRequest, ToolCall};
+use zstar_app_host::live_runtime::{session_db_path, LiveRunRequest, SessionBackedLiveRunService};
+use zstar_session_runtime::message_projection::{DurableTranscriptEntry, DurableTranscriptKind};
+use zstar_session_runtime::sqlite::SqliteStorage;
+use zstar_session_runtime::storage::TranscriptStore;
+use zstar_tools::{ToolDescriptor, ToolExecutor, ToolRegistry, ToolResult};
 
 #[tokio::test]
 async fn blocked_tool_policy_surfacing() {
@@ -130,7 +126,7 @@ fn temp_home() -> PathBuf {
         .expect("clock before unix epoch")
         .as_nanos();
     let home = std::env::temp_dir().join(format!(
-        "matrixclaw-blocked-tool-home-{}-{}",
+        "zstar-blocked-tool-home-{}-{}",
         std::process::id(),
         nanos
     ));

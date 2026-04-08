@@ -230,7 +230,7 @@ impl CronjobTool {
     }
 
     pub fn db_path_for_home(home: &Path) -> PathBuf {
-        home.join(".matrixclaw").join("state").join("cron.db")
+        home.join(".zstar").join("state").join("cron.db")
     }
 }
 

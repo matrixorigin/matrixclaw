@@ -4,7 +4,7 @@ use std::sync::Arc;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use matrixclaw_tools::ToolRegistry;
+use zstar_tools::ToolRegistry;
 
 pub struct McpServer {
     registry: Arc<ToolRegistry>,
@@ -113,7 +113,7 @@ impl McpServer {
                     "tools": {}
                 },
                 "serverInfo": {
-                    "name": "matrixclaw",
+                    "name": "zstar",
                     "version": env!("CARGO_PKG_VERSION")
                 }
             }),
@@ -184,11 +184,8 @@ impl McpServer {
                     }
                 };
                 let arguments = params.get("arguments").cloned().unwrap_or(json!({}));
-                let call = matrixclaw_tools::ToolCall::new(
-                    "mcp".to_string(),
-                    tool_name.to_string(),
-                    arguments,
-                );
+                let call =
+                    zstar_tools::ToolCall::new("mcp".to_string(), tool_name.to_string(), arguments);
                 let result = self.registry.execute(call).await;
                 json!({
                     "content": [{"type": "text", "text": result.output}],
@@ -216,7 +213,7 @@ mod tests {
         let registry = Arc::new(ToolRegistry::new());
         let server = McpServer::new(registry);
         let result = server.handle_method("initialize", None).await;
-        assert_eq!(result["serverInfo"]["name"], "matrixclaw");
+        assert_eq!(result["serverInfo"]["name"], "zstar");
         assert_eq!(result["protocolVersion"], "2024-11-05");
         assert!(result.get("capabilities").is_some());
     }

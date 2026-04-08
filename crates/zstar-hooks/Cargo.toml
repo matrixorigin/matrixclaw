@@ -1,10 +1,10 @@
 [package]
-name = "matrixclaw-hooks"
+name = "zstar-hooks"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "matrixclaw_hooks"
+name = "zstar_hooks"
 path = "src/lib.rs"
 
 [dependencies]

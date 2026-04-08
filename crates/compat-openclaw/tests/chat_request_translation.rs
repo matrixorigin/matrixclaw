@@ -1,10 +1,8 @@
-use matrixclaw_compat_openclaw::stream_adapter::{ChatFrame, LoopbackChatStreamAdapter};
-use matrixclaw_compat_openclaw::translation::{
+use zstar_compat_openclaw::stream_adapter::{ChatFrame, LoopbackChatStreamAdapter};
+use zstar_compat_openclaw::translation::{
     translate_chat_request, OpenClawChatMessage, OpenClawChatRequest,
 };
-use matrixclaw_session_runtime::{
-    ChatEvent, ChatInputMessage, ChatInputRole, ChatRequest, ChatRuntime,
-};
+use zstar_session_runtime::{ChatEvent, ChatInputMessage, ChatInputRole, ChatRequest, ChatRuntime};
 
 #[derive(Default)]
 struct RecordingRuntime {

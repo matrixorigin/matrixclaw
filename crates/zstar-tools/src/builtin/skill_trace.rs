@@ -2,9 +2,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use async_trait::async_trait;
-use matrixclaw_hooks::{HookAction, HookPayload, HookPoint, LifecycleHook};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
+use zstar_hooks::{HookAction, HookPayload, HookPoint, LifecycleHook};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -77,7 +77,7 @@ impl TraceStore {
     }
 
     pub fn db_path_for_home(home: &Path) -> PathBuf {
-        home.join(".matrixclaw")
+        home.join(".zstar")
             .join("state")
             .join("skill_traces.sqlite3")
     }

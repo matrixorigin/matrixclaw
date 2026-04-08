@@ -1,8 +1,8 @@
-use matrixclaw_app_host::http::queue_api::{
+use zstar_app_host::http::queue_api::{
     queue_controls_contract, queue_controls_view, submit_queue_control, QueueControlKind,
     QueueDeliveryTiming, QueueSubmissionRequest,
 };
-use matrixclaw_session_runtime::queue::SessionQueue;
+use zstar_session_runtime::queue::SessionQueue;
 
 #[test]
 fn queued_controls_ui() {

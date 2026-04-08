@@ -58,8 +58,7 @@ mod tests {
 
     #[test]
     fn descriptor_name() {
-        let state =
-            super::super::make_shared_state(PathBuf::from("/tmp/matrixclaw-test/screenshots"));
+        let state = super::super::make_shared_state(PathBuf::from("/tmp/zstar-test/screenshots"));
         let tool = GoBackTool::new(state);
         assert_eq!(tool.descriptor().name, "browser_go_back");
         assert!(tool.descriptor().parameters.is_empty());

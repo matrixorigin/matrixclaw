@@ -147,7 +147,7 @@ impl ToolExecutor for WebSearchTool {
 
         let response = match client
             .get(&url)
-            .header("User-Agent", "MatrixClaw/0.1")
+            .header("User-Agent", "ZStar/0.1")
             .timeout(std::time::Duration::from_secs(10))
             .send()
             .await

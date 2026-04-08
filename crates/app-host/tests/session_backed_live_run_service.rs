@@ -8,15 +8,15 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matrixclaw_app_host::http::agent_api::AGENT_RUN_ROUTE;
-use matrixclaw_app_host::http::{HttpRequest, SetupSurface};
-use matrixclaw_app_host::live_runtime::session_db_path;
-use matrixclaw_app_host::paths;
-use matrixclaw_app_host::ui_assets::UiAssetLayout;
-use matrixclaw_session_runtime::message_projection::DurableTranscriptKind;
-use matrixclaw_session_runtime::sqlite::SqliteStorage;
-use matrixclaw_session_runtime::storage::TranscriptStore;
 use serde_json::{json, Value};
+use zstar_app_host::http::agent_api::AGENT_RUN_ROUTE;
+use zstar_app_host::http::{HttpRequest, SetupSurface};
+use zstar_app_host::live_runtime::session_db_path;
+use zstar_app_host::paths;
+use zstar_app_host::ui_assets::UiAssetLayout;
+use zstar_session_runtime::message_projection::DurableTranscriptKind;
+use zstar_session_runtime::sqlite::SqliteStorage;
+use zstar_session_runtime::storage::TranscriptStore;
 
 #[test]
 fn session_backed_live_run_service() {
@@ -194,7 +194,7 @@ fn temp_home() -> PathBuf {
         .expect("clock before unix epoch")
         .as_nanos();
     let home = env::temp_dir().join(format!(
-        "matrixclaw-session-runtime-home-{}-{}",
+        "zstar-session-runtime-home-{}-{}",
         std::process::id(),
         nanos
     ));

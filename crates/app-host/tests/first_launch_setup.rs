@@ -4,14 +4,14 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matrixclaw_app_host::setup::config_path;
+use zstar_app_host::setup::config_path;
 
 fn temp_home() -> PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("clock before unix epoch")
         .as_nanos();
-    let home = env::temp_dir().join(format!("matrixclaw-home-{}-{}", std::process::id(), nanos));
+    let home = env::temp_dir().join(format!("zstar-home-{}-{}", std::process::id(), nanos));
     fs::create_dir_all(&home).expect("create temp home");
     home
 }
@@ -21,10 +21,10 @@ fn first_launch_setup() {
     let home = temp_home();
     let expected_config = config_path(&home);
 
-    let output = Command::new(env!("CARGO_BIN_EXE_matrixclaw"))
+    let output = Command::new(env!("CARGO_BIN_EXE_zstar"))
         .env("HOME", &home)
         .output()
-        .expect("run matrixclaw");
+        .expect("run zstar");
 
     assert!(
         !expected_config.exists(),

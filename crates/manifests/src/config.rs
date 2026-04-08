@@ -217,7 +217,7 @@ impl AppConfig {
     }
 
     pub fn config_dir(home: impl AsRef<Path>) -> PathBuf {
-        home.as_ref().join(".matrixclaw").join("config")
+        home.as_ref().join(".zstar").join("config")
     }
 
     pub fn config_path(home: impl AsRef<Path>) -> PathBuf {

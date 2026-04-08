@@ -4,16 +4,16 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matrixclaw_app_host::http::{HttpRequest, SetupSurface};
-use matrixclaw_app_host::setup::{config_path, local_setup_server_contract};
-use matrixclaw_app_host::ui_assets::{UiAssetLayout, UI_ENTRY_HTML, UI_WORKSPACE_DIR};
+use zstar_app_host::http::{HttpRequest, SetupSurface};
+use zstar_app_host::setup::{config_path, local_setup_server_contract};
+use zstar_app_host::ui_assets::{UiAssetLayout, UI_ENTRY_HTML, UI_WORKSPACE_DIR};
 
 fn temp_home() -> PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("clock before unix epoch")
         .as_nanos();
-    let home = env::temp_dir().join(format!("matrixclaw-home-{}-{}", std::process::id(), nanos));
+    let home = env::temp_dir().join(format!("zstar-home-{}-{}", std::process::id(), nanos));
     fs::create_dir_all(&home).expect("create temp home");
     home
 }
@@ -23,11 +23,7 @@ fn temp_repo_root() -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("clock before unix epoch")
         .as_nanos();
-    let root = env::temp_dir().join(format!(
-        "matrixclaw-ui-setup-{}-{}",
-        std::process::id(),
-        nanos
-    ));
+    let root = env::temp_dir().join(format!("zstar-ui-setup-{}-{}", std::process::id(), nanos));
     fs::create_dir_all(root.join(UI_WORKSPACE_DIR).join("build").join("_app"))
         .expect("create fixture build tree");
     fs::write(
@@ -94,10 +90,10 @@ fn local_setup_server() {
         "validation response should explain the missing setup fields"
     );
 
-    let output = Command::new(env!("CARGO_BIN_EXE_matrixclaw"))
+    let output = Command::new(env!("CARGO_BIN_EXE_zstar"))
         .env("HOME", &home)
         .output()
-        .expect("run matrixclaw startup");
+        .expect("run zstar startup");
 
     assert!(
         output.status.success(),

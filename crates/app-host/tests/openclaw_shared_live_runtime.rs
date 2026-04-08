@@ -5,17 +5,15 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
-use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::provider::{Provider, ProviderError, ProviderResponse};
-use matrixclaw_agent_core::{RunMessageRole, RunRequest};
-use matrixclaw_app_host::live_runtime::{
-    session_db_path, LiveRunRequest, SessionBackedLiveRunService,
-};
-use matrixclaw_app_host::openclaw_transport::openclaw_chat_http_with_provider;
-use matrixclaw_compat_openclaw::translation::{OpenClawChatMessage, OpenClawChatRequest};
-use matrixclaw_session_runtime::recovery::SessionRecoveryStore;
-use matrixclaw_session_runtime::sqlite::SqliteStorage;
-use matrixclaw_session_runtime::RuntimeMessage;
+use zstar_agent_core::event::AgentEvent;
+use zstar_agent_core::provider::{Provider, ProviderError, ProviderResponse};
+use zstar_agent_core::{RunMessageRole, RunRequest};
+use zstar_app_host::live_runtime::{session_db_path, LiveRunRequest, SessionBackedLiveRunService};
+use zstar_app_host::openclaw_transport::openclaw_chat_http_with_provider;
+use zstar_compat_openclaw::translation::{OpenClawChatMessage, OpenClawChatRequest};
+use zstar_session_runtime::recovery::SessionRecoveryStore;
+use zstar_session_runtime::sqlite::SqliteStorage;
+use zstar_session_runtime::RuntimeMessage;
 
 #[tokio::test]
 async fn openclaw_transport_reuses_the_shared_live_runtime() {
@@ -60,10 +58,10 @@ async fn openclaw_transport_reuses_the_shared_live_runtime() {
     assert_eq!(
         response.frames,
         vec![
-            matrixclaw_compat_openclaw::stream_adapter::ChatFrame::AssistantChunk {
+            zstar_compat_openclaw::stream_adapter::ChatFrame::AssistantChunk {
                 content: "compatibility answer".to_string(),
             },
-            matrixclaw_compat_openclaw::stream_adapter::ChatFrame::Completed,
+            zstar_compat_openclaw::stream_adapter::ChatFrame::Completed,
         ],
         "the app-host transport should continue to project OpenClaw chat frames"
     );
@@ -221,7 +219,7 @@ impl Provider for RecordingProvider {
     }
 }
 
-fn render_run_message(message: &matrixclaw_agent_core::RunMessage) -> String {
+fn render_run_message(message: &zstar_agent_core::RunMessage) -> String {
     let role = match message.role {
         RunMessageRole::User => "user",
         RunMessageRole::System => "system",
@@ -243,7 +241,7 @@ fn temp_home() -> PathBuf {
         .expect("clock before unix epoch")
         .as_nanos();
     let home = env::temp_dir().join(format!(
-        "matrixclaw-openclaw-shared-home-{}-{}",
+        "zstar-openclaw-shared-home-{}-{}",
         std::process::id(),
         nanos
     ));

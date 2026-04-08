@@ -33,7 +33,7 @@ echo "Building bundled UI assets"
 bun run --cwd ui build
 
 echo "Running bundled asset packaging test"
-cargo test -p matrixclaw-app-host bundled_asset_packaging -- --exact
+cargo test -p zstar-app-host bundled_asset_packaging -- --exact
 
 echo "Running desktop shell bootstrap tests"
 bun run --cwd apps/desktop-shell test

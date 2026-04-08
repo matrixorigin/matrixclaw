@@ -1,14 +1,14 @@
 [package]
-name = "matrixclaw-session-runtime"
+name = "zstar-session-runtime"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "matrixclaw_session_runtime"
+name = "zstar_session_runtime"
 path = "src/lib.rs"
 
 [dependencies]
-matrixclaw-agent-core = { path = "../agent-core" }
+zstar-agent-core = { path = "../agent-core" }
 rusqlite = { version = "0.31", features = ["bundled"] }
 
 [dev-dependencies]

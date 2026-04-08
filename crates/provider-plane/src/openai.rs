@@ -2,14 +2,14 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::message::RunMessageRole;
-use matrixclaw_agent_core::provider::{Provider, ProviderError, ProviderResponse};
-use matrixclaw_agent_core::{RunRequest, ToolCall, ToolChoice};
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::{json, Value};
+use zstar_agent_core::event::AgentEvent;
+use zstar_agent_core::message::RunMessageRole;
+use zstar_agent_core::provider::{Provider, ProviderError, ProviderResponse};
+use zstar_agent_core::{RunRequest, ToolCall, ToolChoice};
 
 const OPENROUTER_BASE_URL: &str = "https://openrouter.ai/api/v1";
 
@@ -89,8 +89,8 @@ impl OpenAiProvider {
             .post(self.completion_url())
             .header(AUTHORIZATION, format!("Bearer {}", self.api_key))
             .header(CONTENT_TYPE, "application/json")
-            .header("HTTP-Referer", "https://github.com/matrixorigin/matrixclaw")
-            .header("X-Title", "MatrixClaw")
+            .header("HTTP-Referer", "https://github.com/matrixorigin/zstar")
+            .header("X-Title", "ZStar")
             .json(&self.request_body(request, false))
             .send()
             .await
@@ -123,8 +123,8 @@ impl OpenAiProvider {
             .header(AUTHORIZATION, format!("Bearer {}", self.api_key))
             .header(ACCEPT, "text/event-stream")
             .header(CONTENT_TYPE, "application/json")
-            .header("HTTP-Referer", "https://github.com/matrixorigin/matrixclaw")
-            .header("X-Title", "MatrixClaw")
+            .header("HTTP-Referer", "https://github.com/matrixorigin/zstar")
+            .header("X-Title", "ZStar")
             .json(&self.request_body(request, true))
             .send()
             .await
@@ -237,9 +237,7 @@ fn should_cache(model: &str) -> bool {
 
 fn request_messages(request: &RunRequest, model: &str) -> Vec<Value> {
     let messages = if request.context_messages.is_empty() {
-        vec![matrixclaw_agent_core::RunMessage::user(
-            request.prompt.clone(),
-        )]
+        vec![zstar_agent_core::RunMessage::user(request.prompt.clone())]
     } else {
         request.context_messages.clone()
     };
@@ -269,7 +267,7 @@ fn request_messages(request: &RunRequest, model: &str) -> Vec<Value> {
     msgs
 }
 
-fn message_to_openai(message: matrixclaw_agent_core::RunMessage) -> Value {
+fn message_to_openai(message: zstar_agent_core::RunMessage) -> Value {
     let role = match message.role {
         RunMessageRole::User => "user",
         RunMessageRole::System => "system",
@@ -509,14 +507,14 @@ mod tests {
             "choices": [
                 {
                     "message": {
-                        "content": "MatrixClaw"
+                        "content": "ZStar"
                     }
                 }
             ]
         });
 
         let response = parse_provider_response(&body).unwrap();
-        assert_eq!(response.content.as_deref(), Some("MatrixClaw"));
+        assert_eq!(response.content.as_deref(), Some("ZStar"));
     }
 
     #[test]
@@ -526,8 +524,8 @@ mod tests {
                 {
                     "message": {
                         "content": [
-                            { "type": "text", "text": "Matrix" },
-                            { "type": "text", "text": "Claw" }
+                            { "type": "text", "text": "Z" },
+                            { "type": "text", "text": "Star" }
                         ]
                     }
                 }
@@ -535,7 +533,7 @@ mod tests {
         });
 
         let response = parse_provider_response(&body).unwrap();
-        assert_eq!(response.content.as_deref(), Some("MatrixClaw"));
+        assert_eq!(response.content.as_deref(), Some("ZStar"));
     }
 
     #[test]
@@ -566,7 +564,7 @@ mod tests {
 
     #[test]
     fn cache_control_added_for_claude_models() {
-        use matrixclaw_agent_core::RunMessage;
+        use zstar_agent_core::RunMessage;
 
         let request = RunRequest {
             prompt: "current prompt".into(),
@@ -616,7 +614,7 @@ mod tests {
 
     #[test]
     fn no_cache_control_for_non_claude() {
-        use matrixclaw_agent_core::RunMessage;
+        use zstar_agent_core::RunMessage;
 
         let request = RunRequest {
             prompt: "current prompt".into(),
@@ -641,7 +639,7 @@ mod tests {
 
     #[test]
     fn cache_control_added_for_gemini_models() {
-        use matrixclaw_agent_core::RunMessage;
+        use zstar_agent_core::RunMessage;
 
         let request = RunRequest {
             prompt: "current prompt".into(),
@@ -662,7 +660,7 @@ mod tests {
 
     #[test]
     fn cache_control_with_fewer_than_three_user_messages() {
-        use matrixclaw_agent_core::RunMessage;
+        use zstar_agent_core::RunMessage;
 
         let request = RunRequest {
             prompt: "current prompt".into(),

@@ -235,39 +235,36 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("clock before unix epoch")
             .as_nanos();
-        let root = std::env::temp_dir().join(format!(
-            "matrixclaw-ui-assets-{}-{}",
-            std::process::id(),
-            nanos
-        ));
+        let root =
+            std::env::temp_dir().join(format!("zstar-ui-assets-{}-{}", std::process::id(), nanos));
         fs::create_dir_all(root.join(UI_WORKSPACE_DIR).join(UI_BUILD_DIR).join("_app"))
             .expect("create ui build fixture");
         fs::write(
             root.join(UI_WORKSPACE_DIR)
                 .join(UI_BUILD_DIR)
                 .join(UI_ENTRY_HTML),
-            "<html><body>matrixclaw shell</body></html>",
+            "<html><body>zstar shell</body></html>",
         )
         .expect("write shell document");
         fs::write(
             root.join(UI_WORKSPACE_DIR)
                 .join(UI_BUILD_DIR)
                 .join(UI_SETUP_HTML),
-            "<html><body>matrixclaw setup</body></html>",
+            "<html><body>zstar setup</body></html>",
         )
         .expect("write setup document");
         fs::write(
             root.join(UI_WORKSPACE_DIR)
                 .join(UI_BUILD_DIR)
                 .join(UI_WORKSPACE_HTML),
-            "<html><body>matrixclaw workspace</body></html>",
+            "<html><body>zstar workspace</body></html>",
         )
         .expect("write workspace document");
         fs::write(
             root.join(UI_WORKSPACE_DIR)
                 .join(UI_BUILD_DIR)
                 .join(UI_SKILLS_HTML),
-            "<html><body>matrixclaw skills</body></html>",
+            "<html><body>zstar skills</body></html>",
         )
         .expect("write skills document");
         fs::write(
@@ -275,7 +272,7 @@ mod tests {
                 .join(UI_BUILD_DIR)
                 .join("_app")
                 .join("app.js"),
-            "console.log('matrixclaw');",
+            "console.log('zstar');",
         )
         .expect("write static asset");
         root
@@ -286,25 +283,22 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("clock before unix epoch")
             .as_nanos();
-        let home = std::env::temp_dir().join(format!(
-            "matrixclaw-ui-home-{}-{}",
-            std::process::id(),
-            nanos
-        ));
+        let home =
+            std::env::temp_dir().join(format!("zstar-ui-home-{}-{}", std::process::id(), nanos));
         fs::create_dir_all(&home).expect("create temp home");
         home
     }
 
     #[test]
     fn repo_root_contract_matches_ui_workspace_layout() {
-        let layout = UiAssetLayout::from_repo_root("/tmp/matrixclaw");
+        let layout = UiAssetLayout::from_repo_root("/tmp/zstar");
         assert_eq!(
             layout.workspace_dir,
-            Path::new("/tmp/matrixclaw").join(UI_WORKSPACE_DIR)
+            Path::new("/tmp/zstar").join(UI_WORKSPACE_DIR)
         );
         assert_eq!(
             layout.build_dir,
-            Path::new("/tmp/matrixclaw")
+            Path::new("/tmp/zstar")
                 .join(UI_WORKSPACE_DIR)
                 .join(UI_BUILD_DIR)
         );
@@ -387,6 +381,6 @@ mod tests {
         assert!(is_client_route("/workspace"));
         assert!(is_client_route("/workspace/chat"));
         assert!(!is_client_route("/_app/app.js"));
-        assert!(!is_client_route("/matrixclaw-mark.svg"));
+        assert!(!is_client_route("/zstar-mark.svg"));
     }
 }

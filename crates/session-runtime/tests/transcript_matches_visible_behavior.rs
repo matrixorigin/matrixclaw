@@ -1,9 +1,7 @@
-use matrixclaw_session_runtime::message_projection::{
-    DurableTranscriptEntry, DurableTranscriptKind,
-};
-use matrixclaw_session_runtime::sqlite::SqliteStorage;
-use matrixclaw_session_runtime::storage::TranscriptStore;
-use matrixclaw_session_runtime::RuntimeMessage;
+use zstar_session_runtime::message_projection::{DurableTranscriptEntry, DurableTranscriptKind};
+use zstar_session_runtime::sqlite::SqliteStorage;
+use zstar_session_runtime::storage::TranscriptStore;
+use zstar_session_runtime::RuntimeMessage;
 
 #[test]
 fn transcript_matches_visible_behavior() {

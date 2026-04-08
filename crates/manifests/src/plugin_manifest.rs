@@ -9,8 +9,8 @@ use crate::provenance::ImportProvenance;
 use crate::skill_manifest::SupportTier;
 
 pub const PLUGIN_ENTRY_NAME: &str = "openclaw.plugin.json";
-pub const NORMALIZED_MANIFEST_NAME: &str = "matrixclaw.plugin.json";
-pub const ADAPTER_CONTRACT_NAME: &str = "matrixclaw.plugin.adapter.json";
+pub const NORMALIZED_MANIFEST_NAME: &str = "zstar.plugin.json";
+pub const ADAPTER_CONTRACT_NAME: &str = "zstar.plugin.adapter.json";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PluginInstallReasonCode {
@@ -177,7 +177,7 @@ pub fn normalize_plugin_manifest(detection: &PluginDetection) -> serde_json::Val
         "kind": kind,
         "description": description,
         "entrypoint": {
-            "command": "matrixclaw-plugin-adapter",
+            "command": "zstar-plugin-adapter",
             "args": ["--manifest", PLUGIN_ENTRY_NAME],
         },
         "transport": {
@@ -224,7 +224,7 @@ pub fn install_plugin_package(
 
     let runtime_home = runtime_home.as_ref();
     let installed_root = runtime_home
-        .join(".matrixclaw")
+        .join(".zstar")
         .join("plugins")
         .join(&detection.id);
     let manifest_path = installed_root.join(NORMALIZED_MANIFEST_NAME);
@@ -266,7 +266,7 @@ pub fn install_plugin_package(
         schema_version: "1".to_string(),
         manifest_path: manifest_path.clone(),
         installed_root: installed_root.clone(),
-        adapter_command: "matrixclaw-plugin-adapter".to_string(),
+        adapter_command: "zstar-plugin-adapter".to_string(),
         adapter_args: vec![
             "--manifest".to_string(),
             NORMALIZED_MANIFEST_NAME.to_string(),
@@ -331,7 +331,7 @@ fn classify_compatibility_note(
                     "plugin {name} uses unsupported transport {transport}"
                 )))
             } else {
-                Ok(Some(format!("plugin {name} is unsupported in MatrixClaw")))
+                Ok(Some(format!("plugin {name} is unsupported in ZStar")))
             }
         }
         SupportTier::Native => Ok(None),

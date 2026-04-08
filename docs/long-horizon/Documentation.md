@@ -14,10 +14,10 @@ Last updated: 2026-03-28
   - `pnpm` for the UI workspace
 - Install:
   - `cargo build --release`
-  - `MATRIXCLAW_SOURCE_BIN=target/release/matrixclaw ./scripts/install.sh`
+  - `MATRIXCLAW_SOURCE_BIN=target/release/zstar ./scripts/install.sh`
 - Start:
-  - `~/.matrixclaw/bin/matrixclaw`
-  - or `cargo run -p matrixclaw-app-host --bin matrixclaw -- serve --fixture demo`
+  - `~/.zstar/bin/zstar`
+  - or `cargo run -p zstar-app-host --bin zstar -- serve --fixture demo`
 
 Important current limitation:
 - the standalone binary install path is not yet a final-product experience because UI assets still depend on the current source-tree build output
@@ -29,8 +29,8 @@ Important current limitation:
 - Typecheck:
   - `pnpm --dir ui check`
 - Tests:
-  - `cargo test -p matrixclaw-app-host`
-  - `cargo test -p matrixclaw-compat-openclaw`
+  - `cargo test -p zstar-app-host`
+  - `cargo test -p zstar-compat-openclaw`
 - Build:
   - `pnpm --dir ui build`
 - Scenario and smoke verification:
@@ -42,12 +42,12 @@ Important current limitation:
 
 ## Architecture Snapshot
 - Core modules:
-  - shared runtime: [live_runtime.rs](/home/momo/src/matrixclaw/crates/app-host/src/live_runtime.rs)
-  - normalized ingress: [ingress.rs](/home/momo/src/matrixclaw/crates/app-host/src/ingress.rs)
-  - gateway layer: [gateway/](/home/momo/src/matrixclaw/crates/app-host/src/gateway)
-  - OpenClaw served transport: [openclaw_transport.rs](/home/momo/src/matrixclaw/crates/app-host/src/openclaw_transport.rs)
-  - browser and API host: [http/](/home/momo/src/matrixclaw/crates/app-host/src/http)
-  - desktop shell boundary: [apps/desktop-shell/](/home/momo/src/matrixclaw/apps/desktop-shell)
+  - shared runtime: [live_runtime.rs](/home/momo/src/zstar/crates/app-host/src/live_runtime.rs)
+  - normalized ingress: [ingress.rs](/home/momo/src/zstar/crates/app-host/src/ingress.rs)
+  - gateway layer: [gateway/](/home/momo/src/zstar/crates/app-host/src/gateway)
+  - OpenClaw served transport: [openclaw_transport.rs](/home/momo/src/zstar/crates/app-host/src/openclaw_transport.rs)
+  - browser and API host: [http/](/home/momo/src/zstar/crates/app-host/src/http)
+  - desktop shell boundary: [apps/desktop-shell/](/home/momo/src/zstar/apps/desktop-shell)
 - Data flow:
   - external surface -> gateway or served transport -> ingress -> live runtime -> projected reply
 - Operational constraints:
@@ -81,7 +81,7 @@ Important current limitation:
   - gateway/runtime verification green at the current checkpoint
 - Validation summary:
   - `cargo fmt --all --check` passed
-  - `cargo test -p matrixclaw-app-host` passed
+  - `cargo test -p zstar-app-host` passed
   - `./scripts/verify-matrix-gateway.sh` passed
 - Stop reason:
   - none

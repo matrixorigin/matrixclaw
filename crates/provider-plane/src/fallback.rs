@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::provider::{Provider, ProviderError, ProviderResponse};
-use matrixclaw_agent_core::RunRequest;
+use zstar_agent_core::event::AgentEvent;
+use zstar_agent_core::provider::{Provider, ProviderError, ProviderResponse};
+use zstar_agent_core::RunRequest;
 
 use crate::health::HealthChecker;
 use crate::rate_limit::RateLimiter;

@@ -6,11 +6,11 @@ use std::sync::mpsc::{self, Receiver, RecvError, Sender};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use matrixclaw_manifests::config::{
+use tiny_http::{Header, Method, Response, Server, StatusCode};
+use zstar_manifests::config::{
     AppConfig, AuthSettings, ExecutionSettings, ProviderSettings, WorkspaceSettings,
 };
-use matrixclaw_session_runtime::queue::SessionQueue;
-use tiny_http::{Header, Method, Response, Server, StatusCode};
+use zstar_session_runtime::queue::SessionQueue;
 
 use crate::agent_store::{save_agent_profile, AgentProfile};
 use crate::compat_registry::CompatRegistryEntry;
@@ -39,7 +39,7 @@ pub fn serve_with_demo_fixture(home: impl AsRef<Path>) -> io::Result<()> {
 pub fn serve_surface(surface: SetupSurface, bind_addr: &str) -> io::Result<()> {
     let server = bind_server(bind_addr)?;
     let local_addr = server.server_addr();
-    println!("MatrixClaw listening at http://{local_addr}");
+    println!("ZStar listening at http://{local_addr}");
     run_server(server, surface, &never_shutdown())
 }
 
@@ -295,13 +295,10 @@ struct DemoFixture {
 fn ensure_demo_fixture(home: &Path) -> io::Result<DemoFixture> {
     let workspace_root = home.join("workspace");
     fs::create_dir_all(workspace_root.join("src"))?;
-    fs::write(
-        workspace_root.join("README.md"),
-        "# MatrixClaw demo workspace\n",
-    )?;
+    fs::write(workspace_root.join("README.md"), "# ZStar demo workspace\n")?;
     fs::write(
         workspace_root.join("src").join("main.rs"),
-        "fn main() {\n    println!(\"matrixclaw demo\");\n}\n",
+        "fn main() {\n    println!(\"zstar demo\");\n}\n",
     )?;
     fs::write(
         workspace_root.join("notes.md"),
@@ -331,7 +328,7 @@ fn ensure_demo_fixture(home: &Path) -> io::Result<DemoFixture> {
     fs::write(research_root.join("SKILL.md"), "# Research\n")?;
     fs::write(lint_root.join("SKILL.md"), "# Lint Bridge\n")?;
     fs::write(
-        research_root.join("matrixclaw.skill.json"),
+        research_root.join("zstar.skill.json"),
         serde_json::json!({
             "name": "research",
             "kind": "skill",
@@ -340,7 +337,7 @@ fn ensure_demo_fixture(home: &Path) -> io::Result<DemoFixture> {
         .to_string(),
     )?;
     fs::write(
-        lint_root.join("matrixclaw.skill.json"),
+        lint_root.join("zstar.skill.json"),
         serde_json::json!({
             "name": "lint-bridge",
             "kind": "skill",
@@ -370,14 +367,14 @@ fn ensure_demo_fixture(home: &Path) -> io::Result<DemoFixture> {
             "research",
             research_import_root,
             &research_root,
-            research_root.join("matrixclaw.skill.json"),
+            research_root.join("zstar.skill.json"),
             research_root.join("provenance.json"),
         ),
         CompatRegistryEntry::from_skill_install(
             "lint-bridge",
             lint_import_root,
             &lint_root,
-            lint_root.join("matrixclaw.skill.json"),
+            lint_root.join("zstar.skill.json"),
             lint_root.join("provenance.json"),
         ),
     ];
@@ -481,10 +478,10 @@ fn ensure_demo_fixture(home: &Path) -> io::Result<DemoFixture> {
     )?;
 
     let queue = SessionQueue::from_items(vec![
-        matrixclaw_session_runtime::queue::QueueItem::Steering(
+        zstar_session_runtime::queue::QueueItem::Steering(
             "Prefer [[workspace:README.md]] before editing files.".to_string(),
         ),
-        matrixclaw_session_runtime::queue::QueueItem::FollowUp(
+        zstar_session_runtime::queue::QueueItem::FollowUp(
             "After this run, open Agent Detail for Atlas and review the lint-bridge binding."
                 .to_string(),
         ),

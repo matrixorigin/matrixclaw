@@ -27,7 +27,7 @@ fi
 if ! curl -fsS "${BASE_URL}/healthz" >/dev/null 2>&1; then
   TEMP_HOME="$(mktemp -d)"
   HOME="${TEMP_HOME}" MATRIXCLAW_LLM_MODEL="${MODEL}" \
-    target/debug/matrixclaw serve --fixture demo >/tmp/matrixclaw-live-runtime.log 2>&1 &
+    target/debug/zstar serve --fixture demo >/tmp/zstar-live-runtime.log 2>&1 &
   SERVER_PID="$!"
 
   for _ in $(seq 1 30); do
@@ -40,7 +40,7 @@ if ! curl -fsS "${BASE_URL}/healthz" >/dev/null 2>&1; then
   curl -fsS "${BASE_URL}/healthz" >/dev/null
 fi
 
-target/debug/matrixclaw llm-smoke --model "${MODEL}"
+target/debug/zstar llm-smoke --model "${MODEL}"
 
 HTTP_RESPONSE="$(
   curl -fsS \

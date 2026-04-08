@@ -1,8 +1,8 @@
 use std::path::Path;
 
-use matrixclaw_agent_core::provider::Provider;
-use matrixclaw_compat_openclaw::translation::{split_openclaw_request, OpenClawChatRequest};
-use matrixclaw_session_runtime::RuntimeMessage;
+use zstar_agent_core::provider::Provider;
+use zstar_compat_openclaw::translation::{split_openclaw_request, OpenClawChatRequest};
+use zstar_session_runtime::RuntimeMessage;
 
 use crate::http::agent_api::AgentRunRequest;
 use crate::live_runtime::{
@@ -219,5 +219,5 @@ fn normalized_session_hint(value: &str) -> Option<String> {
 }
 
 fn browser_session_id_placeholder() -> String {
-    "__matrixclaw_browser_session__".to_string()
+    "__zstar_browser_session__".to_string()
 }

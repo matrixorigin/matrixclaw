@@ -4,7 +4,7 @@ use std::io::ErrorKind;
 use crate::execution::execution_mode_label;
 use crate::http::HttpResponse;
 use crate::node::execution::ExecutionNodeCapabilityRequest;
-use matrixclaw_manifests::config::ExecutionMode;
+use zstar_manifests::config::ExecutionMode;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

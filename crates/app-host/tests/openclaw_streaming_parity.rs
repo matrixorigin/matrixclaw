@@ -4,10 +4,10 @@ use std::net::{TcpListener, TcpStream};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use matrixclaw_app_host::http::SetupSurface;
-use matrixclaw_app_host::server::spawn_test_server;
-use matrixclaw_app_host::ui_assets::UiAssetLayout;
 use serde_json::{json, Value};
+use zstar_app_host::http::SetupSurface;
+use zstar_app_host::server::spawn_test_server;
+use zstar_app_host::ui_assets::UiAssetLayout;
 
 #[test]
 fn openclaw_streaming_parity() {
@@ -82,7 +82,7 @@ fn temp_home() -> std::path::PathBuf {
         .expect("clock before unix epoch")
         .as_nanos();
     let home = env::temp_dir().join(format!(
-        "matrixclaw-openclaw-streaming-{}-{}",
+        "zstar-openclaw-streaming-{}-{}",
         std::process::id(),
         nanos
     ));

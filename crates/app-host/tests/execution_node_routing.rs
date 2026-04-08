@@ -2,10 +2,10 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matrixclaw_app_host::http::{HttpRequest, SetupSurface};
-use matrixclaw_app_host::ui_assets::UiAssetLayout;
-use matrixclaw_manifests::config::{ExecutionMode, ExecutionSettings};
 use serde_json::{json, Value};
+use zstar_app_host::http::{HttpRequest, SetupSurface};
+use zstar_app_host::ui_assets::UiAssetLayout;
+use zstar_manifests::config::{ExecutionMode, ExecutionSettings};
 
 #[derive(Debug, PartialEq, Eq)]
 struct ExecutionNodeObservation {
@@ -128,7 +128,7 @@ fn temp_home() -> PathBuf {
         .expect("clock before unix epoch")
         .as_nanos();
     let home = std::env::temp_dir().join(format!(
-        "matrixclaw-execution-node-routing-{}-{}",
+        "zstar-execution-node-routing-{}-{}",
         std::process::id(),
         nanos
     ));

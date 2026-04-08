@@ -1,12 +1,12 @@
 #!/bin/sh
 set -eu
 
-if [ -z "${MATRIXCLAW_SOURCE_BIN:-}" ]; then
-  echo "MATRIXCLAW_SOURCE_BIN is required" >&2
+if [ -z "${ZSTAR_SOURCE_BIN:-}" ]; then
+  echo "ZSTAR_SOURCE_BIN is required" >&2
   exit 1
 fi
 
-install_dir="${HOME:-$PWD}/.matrixclaw/bin"
+install_dir="${HOME:-$PWD}/.zstar/bin"
 mkdir -p "$install_dir"
-cp "$MATRIXCLAW_SOURCE_BIN" "$install_dir/matrixclaw"
-chmod +x "$install_dir/matrixclaw"
+cp "$ZSTAR_SOURCE_BIN" "$install_dir/zstar"
+chmod +x "$install_dir/zstar"

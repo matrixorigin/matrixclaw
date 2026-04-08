@@ -1,4 +1,4 @@
-use matrixclaw_tools::mcp::types::{CallToolResult, McpTool, ToolContent};
+use zstar_tools::mcp::types::{CallToolResult, McpTool, ToolContent};
 
 #[test]
 fn call_tool_result_extracts_text() {
@@ -53,11 +53,8 @@ fn mcp_tool_descriptor_name_preserved() {
 
 #[test]
 fn json_rpc_request_serializes_correctly() {
-    let req = matrixclaw_tools::mcp::types::JsonRpcRequest::new(
-        42,
-        "tools/list",
-        Some(serde_json::json!({})),
-    );
+    let req =
+        zstar_tools::mcp::types::JsonRpcRequest::new(42, "tools/list", Some(serde_json::json!({})));
     let json = serde_json::to_string(&req).unwrap();
     assert!(json.contains("\"jsonrpc\":\"2.0\""));
     assert!(json.contains("\"id\":42"));
@@ -67,7 +64,7 @@ fn json_rpc_request_serializes_correctly() {
 #[test]
 fn json_rpc_response_parses_result() {
     let json = r#"{"jsonrpc":"2.0","id":1,"result":{"tools":[]}}"#;
-    let resp: matrixclaw_tools::mcp::types::JsonRpcResponse = serde_json::from_str(json).unwrap();
+    let resp: zstar_tools::mcp::types::JsonRpcResponse = serde_json::from_str(json).unwrap();
     assert!(resp.result.is_some());
     assert!(resp.error.is_none());
 }
@@ -75,7 +72,7 @@ fn json_rpc_response_parses_result() {
 #[test]
 fn json_rpc_response_parses_error() {
     let json = r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32600,"message":"Invalid Request"}}"#;
-    let resp: matrixclaw_tools::mcp::types::JsonRpcResponse = serde_json::from_str(json).unwrap();
+    let resp: zstar_tools::mcp::types::JsonRpcResponse = serde_json::from_str(json).unwrap();
     assert!(resp.result.is_none());
     let err = resp.error.unwrap();
     assert_eq!(err.code, -32600);

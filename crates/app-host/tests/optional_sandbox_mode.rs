@@ -4,21 +4,21 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matrixclaw_app_host::execution::{
+use zstar_app_host::execution::{
     execution_contract_paths, load_execution_contract, route_isolated_command,
     ExecutionBackendProbe, StructuredExecutionResult, ToolExecutionBackendKind,
 };
-use matrixclaw_app_host::sandbox_backend::{
+use zstar_app_host::sandbox_backend::{
     SandboxBackend, SandboxBackendRoute, SandboxExecutionRequest,
 };
-use matrixclaw_manifests::config::{ExecutionBackendKind, ExecutionMode, ExecutionSettings};
+use zstar_manifests::config::{ExecutionBackendKind, ExecutionMode, ExecutionSettings};
 
 fn temp_home() -> PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("clock before unix epoch")
         .as_nanos();
-    let home = env::temp_dir().join(format!("matrixclaw-home-{}-{}", std::process::id(), nanos));
+    let home = env::temp_dir().join(format!("zstar-home-{}-{}", std::process::id(), nanos));
     fs::create_dir_all(&home).expect("create temp home");
     home
 }
@@ -37,7 +37,7 @@ struct RecordingSandboxBackend {
 }
 
 impl SandboxBackend for RecordingSandboxBackend {
-    fn backend_selection(&self) -> matrixclaw_manifests::config::ExecutionBackendSelection {
+    fn backend_selection(&self) -> zstar_manifests::config::ExecutionBackendSelection {
         ExecutionSettings::sandboxed().backend
     }
 
@@ -87,11 +87,11 @@ fn optional_sandbox_mode() {
         "sandbox backend double should be invoked once"
     );
 
-    let output = Command::new(env!("CARGO_BIN_EXE_matrixclaw"))
+    let output = Command::new(env!("CARGO_BIN_EXE_zstar"))
         .env("HOME", &home)
         .env_remove("DOCKER_HOST")
         .output()
-        .expect("run matrixclaw startup");
+        .expect("run zstar startup");
 
     assert!(
         output.status.success(),

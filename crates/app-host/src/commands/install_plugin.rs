@@ -3,7 +3,7 @@ use std::path::Path;
 
 use crate::compat_registry;
 use crate::plugin_launcher::{self, PluginLaunchRequest};
-use matrixclaw_manifests::plugin_manifest::{
+use zstar_manifests::plugin_manifest::{
     install_plugin_package, PluginInstallDiagnostic, PluginInstallOutcome,
 };
 

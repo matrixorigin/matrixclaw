@@ -2,9 +2,9 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matrixclaw_app_host::http::{HttpRequest, SetupSurface};
-use matrixclaw_app_host::ui_assets::UiAssetLayout;
 use serde_json::{json, Value};
+use zstar_app_host::http::{HttpRequest, SetupSurface};
+use zstar_app_host::ui_assets::UiAssetLayout;
 
 #[test]
 fn execution_node_contract() {
@@ -68,7 +68,7 @@ fn temp_home() -> PathBuf {
         .expect("clock before unix epoch")
         .as_nanos();
     let home = std::env::temp_dir().join(format!(
-        "matrixclaw-execution-node-contract-{}-{}",
+        "zstar-execution-node-contract-{}-{}",
         std::process::id(),
         nanos
     ));

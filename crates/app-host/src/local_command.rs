@@ -2,8 +2,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use matrixclaw_manifests::config::{ExecutionBackendSelection, ExecutionMode, ExecutionSettings};
 use serde::{Deserialize, Serialize};
+use zstar_manifests::config::{ExecutionBackendSelection, ExecutionMode, ExecutionSettings};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LocalCommandRequest {
@@ -97,7 +97,5 @@ pub fn local_command_settings() -> ExecutionSettings {
 
 pub fn local_command_backend_path(home: impl AsRef<Path>) -> PathBuf {
     let home = home.as_ref();
-    home.join(".matrixclaw")
-        .join("config")
-        .join("execution.json")
+    home.join(".zstar").join("config").join("execution.json")
 }

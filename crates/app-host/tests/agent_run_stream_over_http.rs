@@ -7,10 +7,10 @@ use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matrixclaw_app_host::http::SetupSurface;
-use matrixclaw_app_host::server::spawn_test_server;
-use matrixclaw_app_host::ui_assets::UiAssetLayout;
 use serde_json::Value;
+use zstar_app_host::http::SetupSurface;
+use zstar_app_host::server::spawn_test_server;
+use zstar_app_host::ui_assets::UiAssetLayout;
 
 #[tokio::test]
 async fn agent_run_stream_over_http() {
@@ -171,7 +171,7 @@ fn temp_home() -> PathBuf {
         .expect("clock before unix epoch")
         .as_nanos();
     let home = env::temp_dir().join(format!(
-        "matrixclaw-stream-http-home-{}-{}",
+        "zstar-stream-http-home-{}-{}",
         std::process::id(),
         nanos
     ));

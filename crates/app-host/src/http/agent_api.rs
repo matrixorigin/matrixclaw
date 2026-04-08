@@ -290,7 +290,7 @@ pub(crate) fn build_provider_from_env(
 fn build_provider(
     api_key: &str,
     model: &str,
-) -> Result<OpenAiCompatibleProvider, matrixclaw_agent_core::provider::ProviderError> {
+) -> Result<OpenAiCompatibleProvider, zstar_agent_core::provider::ProviderError> {
     if let Ok(base_url) = env::var("MATRIXCLAW_OPENAI_BASE_URL") {
         if !base_url.trim().is_empty() {
             return OpenAiCompatibleProvider::with_base_url(base_url, api_key, model);
@@ -317,8 +317,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("clock before unix epoch")
             .as_nanos();
-        let home =
-            env::temp_dir().join(format!("matrixclaw-home-{}-{}", std::process::id(), nanos));
+        let home = env::temp_dir().join(format!("zstar-home-{}-{}", std::process::id(), nanos));
         fs::create_dir_all(&home).expect("create temp home");
         home
     }

@@ -1,8 +1,8 @@
 use std::env;
 use std::sync::Arc;
 
-use matrixclaw_provider::config::load_or_default_config;
-use matrixclaw_provider::registry::ProviderRegistry;
+use zstar_provider::config::load_or_default_config;
+use zstar_provider::registry::ProviderRegistry;
 
 use super::adapters::discord_stub::DiscordStubGateway;
 use super::adapters::matrix_stub::MatrixStubGateway;
@@ -109,10 +109,10 @@ async fn build_provider_parts(model: &str) -> Result<(Arc<ProviderRegistry>, Vec
     }
 
     let api_key = env::var("OPENROUTER_API_KEY").map_err(|_| {
-        "OPENROUTER_API_KEY is not set. Set it to an OpenRouter API key, or create ~/.matrixclaw/config/providers.json".to_string()
+        "OPENROUTER_API_KEY is not set. Set it to an OpenRouter API key, or create ~/.zstar/config/providers.json".to_string()
     })?;
 
-    use matrixclaw_provider::backend::{ProviderConfig, ProviderType};
+    use zstar_provider::backend::{ProviderConfig, ProviderType};
 
     let base_url = env::var("MATRIXCLAW_OPENAI_BASE_URL");
     let provider_type = if base_url.is_ok() {

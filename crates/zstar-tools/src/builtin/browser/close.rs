@@ -4,22 +4,25 @@ use super::SharedBrowserState;
 use crate::descriptor::ToolDescriptor;
 use crate::executor::{ToolCall, ToolExecutor, ToolResult};
 
-pub struct GetUrlTool {
+pub struct CloseTool {
     descriptor: ToolDescriptor,
     state: SharedBrowserState,
 }
 
-impl GetUrlTool {
+impl CloseTool {
     pub fn new(state: SharedBrowserState) -> Self {
         Self {
-            descriptor: ToolDescriptor::new("browser_get_url", "Get the current page URL"),
+            descriptor: ToolDescriptor::new(
+                "browser_close",
+                "Close the headless browser and release all resources",
+            ),
             state,
         }
     }
 }
 
 #[async_trait]
-impl ToolExecutor for GetUrlTool {
+impl ToolExecutor for CloseTool {
     fn descriptor(&self) -> &ToolDescriptor {
         &self.descriptor
     }
@@ -27,15 +30,9 @@ impl ToolExecutor for GetUrlTool {
     async fn execute(&self, call: ToolCall) -> ToolResult {
         #[cfg(feature = "browser")]
         {
-            let state = self.state.lock().await;
-            let tab = match state.tab() {
-                Ok(t) => t,
-                Err(e) => return ToolResult::error(&call, e),
-            };
-            match tab.get_url() {
-                Ok(url) => ToolResult::success(&call, url),
-                Err(e) => ToolResult::error(&call, format!("failed to get URL: {e}")),
-            }
+            let mut state = self.state.lock().await;
+            state.close();
+            ToolResult::success(&call, "Browser closed")
         }
 
         #[cfg(not(feature = "browser"))]
@@ -55,10 +52,9 @@ mod tests {
 
     #[test]
     fn descriptor_name() {
-        let state =
-            super::super::make_shared_state(PathBuf::from("/tmp/matrixclaw-test/screenshots"));
-        let tool = GetUrlTool::new(state);
-        assert_eq!(tool.descriptor().name, "browser_get_url");
+        let state = super::super::make_shared_state(PathBuf::from("/tmp/zstar-test/screenshots"));
+        let tool = CloseTool::new(state);
+        assert_eq!(tool.descriptor().name, "browser_close");
         assert!(tool.descriptor().parameters.is_empty());
     }
 }

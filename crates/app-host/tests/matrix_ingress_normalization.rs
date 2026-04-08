@@ -5,16 +5,16 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
-use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::provider::{Provider, ProviderError, ProviderResponse};
-use matrixclaw_agent_core::{RunMessageRole, RunRequest};
-use matrixclaw_app_host::gateway::matrix::{normalize_matrix_inbound_event, MatrixInboundEvent};
-use matrixclaw_app_host::gateway::store::GatewaySessionStore;
-use matrixclaw_app_host::ingress::run_ingress_with_provider;
-use matrixclaw_app_host::live_runtime::session_db_path;
-use matrixclaw_session_runtime::recovery::SessionRecoveryStore;
-use matrixclaw_session_runtime::sqlite::SqliteStorage;
-use matrixclaw_session_runtime::RuntimeMessage;
+use zstar_agent_core::event::AgentEvent;
+use zstar_agent_core::provider::{Provider, ProviderError, ProviderResponse};
+use zstar_agent_core::{RunMessageRole, RunRequest};
+use zstar_app_host::gateway::matrix::{normalize_matrix_inbound_event, MatrixInboundEvent};
+use zstar_app_host::gateway::store::GatewaySessionStore;
+use zstar_app_host::ingress::run_ingress_with_provider;
+use zstar_app_host::live_runtime::session_db_path;
+use zstar_session_runtime::recovery::SessionRecoveryStore;
+use zstar_session_runtime::sqlite::SqliteStorage;
+use zstar_session_runtime::RuntimeMessage;
 
 #[tokio::test]
 async fn matrix_ingress_normalization() {
@@ -128,7 +128,7 @@ impl Provider for RecordingProvider {
     }
 }
 
-fn render_run_message(message: &matrixclaw_agent_core::RunMessage) -> String {
+fn render_run_message(message: &zstar_agent_core::RunMessage) -> String {
     let role = match message.role {
         RunMessageRole::User => "user",
         RunMessageRole::System => "system",
@@ -145,7 +145,7 @@ fn seed_persisted_session(home: &PathBuf, session_id: &str) {
     }
     let mut storage = SqliteStorage::open(path).expect("open session storage");
     storage
-        .persist_session(&matrixclaw_session_runtime::session::Session::new(vec![
+        .persist_session(&zstar_session_runtime::session::Session::new(vec![
             RuntimeMessage::Assistant("browser seeded reply".to_string()),
         ]))
         .expect("persist seeded session");
@@ -162,7 +162,7 @@ fn temp_home() -> PathBuf {
         .expect("clock before unix epoch")
         .as_nanos();
     let home = env::temp_dir().join(format!(
-        "matrixclaw-matrix-ingress-home-{}-{}",
+        "zstar-matrix-ingress-home-{}-{}",
         std::process::id(),
         nanos
     ));

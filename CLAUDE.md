@@ -18,5 +18,5 @@ cargo build --release                      # release build
 Requires an API key. Set `OPENROUTER_API_KEY` and optionally `MATRIXCLAW_LLM_MODEL`:
 
 ```bash
-OPENROUTER_API_KEY=sk-or-... cargo run -p matrixclaw-app-host --bin matrixclaw llm-smoke --model moonshotai/kimi-k2.5
+OPENROUTER_API_KEY=sk-or-... cargo run -p zstar-app-host --bin zstar llm-smoke --model moonshotai/kimi-k2.5
 ```

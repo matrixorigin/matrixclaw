@@ -5,15 +5,15 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
 use async_trait::async_trait;
-use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::provider::{Provider, ProviderError, ProviderResponse};
-use matrixclaw_agent_core::RunRequest;
-use matrixclaw_app_host::gateway::client::GatewayTransportClient;
-use matrixclaw_app_host::gateway::matrix::MatrixInboundEvent;
-use matrixclaw_app_host::gateway::runtime::{GatewayRunStatus, GatewayRuntime};
-use matrixclaw_app_host::gateway::store::GatewaySessionStore;
-use matrixclaw_app_host::gateway::transport::{MatrixGatewayTransport, MatrixTransportConfig};
-use matrixclaw_app_host::gateway::{GatewayOutboundDelivery, OutboundDeliveryKind};
+use zstar_agent_core::event::AgentEvent;
+use zstar_agent_core::provider::{Provider, ProviderError, ProviderResponse};
+use zstar_agent_core::RunRequest;
+use zstar_app_host::gateway::client::GatewayTransportClient;
+use zstar_app_host::gateway::matrix::MatrixInboundEvent;
+use zstar_app_host::gateway::runtime::{GatewayRunStatus, GatewayRuntime};
+use zstar_app_host::gateway::store::GatewaySessionStore;
+use zstar_app_host::gateway::transport::{MatrixGatewayTransport, MatrixTransportConfig};
+use zstar_app_host::gateway::{GatewayOutboundDelivery, OutboundDeliveryKind};
 
 #[tokio::test]
 async fn matrix_gateway_transport_runner_streams_deliveries() {
@@ -209,7 +209,7 @@ fn temp_home() -> PathBuf {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     let seq = COUNTER.fetch_add(1, Ordering::Relaxed);
     let home = env::temp_dir().join(format!(
-        "matrixclaw-matrix-transport-home-{}-{}",
+        "zstar-matrix-transport-home-{}-{}",
         std::process::id(),
         seq
     ));

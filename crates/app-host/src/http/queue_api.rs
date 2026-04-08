@@ -5,7 +5,7 @@ use crate::http::{HttpRequest, HttpResponse, SetupSurface};
 use crate::live_runtime::{
     load_or_create_session_for_request, load_session_queue, persist_session_for_id,
 };
-use matrixclaw_session_runtime::queue::SessionQueue;
+use zstar_session_runtime::queue::SessionQueue;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]

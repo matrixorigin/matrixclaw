@@ -1,4 +1,4 @@
-//! Gateway is the external communication boundary for MatrixClaw.
+//! Gateway is the external communication boundary for ZStar.
 //!
 //! Gateways receive messages from outside systems, normalize them into
 //! ingress envelopes, and project runtime replies back into channel-specific

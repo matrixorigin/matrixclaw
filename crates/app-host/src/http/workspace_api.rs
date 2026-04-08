@@ -7,7 +7,7 @@ use serde_json::json;
 
 use crate::http::{HttpRequest, HttpResponse, SetupSurface};
 use crate::paths;
-use matrixclaw_manifests::config::AppConfig;
+use zstar_manifests::config::AppConfig;
 
 pub const WORKSPACE_FILES_ROUTE: &str = "/api/workspace/files";
 pub const WORKSPACE_REFERENCE_ROUTE: &str = "/api/workspace/reference";

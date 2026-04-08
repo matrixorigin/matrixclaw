@@ -4,7 +4,7 @@ use tokio::sync::RwLock;
 
 use crate::backend::{ProviderConfig, ProviderType};
 use crate::openai::OpenAiProvider;
-use matrixclaw_agent_core::provider::Provider;
+use zstar_agent_core::provider::Provider;
 
 #[derive(Clone)]
 pub struct ProviderEntry {

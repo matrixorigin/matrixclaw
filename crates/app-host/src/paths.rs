@@ -8,7 +8,7 @@ pub fn home_dir() -> PathBuf {
 }
 
 pub fn runtime_home(home: impl AsRef<Path>) -> PathBuf {
-    home.as_ref().join(".matrixclaw")
+    home.as_ref().join(".zstar")
 }
 
 pub fn managed_assets_dir(home: impl AsRef<Path>) -> PathBuf {

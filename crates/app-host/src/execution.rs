@@ -1,7 +1,7 @@
 use std::io;
 use std::path::{Path, PathBuf};
 
-use matrixclaw_manifests::config::{ExecutionBackendSelection, ExecutionMode, ExecutionSettings};
+use zstar_manifests::config::{ExecutionBackendSelection, ExecutionMode, ExecutionSettings};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StructuredExecutionResult {
@@ -94,7 +94,7 @@ pub struct ExecutionContractPaths {
 impl ExecutionContractPaths {
     pub fn new(home: impl AsRef<Path>) -> Self {
         let home = home.as_ref();
-        let execution_dir = home.join(".matrixclaw").join("config");
+        let execution_dir = home.join(".zstar").join("config");
         let execution_config_path = execution_dir.join("execution.json");
         Self {
             execution_dir,

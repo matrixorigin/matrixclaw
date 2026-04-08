@@ -28,8 +28,8 @@ pub const VERSION: &str = "0.1.0";
 
 pub use ui_assets::{UiAssetKind, UiAssetLayout, UiResolvedAsset};
 
-use matrixclaw_tools::ToolRegistry;
 use std::sync::Arc;
+use zstar_tools::ToolRegistry;
 
 fn runtime() -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_current_thread()
@@ -43,7 +43,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> i32 {
     let _ = args.next();
     match args.next().as_deref() {
         Some("version") => {
-            println!("MatrixClaw {VERSION}");
+            println!("ZStar {VERSION}");
             0
         }
         Some("serve") => {
@@ -137,8 +137,8 @@ pub fn run(args: impl IntoIterator<Item = String>) -> i32 {
             let home = paths::home_dir();
             let rt = tokio::runtime::Runtime::new().expect("failed to create tokio runtime");
             let registry = Arc::new(ToolRegistry::new());
-            let tracker = Arc::new(matrixclaw_tools::SubagentTracker::new());
-            rt.block_on(matrixclaw_tools::builtin::register_all(
+            let tracker = Arc::new(zstar_tools::SubagentTracker::new());
+            rt.block_on(zstar_tools::builtin::register_all(
                 &registry,
                 home.to_str().unwrap_or("."),
                 &tracker,
@@ -173,7 +173,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> i32 {
         None => match setup::ensure_first_launch() {
             Ok(setup::StartupMode::Ready) => 0,
             Ok(setup::StartupMode::Setup(surface)) => {
-                println!("MatrixClaw setup available at {}", surface.setup_url());
+                println!("ZStar setup available at {}", surface.setup_url());
                 println!("{}", gateway::matrix::matrix_gateway_status_message());
                 0
             }
@@ -184,7 +184,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> i32 {
         },
         _ => {
             eprintln!(
-                "usage: matrixclaw version | matrixclaw serve [--fixture demo] | matrixclaw chat [--model <id>] | matrixclaw llm-smoke [--model <id>] | matrixclaw mcp-serve | matrixclaw gateway-serve --platform <name> [--config <path>]"
+                "usage: zstar version | zstar serve [--fixture demo] | zstar chat [--model <id>] | zstar llm-smoke [--model <id>] | zstar mcp-serve | zstar gateway-serve --platform <name> [--config <path>]"
             );
             1
         }

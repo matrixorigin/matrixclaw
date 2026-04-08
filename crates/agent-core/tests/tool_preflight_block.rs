@@ -1,12 +1,12 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use async_trait::async_trait;
-use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::policy::{ToolPreflightDecision, ToolPreflightPolicy};
-use matrixclaw_agent_core::provider::{Provider, ProviderError, ProviderResponse};
-use matrixclaw_agent_core::r#loop::run_prompt_with_policy;
-use matrixclaw_agent_core::{RunRequest, ToolCall, ToolResult};
-use matrixclaw_tools::ToolRegistry;
+use zstar_agent_core::event::AgentEvent;
+use zstar_agent_core::policy::{ToolPreflightDecision, ToolPreflightPolicy};
+use zstar_agent_core::provider::{Provider, ProviderError, ProviderResponse};
+use zstar_agent_core::r#loop::run_prompt_with_policy;
+use zstar_agent_core::{RunRequest, ToolCall, ToolResult};
+use zstar_tools::ToolRegistry;
 
 struct DenyDangerPolicy {
     checks: AtomicUsize,

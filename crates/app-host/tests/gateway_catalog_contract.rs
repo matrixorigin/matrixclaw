@@ -3,20 +3,20 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matrixclaw_app_host::agent_store::{agent_profile_path, AgentProfile};
-use matrixclaw_app_host::http::gateway_api::gateway_catalog_path;
-use matrixclaw_app_host::http::{HttpRequest, SetupSurface};
-use matrixclaw_app_host::session_binding_store::session_bindings_path;
-use matrixclaw_app_host::ui_assets::UiAssetLayout;
 use serde_json::json;
 use serde_json::Value;
+use zstar_app_host::agent_store::{agent_profile_path, AgentProfile};
+use zstar_app_host::http::gateway_api::gateway_catalog_path;
+use zstar_app_host::http::{HttpRequest, SetupSurface};
+use zstar_app_host::session_binding_store::session_bindings_path;
+use zstar_app_host::ui_assets::UiAssetLayout;
 
 fn temp_home() -> PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("clock before unix epoch")
         .as_nanos();
-    let home = env::temp_dir().join(format!("matrixclaw-home-{}-{}", std::process::id(), nanos));
+    let home = env::temp_dir().join(format!("zstar-home-{}-{}", std::process::id(), nanos));
     fs::create_dir_all(&home).expect("create temp home");
     home
 }

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use matrixclaw_manifests::config::SetupWizardSubmission;
+use zstar_manifests::config::SetupWizardSubmission;
 
 use crate::http::{HttpMethod, HttpRequest, HttpResponse, SetupSurface};
 use crate::setup;

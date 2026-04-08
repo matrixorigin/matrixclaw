@@ -4,14 +4,14 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matrixclaw_app_host::install::desired_install_dir;
+use zstar_app_host::install::desired_install_dir;
 
 fn temp_home() -> PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("clock before unix epoch")
         .as_nanos();
-    let home = env::temp_dir().join(format!("matrixclaw-home-{}-{}", std::process::id(), nanos));
+    let home = env::temp_dir().join(format!("zstar-home-{}-{}", std::process::id(), nanos));
     fs::create_dir_all(&home).expect("create temp home");
     home
 }
@@ -20,7 +20,7 @@ fn temp_home() -> PathBuf {
 fn install_without_privileged_writes() {
     let home = temp_home();
     let expected_bin_dir = desired_install_dir(&home);
-    let expected_bin = expected_bin_dir.join("matrixclaw");
+    let expected_bin = expected_bin_dir.join("zstar");
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("crate parent")
@@ -28,12 +28,12 @@ fn install_without_privileged_writes() {
         .expect("workspace parent")
         .to_path_buf();
     let script = repo_root.join("scripts/install.sh");
-    let built_binary = env!("CARGO_BIN_EXE_matrixclaw");
+    let built_binary = env!("CARGO_BIN_EXE_zstar");
 
     let output = Command::new("sh")
         .arg(script)
         .env("HOME", &home)
-        .env("MATRIXCLAW_SOURCE_BIN", built_binary)
+        .env("ZSTAR_SOURCE_BIN", built_binary)
         .output()
         .expect("run installer");
 
@@ -61,7 +61,7 @@ fn install_without_privileged_writes() {
     );
     let stdout = String::from_utf8_lossy(&version_output.stdout);
     assert!(
-        stdout.contains("MatrixClaw 0.1.0"),
+        stdout.contains("ZStar 0.1.0"),
         "unexpected version output: {stdout}"
     );
 }

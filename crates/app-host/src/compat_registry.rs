@@ -2,9 +2,9 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use matrixclaw_manifests::plugin_manifest::PluginInstallOutcome;
-use matrixclaw_manifests::skill_manifest::SkillInstallOutcome;
 use serde::{Deserialize, Serialize};
+use zstar_manifests::plugin_manifest::PluginInstallOutcome;
+use zstar_manifests::skill_manifest::SkillInstallOutcome;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CompatRegistryEntry {
@@ -113,7 +113,7 @@ pub fn record_skill_install(
     );
     let registry_path = runtime_home
         .as_ref()
-        .join(".matrixclaw")
+        .join(".zstar")
         .join("state")
         .join("compat-registry.json");
     let _ = entry.save_to(&registry_path)?;
@@ -156,7 +156,7 @@ pub fn record_plugin_install(
     );
     let registry_path = runtime_home
         .as_ref()
-        .join(".matrixclaw")
+        .join(".zstar")
         .join("state")
         .join("compat-registry.json");
     let _ = entry.save_to(&registry_path)?;

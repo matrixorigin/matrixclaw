@@ -2,7 +2,7 @@ use std::fs;
 
 use tempfile::tempdir;
 
-use matrixclaw_manifests::skill_manifest::{
+use zstar_manifests::skill_manifest::{
     detect_skill_root, import_skill_package, normalize_skill_manifest, SkillInstallOutcome,
     NORMALIZED_MANIFEST_NAME,
 };

@@ -1,6 +1,6 @@
-use matrixclaw_app_host::ingress::{normalize_openclaw_request, OpenClawIngressMetadata};
-use matrixclaw_compat_openclaw::translation::{OpenClawChatMessage, OpenClawChatRequest};
-use matrixclaw_session_runtime::RuntimeMessage;
+use zstar_app_host::ingress::{normalize_openclaw_request, OpenClawIngressMetadata};
+use zstar_compat_openclaw::translation::{OpenClawChatMessage, OpenClawChatRequest};
+use zstar_session_runtime::RuntimeMessage;
 
 #[test]
 fn normalized_ingress_envelope() {

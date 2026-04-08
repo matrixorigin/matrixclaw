@@ -1,10 +1,10 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use async_trait::async_trait;
-use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::provider::{Provider, ProviderError, ProviderResponse};
-use matrixclaw_agent_core::{run_prompt, RunRequest};
-use matrixclaw_tools::ToolRegistry;
+use zstar_agent_core::event::AgentEvent;
+use zstar_agent_core::provider::{Provider, ProviderError, ProviderResponse};
+use zstar_agent_core::{run_prompt, RunRequest};
+use zstar_tools::ToolRegistry;
 
 struct ProbeProvider {
     complete_calls: AtomicUsize,

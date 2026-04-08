@@ -5,9 +5,9 @@ use std::net::TcpStream;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matrixclaw_app_host::http::SetupSurface;
-use matrixclaw_app_host::server::spawn_test_server;
-use matrixclaw_app_host::ui_assets::{UiAssetLayout, UI_ENTRY_HTML, UI_WORKSPACE_DIR};
+use zstar_app_host::http::SetupSurface;
+use zstar_app_host::server::spawn_test_server;
+use zstar_app_host::ui_assets::{UiAssetLayout, UI_ENTRY_HTML, UI_WORKSPACE_DIR};
 
 #[test]
 fn health_probe_accepts_desktop_shell_origin() {
@@ -59,7 +59,7 @@ fn temp_home() -> PathBuf {
         .expect("clock before unix epoch")
         .as_nanos();
     let home = env::temp_dir().join(format!(
-        "matrixclaw-desktop-shell-health-cors-home-{}-{}",
+        "zstar-desktop-shell-health-cors-home-{}-{}",
         std::process::id(),
         nanos
     ));
@@ -73,7 +73,7 @@ fn temp_repo_root() -> PathBuf {
         .expect("clock before unix epoch")
         .as_nanos();
     let root = env::temp_dir().join(format!(
-        "matrixclaw-desktop-shell-health-cors-ui-{}-{}",
+        "zstar-desktop-shell-health-cors-ui-{}-{}",
         std::process::id(),
         nanos
     ));

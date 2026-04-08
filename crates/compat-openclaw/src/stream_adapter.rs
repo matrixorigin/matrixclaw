@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use matrixclaw_session_runtime::ChatEvent;
+use zstar_session_runtime::ChatEvent;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]

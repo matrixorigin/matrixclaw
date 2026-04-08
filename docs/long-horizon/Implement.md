@@ -4,7 +4,7 @@ Last updated: 2026-03-28
 
 ## Execution Contract
 - Do not pause after each checkpoint unless blocked by a real external dependency or a risky ambiguity.
-- Treat [Prompt.md](/home/momo/src/matrixclaw/docs/long-horizon/Prompt.md) and [Plans.md](/home/momo/src/matrixclaw/docs/long-horizon/Plans.md) as the durable control plane.
+- Treat [Prompt.md](/home/momo/src/zstar/docs/long-horizon/Prompt.md) and [Plans.md](/home/momo/src/zstar/docs/long-horizon/Plans.md) as the durable control plane.
 - Update the long-horizon docs whenever milestone status, terminology, or direction changes materially.
 - Keep detailed step-by-step implementation plans outside `Plans.md`; use milestone-specific execution artifacts for that.
 

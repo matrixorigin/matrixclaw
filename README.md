@@ -6,12 +6,12 @@ The runtime stays Rust-only at execution time. The web UI uses `SvelteKit` as a 
 
 ## Install
 
-MatrixClaw is installed into a user-owned directory under `~/.matrixclaw/bin`.
+MatrixClaw is installed into a user-owned directory under `~/.zstar/bin`.
 
 ## Version
 
 ```bash
-matrixclaw version
+zstar version
 ```
 
 ## Web UI Workspace

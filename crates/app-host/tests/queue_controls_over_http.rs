@@ -8,10 +8,10 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matrixclaw_app_host::http::agent_api::AGENT_RUN_ROUTE;
-use matrixclaw_app_host::http::{HttpRequest, SetupSurface};
-use matrixclaw_app_host::ui_assets::UiAssetLayout;
 use serde_json::{json, Value};
+use zstar_app_host::http::agent_api::AGENT_RUN_ROUTE;
+use zstar_app_host::http::{HttpRequest, SetupSurface};
+use zstar_app_host::ui_assets::UiAssetLayout;
 
 #[test]
 fn queue_controls_over_http_share_the_live_session() {
@@ -244,7 +244,7 @@ fn temp_home() -> PathBuf {
         .expect("clock before unix epoch")
         .as_nanos();
     let home = env::temp_dir().join(format!(
-        "matrixclaw-queue-over-http-home-{}-{}",
+        "zstar-queue-over-http-home-{}-{}",
         std::process::id(),
         nanos
     ));

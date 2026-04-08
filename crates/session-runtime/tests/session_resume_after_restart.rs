@@ -1,8 +1,8 @@
-use matrixclaw_session_runtime::compaction_record::CompactionRecord;
-use matrixclaw_session_runtime::recovery::{restore_session, SessionRecoveryStore};
-use matrixclaw_session_runtime::session::Session;
-use matrixclaw_session_runtime::sqlite::SqliteStorage;
-use matrixclaw_session_runtime::RuntimeMessage;
+use zstar_session_runtime::compaction_record::CompactionRecord;
+use zstar_session_runtime::recovery::{restore_session, SessionRecoveryStore};
+use zstar_session_runtime::session::Session;
+use zstar_session_runtime::sqlite::SqliteStorage;
+use zstar_session_runtime::RuntimeMessage;
 
 #[test]
 fn session_resume_after_restart() {

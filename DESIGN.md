@@ -1,21 +1,21 @@
-# MatrixClaw Runtime Architecture
+# ZStar Runtime Architecture
 
 ## Overview
 
-MatrixClaw is a single-binary Rust agent runtime. No Node.js, no Electron, no Tauri.
-One `matrixclaw` binary provides a TUI chat interface, an HTTP/SSE API, an MCP client, and an MCP server.
+ZStar is a single-binary Rust agent runtime. No Node.js, no Electron, no Tauri.
+One `zstar` binary provides a TUI chat interface, an HTTP/SSE API, an MCP client, and an MCP server.
 
 ## Crate Structure
 
 ```
-matrixclaw-app-host       CLI entry point, HTTP server, chat REPL
-├── matrixclaw-provider   Provider control plane (registry, fallback, cost, rate limit, health)
-│   └── matrixclaw-agent-core  Async ReAct loop, Provider trait, policy engine
-├── matrixclaw-tools       Tool registry, 18 built-in tools, MCP client
+zstar-app-host       CLI entry point, HTTP server, chat REPL
+├── zstar-provider   Provider control plane (registry, fallback, cost, rate limit, health)
+│   └── zstar-agent-core  Async ReAct loop, Provider trait, policy engine
+├── zstar-tools       Tool registry, 18 built-in tools, MCP client
 ├── sandwrench             Sandbox abstraction — Docker, E2B, Daytona, Local backends
-├── matrixclaw-session-runtime  SQLite storage, queue, compaction, recovery
-├── matrixclaw-manifests   Plugin and skill manifest types
-└── matrixclaw-compat-openclaw  OpenClaw gateway adapter
+├── zstar-session-runtime  SQLite storage, queue, compaction, recovery
+├── zstar-manifests   Plugin and skill manifest types
+└── zstar-compat-openclaw  OpenClaw gateway adapter
 ```
 
 ## Agent Loop
@@ -60,7 +60,7 @@ Tools are registered by name and discovered by the agent loop via `ToolDescripto
 | code_interpreter | full (sandwrench-backed) | Sandboxed code execution via sandwrench abstraction |
 | delegate | full | Subagent spawning with callback-based architecture |
 | delegate_parallel | full | Parallel subagent execution via tokio::spawn |
-| skills | full | List, read, and create skills in ~/.matrixclaw/skills/ |
+| skills | full | List, read, and create skills in ~/.zstar/skills/ |
 | search_files | full | Ripgrep-backed content search with path traversal protection |
 | todo | full | Session-scoped task list for multi-step work |
 | clarify | full | Structured user questions with optional multiple-choice |
@@ -80,7 +80,7 @@ Tools are registered by name and discovered by the agent loop via `ToolDescripto
 ### MCP Client
 
 External tools are loaded via the MCP protocol (JSON-RPC over stdio).
-MCP servers are configured in `~/.matrixclaw/config/mcp.json`.
+MCP servers are configured in `~/.zstar/config/mcp.json`.
 Tools are namespaced as `mcp__{server}__{name}` and wrapped as `ToolExecutor` implementations.
 
 ## Provider Layer
@@ -104,7 +104,7 @@ The provider control plane (`crates/provider-plane/`) sits between `agent-core` 
 ### Registry
 
 `ProviderRegistry` maps named provider configs to `Box<dyn Provider>` instances.
-Providers are configured via `~/.matrixclaw/config/providers.json` or built from env vars.
+Providers are configured via `~/.zstar/config/providers.json` or built from env vars.
 
 ### Fallback Chains
 
@@ -130,12 +130,12 @@ On failure, marks provider unhealthy and tries next in chain.
 
 ## Multi-Agent Orchestration
 
-The `delegate` tool (`crates/matrixclaw-tools/src/builtin/delegate.rs`) enables an agent to spawn child agents.
-The `delegate_parallel` tool (`crates/matrixclaw-tools/src/builtin/delegate_parallel.rs`) runs multiple child agents concurrently.
+The `delegate` tool (`crates/zstar-tools/src/builtin/delegate.rs`) enables an agent to spawn child agents.
+The `delegate_parallel` tool (`crates/zstar-tools/src/builtin/delegate_parallel.rs`) runs multiple child agents concurrently.
 
 ### Architecture
 
-Uses a callback pattern to avoid circular dependencies between `matrixclaw-tools` and `agent-core`:
+Uses a callback pattern to avoid circular dependencies between `zstar-tools` and `agent-core`:
 
 - `SubagentRunner` — callback for single subagent execution
 - `ParallelSubagentRunner` — callback for parallel subagent execution
@@ -212,14 +212,14 @@ Approval policies (AllowAll, DenyDangerous, RequireApproval) are configurable pe
 
 ## Cron Scheduling
 
-`CronjobTool` (`crates/matrixclaw-tools/src/builtin/cronjob.rs`) enables agents to schedule
+`CronjobTool` (`crates/zstar-tools/src/builtin/cronjob.rs`) enables agents to schedule
 recurring tasks. Jobs are stored in SQLite with cron expressions. The store supports add, remove,
 list, and tick (execute due jobs). Integrated with the agent's tool system so scheduled jobs
 run as agent prompts.
 
 ## MCP Server Mode
 
-`matrixclaw mcp-serve` starts an MCP server (JSON-RPC over stdio) that exposes MatrixClaw's
+`zstar mcp-serve` starts an MCP server (JSON-RPC over stdio) that exposes ZStar's
 tools to external clients (IDEs, other agents, scripts). Implements the MCP protocol's
 `tools/list` and `tools/call` methods.
 
@@ -254,12 +254,12 @@ rather than directly depending on any backend.
 
 #### Configuration
 
-Sandbox backend is configured via `~/.matrixclaw/config/sandbox.json`:
+Sandbox backend is configured via `~/.zstar/config/sandbox.json`:
 
 ```json
 {
   "backend": "docker",
-  "docker": { "image": "matrixclaw-sandbox:latest", "memory_mb": 512, "timeout_secs": 120 },
+  "docker": { "image": "zstar-sandbox:latest", "memory_mb": 512, "timeout_secs": 120 },
   "e2b": { "api_key_env": "E2B_API_KEY", "template_id": "base" },
   "daytona": { "server_url": "http://localhost:3986", "api_key_env": "DAYTONA_API_KEY" }
 }
@@ -267,17 +267,17 @@ Sandbox backend is configured via `~/.matrixclaw/config/sandbox.json`:
 
 ### DockerSandbox
 
-`DockerSandbox` (`crates/matrixclaw-tools/src/sandbox.rs`) is the original Docker backend.
+`DockerSandbox` (`crates/zstar-tools/src/sandbox.rs`) is the original Docker backend.
 It is now wrapped by `sandwrench`'s Docker backend implementation, which delegates to the same
 underlying Docker API while conforming to the `SandboxRuntime` trait.
 
 ## CLI
 
 ```
-matrixclaw                Launch TUI chat REPL
-matrixclaw chat           Same as above (explicit subcommand)
-matrixclaw llm-smoke      Run a single LLM round-trip (requires API key)
-matrixclaw mcp-serve      Start MCP server (JSON-RPC over stdio)
+zstar                Launch TUI chat REPL
+zstar chat           Same as above (explicit subcommand)
+zstar llm-smoke      Run a single LLM round-trip (requires API key)
+zstar mcp-serve      Start MCP server (JSON-RPC over stdio)
 ```
 
 Chat mode supports:
@@ -290,7 +290,7 @@ Chat mode supports:
 ## Configuration
 
 ```
-~/.matrixclaw/config/
+~/.zstar/config/
 ├── config.json       General settings
 ├── mcp.json          MCP server definitions
 ├── providers.json    Provider configs and fallback chains
@@ -329,13 +329,13 @@ Example: short prompts go to a fast local model, skill-heavy prompts go to a cap
 
 Skills automatically improve from execution feedback through three components:
 
-1. **TraceCollector** (LifecycleHook) — observes every `PostToolCall` event, buffers tool invocations for the active skill, and records complete execution traces (success/failure/partial) into `~/.matrixclaw/state/skill_traces.sqlite3`
+1. **TraceCollector** (LifecycleHook) — observes every `PostToolCall` event, buffers tool invocations for the active skill, and records complete execution traces (success/failure/partial) into `~/.zstar/state/skill_traces.sqlite3`
 2. **TraceAnalyzer** — groups traces by skill, computes success rates, detects repeated failure patterns in tool-chain sequences via sliding-window analysis, and gathers success/failure example summaries
 3. **SkillRewriter** — when a skill's success rate drops below 50% with 3+ traces, constructs a rewrite prompt containing the current skill instructions + failure patterns + examples, calls the LLM to generate improved instructions, writes as new version with automatic archival of the previous version
 
 **Key design decisions:**
 - No Python dependency — pure Rust implementation inspired by DSPy's GePA and MiProv2
-- `matrixclaw-hooks` crate extracted to break circular dependency between `matrixclaw-tools` and `agent-core`
+- `zstar-hooks` crate extracted to break circular dependency between `zstar-tools` and `agent-core`
 - Callback pattern (`LlmRewriteFn`) for LLM calls avoids direct provider dependency in tools crate
 - Skill versioning archives previous versions to `v<N>.md` before rewriting, enabling rollback
 - Triggered automatically via lifecycle hooks or manually via `skill_evolve` tool

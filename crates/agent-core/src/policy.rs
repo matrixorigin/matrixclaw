@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use matrixclaw_tools::{ToolCall, ToolResult};
+use zstar_tools::{ToolCall, ToolResult};
 
 use crate::approval::ApprovalChecker;
 

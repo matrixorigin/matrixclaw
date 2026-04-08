@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::provenance::ImportProvenance;
 
 pub const SKILL_ENTRY_NAME: &str = "SKILL.md";
-pub const NORMALIZED_MANIFEST_NAME: &str = "matrixclaw.skill.json";
+pub const NORMALIZED_MANIFEST_NAME: &str = "zstar.skill.json";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SupportTier {
@@ -102,7 +102,7 @@ pub fn import_skill_package(
     let manifest = normalize_skill_manifest(&detection);
     let installed_root = runtime_home
         .as_ref()
-        .join(".matrixclaw")
+        .join(".zstar")
         .join("skills")
         .join(&detection.name);
     let manifest_path = installed_root.join(NORMALIZED_MANIFEST_NAME);

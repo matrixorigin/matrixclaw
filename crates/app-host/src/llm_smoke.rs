@@ -1,9 +1,9 @@
 use std::env;
 
-use matrixclaw_agent_core::r#loop::run_prompt;
-use matrixclaw_agent_core::{RunRequest, RunResult};
-use matrixclaw_provider::openai::OpenAiProvider;
-use matrixclaw_tools::ToolRegistry;
+use zstar_agent_core::r#loop::run_prompt;
+use zstar_agent_core::{RunRequest, RunResult};
+use zstar_provider::openai::OpenAiProvider;
+use zstar_tools::ToolRegistry;
 
 const EXPECTED_SENTINEL: &str = "MATRIXCLAW_KIMI_SMOKE_OK";
 
@@ -52,7 +52,7 @@ fn validate_result(result: &RunResult) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::{validate_result, EXPECTED_SENTINEL};
-    use matrixclaw_agent_core::RunResult;
+    use zstar_agent_core::RunResult;
 
     #[test]
     fn accepts_exact_sentinel() {

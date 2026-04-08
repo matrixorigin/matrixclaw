@@ -16,8 +16,8 @@ pub mod skills_api;
 pub mod workspace_api;
 
 use crate::ui_assets::{UiAssetKind, UiAssetLayout};
-use matrixclaw_manifests::config::AppConfig;
-use matrixclaw_session_runtime::queue::SessionQueue;
+use zstar_manifests::config::AppConfig;
+use zstar_session_runtime::queue::SessionQueue;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HttpMethod {

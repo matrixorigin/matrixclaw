@@ -3,16 +3,14 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
-use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::provider::{Provider, ProviderError, ProviderResponse};
-use matrixclaw_agent_core::{RunMessageRole, RunRequest};
-use matrixclaw_app_host::live_runtime::{
-    session_db_path, LiveRunRequest, SessionBackedLiveRunService,
-};
-use matrixclaw_session_runtime::queue::SessionQueue;
-use matrixclaw_session_runtime::session::Session;
-use matrixclaw_session_runtime::sqlite::SqliteStorage;
-use matrixclaw_session_runtime::RuntimeMessage;
+use zstar_agent_core::event::AgentEvent;
+use zstar_agent_core::provider::{Provider, ProviderError, ProviderResponse};
+use zstar_agent_core::{RunMessageRole, RunRequest};
+use zstar_app_host::live_runtime::{session_db_path, LiveRunRequest, SessionBackedLiveRunService};
+use zstar_session_runtime::queue::SessionQueue;
+use zstar_session_runtime::session::Session;
+use zstar_session_runtime::sqlite::SqliteStorage;
+use zstar_session_runtime::RuntimeMessage;
 
 #[tokio::test]
 async fn live_queue_integration() {
@@ -169,8 +167,8 @@ fn seed_session(
     }
 
     let queue = SessionQueue::from_items(vec![
-        matrixclaw_session_runtime::queue::QueueItem::Steering(steering_and_follow_up[0].clone()),
-        matrixclaw_session_runtime::queue::QueueItem::FollowUp(steering_and_follow_up[1].clone()),
+        zstar_session_runtime::queue::QueueItem::Steering(steering_and_follow_up[0].clone()),
+        zstar_session_runtime::queue::QueueItem::FollowUp(steering_and_follow_up[1].clone()),
     ]);
     let session = Session::from_parts(history, queue, Vec::new());
 
@@ -187,7 +185,7 @@ fn temp_home() -> PathBuf {
         .as_nanos();
 
     let home = std::env::temp_dir().join(format!(
-        "matrixclaw-live-queue-home-{}-{nanos}",
+        "zstar-live-queue-home-{}-{nanos}",
         std::process::id()
     ));
     fs::create_dir_all(&home).expect("create temp home");

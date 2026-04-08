@@ -3,11 +3,11 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matrixclaw_app_host::execution::{execution_contract_paths, ExecutionBackendProbe};
-use matrixclaw_app_host::http::{HttpRequest, SetupSurface};
-use matrixclaw_app_host::setup::{config_path, local_setup_server_contract};
-use matrixclaw_app_host::ui_assets::UiAssetLayout;
-use matrixclaw_manifests::config::{
+use zstar_app_host::execution::{execution_contract_paths, ExecutionBackendProbe};
+use zstar_app_host::http::{HttpRequest, SetupSurface};
+use zstar_app_host::setup::{config_path, local_setup_server_contract};
+use zstar_app_host::ui_assets::UiAssetLayout;
+use zstar_manifests::config::{
     AuthSettings, ExecutionSettings, ProviderSettings, SetupWizardSubmission, WorkspaceSettings,
 };
 
@@ -16,7 +16,7 @@ fn temp_home() -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("clock before unix epoch")
         .as_nanos();
-    let home = env::temp_dir().join(format!("matrixclaw-home-{}-{}", std::process::id(), nanos));
+    let home = env::temp_dir().join(format!("zstar-home-{}-{}", std::process::id(), nanos));
     fs::create_dir_all(&home).expect("create temp home");
     home
 }
@@ -27,7 +27,7 @@ fn temp_repo_root() -> PathBuf {
         .expect("clock before unix epoch")
         .as_nanos();
     let root = env::temp_dir().join(format!(
-        "matrixclaw-setup-wizard-{}-{}",
+        "zstar-setup-wizard-{}-{}",
         std::process::id(),
         nanos
     ));

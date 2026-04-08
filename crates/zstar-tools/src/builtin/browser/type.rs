@@ -111,7 +111,7 @@ mod tests {
     use std::path::PathBuf;
 
     fn make_state() -> SharedBrowserState {
-        super::super::make_shared_state(PathBuf::from("/tmp/matrixclaw-test/screenshots"))
+        super::super::make_shared_state(PathBuf::from("/tmp/zstar-test/screenshots"))
     }
 
     #[test]

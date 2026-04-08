@@ -2,10 +2,10 @@ use std::fs;
 
 use tempfile::tempdir;
 
-use matrixclaw_manifests::plugin_manifest::{
+use zstar_manifests::plugin_manifest::{
     install_plugin_package, PluginInstallOutcome, PluginInstallReasonCode, PLUGIN_ENTRY_NAME,
 };
-use matrixclaw_manifests::skill_manifest::SupportTier;
+use zstar_manifests::skill_manifest::SupportTier;
 
 #[test]
 fn reject_inprocess_extension() {

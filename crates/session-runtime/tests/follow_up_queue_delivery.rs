@@ -1,6 +1,6 @@
-use matrixclaw_session_runtime::queue::QueueItem;
-use matrixclaw_session_runtime::run_controller::RunController;
-use matrixclaw_session_runtime::RuntimeMessage;
+use zstar_session_runtime::queue::QueueItem;
+use zstar_session_runtime::run_controller::RunController;
+use zstar_session_runtime::RuntimeMessage;
 
 #[test]
 fn follow_up_queue_delivery() {

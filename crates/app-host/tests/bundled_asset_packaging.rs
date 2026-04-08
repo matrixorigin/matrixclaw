@@ -3,9 +3,9 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matrixclaw_app_host::http::{setup_surface_for_home, HttpRequest};
-use matrixclaw_app_host::paths;
-use matrixclaw_app_host::ui_assets::{
+use zstar_app_host::http::{setup_surface_for_home, HttpRequest};
+use zstar_app_host::paths;
+use zstar_app_host::ui_assets::{
     UiAssetLayout, UI_BUILD_DIR, UI_ENTRY_HTML, UI_SETUP_HTML, UI_SKILLS_HTML, UI_WORKSPACE_DIR,
     UI_WORKSPACE_HTML,
 };
@@ -16,7 +16,7 @@ fn temp_home() -> PathBuf {
         .expect("clock before unix epoch")
         .as_nanos();
     let home = env::temp_dir().join(format!(
-        "matrixclaw-bundled-home-{}-{}",
+        "zstar-bundled-home-{}-{}",
         std::process::id(),
         nanos
     ));
@@ -51,7 +51,7 @@ fn seed_bundled_ui(home: &PathBuf) -> UiAssetLayout {
     .expect("write skills html");
     fs::write(
         build_dir.join("_app").join("app.js"),
-        "console.log('matrixclaw');",
+        "console.log('zstar');",
     )
     .expect("write bundled app js");
     UiAssetLayout::bundled_for_home(home)
@@ -89,7 +89,7 @@ fn bundled_asset_packaging() {
     let static_asset = surface.handle(HttpRequest::get("/_app/app.js"));
     assert_eq!(static_asset.status_code, 200);
     assert!(
-        static_asset.body_text().contains("matrixclaw"),
+        static_asset.body_text().contains("zstar"),
         "static bundled assets should also resolve from the runtime home"
     );
 }

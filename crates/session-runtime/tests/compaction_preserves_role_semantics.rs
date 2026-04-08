@@ -1,11 +1,11 @@
-use matrixclaw_session_runtime::compaction::compact_with_summary;
-use matrixclaw_session_runtime::message_projection::{
+use zstar_session_runtime::compaction::compact_with_summary;
+use zstar_session_runtime::message_projection::{
     DurableTranscriptEntry, DurableTranscriptKind, SummaryArtifactRole,
 };
-use matrixclaw_session_runtime::session::Session;
-use matrixclaw_session_runtime::sqlite::SqliteStorage;
-use matrixclaw_session_runtime::storage::TranscriptStore;
-use matrixclaw_session_runtime::RuntimeMessage;
+use zstar_session_runtime::session::Session;
+use zstar_session_runtime::sqlite::SqliteStorage;
+use zstar_session_runtime::storage::TranscriptStore;
+use zstar_session_runtime::RuntimeMessage;
 
 #[test]
 fn compaction_preserves_role_semantics() {

@@ -87,13 +87,13 @@ rust-test:
 	cargo test
 
 app-host-test:
-	cargo test -p matrixclaw-app-host
+	cargo test -p zstar-app-host
 
 compat-test:
-	cargo test -p matrixclaw-compat-openclaw
+	cargo test -p zstar-compat-openclaw
 
 session-test:
-	cargo test -p matrixclaw-session-runtime
+	cargo test -p zstar-session-runtime
 
 fmt-check:
 	cargo fmt --all --check

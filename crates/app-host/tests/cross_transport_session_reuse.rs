@@ -8,11 +8,11 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matrixclaw_app_host::http::SetupSurface;
-use matrixclaw_app_host::live_runtime::session_db_path;
-use matrixclaw_app_host::server::spawn_test_server;
-use matrixclaw_app_host::ui_assets::UiAssetLayout;
 use serde_json::{json, Value};
+use zstar_app_host::http::SetupSurface;
+use zstar_app_host::live_runtime::session_db_path;
+use zstar_app_host::server::spawn_test_server;
+use zstar_app_host::ui_assets::UiAssetLayout;
 
 #[tokio::test]
 async fn cross_transport_session_reuse() {
@@ -311,7 +311,7 @@ fn temp_home() -> PathBuf {
         .expect("clock before unix epoch")
         .as_nanos();
     let home = env::temp_dir().join(format!(
-        "matrixclaw-cross-transport-home-{}-{}",
+        "zstar-cross-transport-home-{}-{}",
         std::process::id(),
         nanos
     ));

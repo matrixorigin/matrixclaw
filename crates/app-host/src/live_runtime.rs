@@ -3,21 +3,21 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::hooks::{CompositeHook, LifecycleHook};
-use matrixclaw_agent_core::provider::Provider;
-use matrixclaw_agent_core::r#loop::run_prompt_with_policy;
-use matrixclaw_agent_core::{RunMessage, RunRequest, ToolChoice};
-use matrixclaw_session_runtime::queue::{QueueItem, SessionQueue};
-use matrixclaw_session_runtime::recovery::{restore_session, SessionRecoveryStore};
-use matrixclaw_session_runtime::session::Session;
-use matrixclaw_session_runtime::sqlite::SqliteStorage;
-use matrixclaw_session_runtime::RuntimeMessage;
-use matrixclaw_tools::builtin::delegate::{DelegateTool, SubagentRunner};
-use matrixclaw_tools::builtin::delegate_parallel::{DelegateParallelTool, ParallelSubagentRunner};
-use matrixclaw_tools::builtin::skill_evolver::{SkillEvolveTool, SkillRewriter};
-use matrixclaw_tools::ToolRegistry;
 use serde::{Deserialize, Serialize};
+use zstar_agent_core::event::AgentEvent;
+use zstar_agent_core::hooks::{CompositeHook, LifecycleHook};
+use zstar_agent_core::provider::Provider;
+use zstar_agent_core::r#loop::run_prompt_with_policy;
+use zstar_agent_core::{RunMessage, RunRequest, ToolChoice};
+use zstar_session_runtime::queue::{QueueItem, SessionQueue};
+use zstar_session_runtime::recovery::{restore_session, SessionRecoveryStore};
+use zstar_session_runtime::session::Session;
+use zstar_session_runtime::sqlite::SqliteStorage;
+use zstar_session_runtime::RuntimeMessage;
+use zstar_tools::builtin::delegate::{DelegateTool, SubagentRunner};
+use zstar_tools::builtin::delegate_parallel::{DelegateParallelTool, ParallelSubagentRunner};
+use zstar_tools::builtin::skill_evolver::{SkillEvolveTool, SkillRewriter};
+use zstar_tools::ToolRegistry;
 
 use crate::paths;
 
@@ -73,13 +73,12 @@ impl SessionBackedLiveRunService {
     pub async fn new(home: impl AsRef<Path>) -> Self {
         let registry = Arc::new(ToolRegistry::new());
         let workspace_root = home.as_ref().to_string_lossy().to_string();
-        let tracker = Arc::new(matrixclaw_tools::SubagentTracker::new());
-        matrixclaw_tools::builtin::register_all(&registry, &workspace_root, &tracker).await;
+        let tracker = Arc::new(zstar_tools::SubagentTracker::new());
+        zstar_tools::builtin::register_all(&registry, &workspace_root, &tracker).await;
 
         let mcp_config_path = paths::config_dir(&home).join("mcp.json");
         let _report =
-            matrixclaw_tools::mcp::registration::register_mcp_tools(&registry, &mcp_config_path)
-                .await;
+            zstar_tools::mcp::registration::register_mcp_tools(&registry, &mcp_config_path).await;
 
         Self {
             home: home.as_ref().to_path_buf(),
@@ -457,9 +456,9 @@ pub fn persist_session_for_id(
 pub fn load_session_queue(
     home: impl AsRef<Path>,
     session_id: Option<&str>,
-) -> Result<matrixclaw_session_runtime::queue::SessionQueue, String> {
+) -> Result<zstar_session_runtime::queue::SessionQueue, String> {
     let Some(session_id) = session_id.map(str::trim).filter(|value| !value.is_empty()) else {
-        return Ok(matrixclaw_session_runtime::queue::SessionQueue::default());
+        return Ok(zstar_session_runtime::queue::SessionQueue::default());
     };
 
     let session_path = session_db_path(home, session_id);

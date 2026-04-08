@@ -1,8 +1,8 @@
-use matrixclaw_session_runtime::compaction::{CompactionRequest, CompactionResult, Compactor};
-use matrixclaw_session_runtime::compaction_record::CompactionRecord;
-use matrixclaw_session_runtime::error::RunFailure;
-use matrixclaw_session_runtime::run_controller::RunController;
-use matrixclaw_session_runtime::RuntimeMessage;
+use zstar_session_runtime::compaction::{CompactionRequest, CompactionResult, Compactor};
+use zstar_session_runtime::compaction_record::CompactionRecord;
+use zstar_session_runtime::error::RunFailure;
+use zstar_session_runtime::run_controller::RunController;
+use zstar_session_runtime::RuntimeMessage;
 
 #[derive(Default)]
 struct RecordingCompactor {

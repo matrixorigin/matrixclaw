@@ -2,11 +2,11 @@ use std::fs;
 
 use tempfile::tempdir;
 
-use matrixclaw_manifests::plugin_manifest::{
+use zstar_manifests::plugin_manifest::{
     detect_plugin_root, install_plugin_package, normalize_plugin_manifest, PluginInstallOutcome,
     NORMALIZED_MANIFEST_NAME,
 };
-use matrixclaw_manifests::skill_manifest::SupportTier;
+use zstar_manifests::skill_manifest::SupportTier;
 
 #[test]
 fn install_subprocess_plugin() {
@@ -39,10 +39,7 @@ fn install_subprocess_plugin() {
     let normalized = normalize_plugin_manifest(&detection);
     assert_eq!(normalized["schemaVersion"], "1");
     assert_eq!(normalized["compat"]["tier"], "shimmed");
-    assert_eq!(
-        normalized["entrypoint"]["command"],
-        "matrixclaw-plugin-adapter"
-    );
+    assert_eq!(normalized["entrypoint"]["command"], "zstar-plugin-adapter");
 
     let outcome = install_plugin_package(source.path(), runtime_home.path())
         .expect("install attempt should classify");

@@ -12,7 +12,7 @@ const UI_BUILD_RESOURCE_DIR: &str = "ui/build";
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
-            let home = matrixclaw_app_host::paths::home_dir();
+            let home = zstar_app_host::paths::home_dir();
 
             if let Some(source_dir) = resolve_bundled_ui_source_dir(app) {
                 stage_bundled_ui_assets(&source_dir, &home)?;
@@ -22,7 +22,7 @@ fn main() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("launch MatrixClaw desktop shell");
+        .expect("launch ZStar desktop shell");
 }
 
 fn resolve_bundled_ui_source_dir(app: &tauri::App) -> Option<PathBuf> {
@@ -43,16 +43,16 @@ fn resolve_bundled_ui_source_dir(app: &tauri::App) -> Option<PathBuf> {
 
 fn spawn_embedded_runtime(home: PathBuf) {
     thread::spawn(move || {
-        if let Err(error) = matrixclaw_app_host::server::serve_for_home(&home) {
+        if let Err(error) = zstar_app_host::server::serve_for_home(&home) {
             if error.kind() != io::ErrorKind::AddrInUse {
-                eprintln!("matrixclaw desktop runtime failed: {error}");
+                eprintln!("zstar desktop runtime failed: {error}");
             }
         }
     });
 }
 
 fn stage_bundled_ui_assets(source_dir: &Path, home: &Path) -> io::Result<PathBuf> {
-    let target_dir = matrixclaw_app_host::paths::managed_assets_dir(home)
+    let target_dir = zstar_app_host::paths::managed_assets_dir(home)
         .join("ui")
         .join("build");
     copy_dir_recursive(source_dir, &target_dir)?;
@@ -91,7 +91,7 @@ mod tests {
             .expect("clock before unix epoch")
             .as_nanos();
         let dir = std::env::temp_dir().join(format!(
-            "matrixclaw-desktop-shell-{}-{}-{}",
+            "zstar-desktop-shell-{}-{}-{}",
             label,
             std::process::id(),
             nanos
@@ -108,7 +108,7 @@ mod tests {
         fs::write(source.join("index.html"), "<html>bundled shell</html>").expect("write shell");
         fs::write(
             source.join("_app").join("immutable").join("app.js"),
-            "console.log('matrixclaw');",
+            "console.log('zstar');",
         )
         .expect("write js");
 
@@ -125,13 +125,13 @@ mod tests {
         fs::create_dir_all(source.join("_app")).expect("create source tree");
         fs::write(source.join("index.html"), "<html>bundled shell</html>").expect("write shell");
         fs::write(source.join("setup.html"), "<html>setup</html>").expect("write setup");
-        fs::write(source.join("_app").join("app.js"), "console.log('matrixclaw');")
+        fs::write(source.join("_app").join("app.js"), "console.log('zstar');")
             .expect("write js");
 
         let staged = stage_bundled_ui_assets(&source, &home).expect("stage bundled ui assets");
         assert_eq!(
             staged,
-            matrixclaw_app_host::paths::managed_assets_dir(&home)
+            zstar_app_host::paths::managed_assets_dir(&home)
                 .join("ui")
                 .join("build")
         );

@@ -1,12 +1,12 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use async_trait::async_trait;
-use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::provider::{Provider, ProviderError, ProviderResponse};
-use matrixclaw_agent_core::r#loop::run_prompt_with_policy;
-use matrixclaw_agent_core::{RunRequest, ToolCall};
-use matrixclaw_tools::{ToolDescriptor, ToolExecutor, ToolRegistry, ToolResult};
 use std::sync::Arc;
+use zstar_agent_core::event::AgentEvent;
+use zstar_agent_core::provider::{Provider, ProviderError, ProviderResponse};
+use zstar_agent_core::r#loop::run_prompt_with_policy;
+use zstar_agent_core::{RunRequest, ToolCall};
+use zstar_tools::{ToolDescriptor, ToolExecutor, ToolRegistry, ToolResult};
 
 struct ToolCallProvider {
     stream_calls: AtomicUsize,

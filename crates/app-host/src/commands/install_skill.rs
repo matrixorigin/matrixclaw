@@ -2,7 +2,7 @@ use std::io;
 use std::path::Path;
 
 use crate::compat_registry;
-use matrixclaw_manifests::skill_manifest::{import_skill_package, SkillInstallOutcome};
+use zstar_manifests::skill_manifest::{import_skill_package, SkillInstallOutcome};
 
 pub fn install_skill(
     source_root: impl AsRef<Path>,

@@ -10,10 +10,10 @@ use crate::http::agent_api::{build_provider_from_env, resolve_model};
 use crate::http::{HttpRequest, HttpResponse, SetupSurface};
 use crate::ingress::OpenClawIngressMetadata;
 use crate::openclaw_transport;
-use matrixclaw_compat_openclaw::translation::{
+use zstar_compat_openclaw::translation::{
     OpenClawChatMessage, OpenClawChatRequest, OpenClawChatRole,
 };
-use matrixclaw_compat_openclaw::websocket::openclaw_agents_list;
+use zstar_compat_openclaw::websocket::openclaw_agents_list;
 
 pub const OPENCLAW_CHAT_ROUTE: &str = "/api/openclaw/chat";
 pub const OPENCLAW_WEBSOCKET_ROUTE: &str = "/api/openclaw/ws";
@@ -166,11 +166,11 @@ pub fn serve_openclaw_websocket(surface: SetupSurface, request: Request) -> io::
 
     if !matches!(
         conversation.frames.last(),
-        Some(matrixclaw_compat_openclaw::stream_adapter::ChatFrame::Completed)
+        Some(zstar_compat_openclaw::stream_adapter::ChatFrame::Completed)
     ) {
         write_websocket_json_frame(
             &mut stream,
-            &matrixclaw_compat_openclaw::stream_adapter::ChatFrame::Completed,
+            &zstar_compat_openclaw::stream_adapter::ChatFrame::Completed,
         )?;
     }
 

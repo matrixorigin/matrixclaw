@@ -5,15 +5,13 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
-use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::provider::{Provider, ProviderError, ProviderResponse};
-use matrixclaw_agent_core::RunRequest;
-use matrixclaw_app_host::gateway::matrix::MatrixInboundEvent;
-use matrixclaw_app_host::gateway::runtime::{
-    GatewayDeliveryRetry, GatewayRunStatus, GatewayRuntime,
-};
-use matrixclaw_app_host::gateway::store::GatewaySessionStore;
-use matrixclaw_app_host::gateway::OutboundDeliveryKind;
+use zstar_agent_core::event::AgentEvent;
+use zstar_agent_core::provider::{Provider, ProviderError, ProviderResponse};
+use zstar_agent_core::RunRequest;
+use zstar_app_host::gateway::matrix::MatrixInboundEvent;
+use zstar_app_host::gateway::runtime::{GatewayDeliveryRetry, GatewayRunStatus, GatewayRuntime};
+use zstar_app_host::gateway::store::GatewaySessionStore;
+use zstar_app_host::gateway::OutboundDeliveryKind;
 
 #[tokio::test]
 async fn gateway_dedupe_retry_boundary() {
@@ -112,7 +110,7 @@ fn temp_home() -> PathBuf {
         .expect("clock before unix epoch")
         .as_nanos();
     let home = env::temp_dir().join(format!(
-        "matrixclaw-gateway-runtime-home-{}-{}",
+        "zstar-gateway-runtime-home-{}-{}",
         std::process::id(),
         nanos
     ));

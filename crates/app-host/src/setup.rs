@@ -2,7 +2,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use matrixclaw_manifests::config::SetupWizardSubmission;
+use zstar_manifests::config::SetupWizardSubmission;
 
 use crate::execution;
 use crate::http::routes::SetupServerContract;
@@ -46,7 +46,7 @@ pub fn persist_setup_submission(
     let home = home.as_ref();
     let config = submission.to_app_config();
     let config_path = crate::paths::config_path(home);
-    let execution_path = matrixclaw_manifests::config::ExecutionSettings::execution_path(home);
+    let execution_path = zstar_manifests::config::ExecutionSettings::execution_path(home);
 
     if let Some(parent) = config_path.parent() {
         fs::create_dir_all(parent)?;

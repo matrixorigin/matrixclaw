@@ -4,8 +4,8 @@ Last updated: 2026-03-28
 
 ## Verification Checklist
 - [ ] `cargo fmt --all --check`
-- [ ] `cargo test -p matrixclaw-app-host`
-- [ ] `cargo test -p matrixclaw-compat-openclaw`
+- [ ] `cargo test -p zstar-app-host`
+- [ ] `cargo test -p zstar-compat-openclaw`
 - [ ] `pnpm --dir ui check`
 - [ ] `pnpm --dir ui build`
 - [ ] `pnpm --dir ui test:e2e`
@@ -24,19 +24,19 @@ Scope:
 - [x] Served OpenClaw HTTP and WebSocket paths reuse the same runtime/session model.
 
 Key files/modules:
-- [crates/app-host/src/live_runtime.rs](/home/momo/src/matrixclaw/crates/app-host/src/live_runtime.rs)
-- [crates/app-host/src/ingress.rs](/home/momo/src/matrixclaw/crates/app-host/src/ingress.rs)
-- [crates/app-host/src/openclaw_transport.rs](/home/momo/src/matrixclaw/crates/app-host/src/openclaw_transport.rs)
-- [crates/app-host/src/http/agent_api.rs](/home/momo/src/matrixclaw/crates/app-host/src/http/agent_api.rs)
-- [crates/app-host/src/http/openclaw_api.rs](/home/momo/src/matrixclaw/crates/app-host/src/http/openclaw_api.rs)
+- [crates/app-host/src/live_runtime.rs](/home/momo/src/zstar/crates/app-host/src/live_runtime.rs)
+- [crates/app-host/src/ingress.rs](/home/momo/src/zstar/crates/app-host/src/ingress.rs)
+- [crates/app-host/src/openclaw_transport.rs](/home/momo/src/zstar/crates/app-host/src/openclaw_transport.rs)
+- [crates/app-host/src/http/agent_api.rs](/home/momo/src/zstar/crates/app-host/src/http/agent_api.rs)
+- [crates/app-host/src/http/openclaw_api.rs](/home/momo/src/zstar/crates/app-host/src/http/openclaw_api.rs)
 
 Acceptance criteria:
 - [x] One runtime path persists and resumes sessions across browser and OpenClaw.
 - [x] Streamed runtime events are exposed through both browser and OpenClaw transport surfaces.
 
 Verification commands:
-- `cargo test -p matrixclaw-app-host`
-- `cargo test -p matrixclaw-compat-openclaw`
+- `cargo test -p zstar-app-host`
+- `cargo test -p zstar-compat-openclaw`
 - `./scripts/verify-served-transports.sh`
 
 Execution workflow:
@@ -47,8 +47,8 @@ Execution workflow:
 - [ ] Other: direct execution
 
 Execution artifact:
-- `docs/plans/2026-03-27-matrixclaw-live-agent-runtime-plan/`
-- `docs/plans/2026-03-28-matrixclaw-served-transport-plan/`
+- `docs/plans/2026-03-27-zstar-live-agent-runtime-plan/`
+- `docs/plans/2026-03-28-zstar-served-transport-plan/`
 
 Status:
 - [ ] not started
@@ -62,11 +62,11 @@ Scope:
 - [x] Add a fixture-backed gateway runner that exercises inbound receive and outbound streamed delivery.
 
 Key files/modules:
-- [crates/app-host/src/gateway/mod.rs](/home/momo/src/matrixclaw/crates/app-host/src/gateway/mod.rs)
-- [crates/app-host/src/gateway/matrix.rs](/home/momo/src/matrixclaw/crates/app-host/src/gateway/matrix.rs)
-- [crates/app-host/src/gateway/runtime.rs](/home/momo/src/matrixclaw/crates/app-host/src/gateway/runtime.rs)
-- [crates/app-host/src/gateway/transport.rs](/home/momo/src/matrixclaw/crates/app-host/src/gateway/transport.rs)
-- [docs/plans/2026-03-28-matrix-gateway-design/gateway-and-node-model.md](/home/momo/src/matrixclaw/docs/plans/2026-03-28-matrix-gateway-design/gateway-and-node-model.md)
+- [crates/app-host/src/gateway/mod.rs](/home/momo/src/zstar/crates/app-host/src/gateway/mod.rs)
+- [crates/app-host/src/gateway/matrix.rs](/home/momo/src/zstar/crates/app-host/src/gateway/matrix.rs)
+- [crates/app-host/src/gateway/runtime.rs](/home/momo/src/zstar/crates/app-host/src/gateway/runtime.rs)
+- [crates/app-host/src/gateway/transport.rs](/home/momo/src/zstar/crates/app-host/src/gateway/transport.rs)
+- [docs/plans/2026-03-28-matrix-gateway-design/gateway-and-node-model.md](/home/momo/src/zstar/docs/plans/2026-03-28-matrix-gateway-design/gateway-and-node-model.md)
 
 Acceptance criteria:
 - [x] Gateway concerns stay outside the live runtime.
@@ -75,7 +75,7 @@ Acceptance criteria:
 
 Verification commands:
 - `cargo fmt --all --check`
-- `cargo test -p matrixclaw-app-host`
+- `cargo test -p zstar-app-host`
 - `./scripts/verify-matrix-gateway.sh`
 
 Execution workflow:
@@ -103,13 +103,13 @@ Scope:
 - [ ] Establish product-grade verification for packaged launch and first run.
 
 Key files/modules:
-- [apps/desktop-shell/](/home/momo/src/matrixclaw/apps/desktop-shell)
-- [crates/app-host/src/ui_assets.rs](/home/momo/src/matrixclaw/crates/app-host/src/ui_assets.rs)
-- [crates/app-host/src/server.rs](/home/momo/src/matrixclaw/crates/app-host/src/server.rs)
-- [ui/src/routes/+layout.svelte](/home/momo/src/matrixclaw/ui/src/routes/+layout.svelte)
-- [ui/src/routes/setup/+page.svelte](/home/momo/src/matrixclaw/ui/src/routes/setup/+page.svelte)
-- [ui/src/routes/workspace/+page.svelte](/home/momo/src/matrixclaw/ui/src/routes/workspace/+page.svelte)
-- [ui/src/routes/skills/+page.svelte](/home/momo/src/matrixclaw/ui/src/routes/skills/+page.svelte)
+- [apps/desktop-shell/](/home/momo/src/zstar/apps/desktop-shell)
+- [crates/app-host/src/ui_assets.rs](/home/momo/src/zstar/crates/app-host/src/ui_assets.rs)
+- [crates/app-host/src/server.rs](/home/momo/src/zstar/crates/app-host/src/server.rs)
+- [ui/src/routes/+layout.svelte](/home/momo/src/zstar/ui/src/routes/+layout.svelte)
+- [ui/src/routes/setup/+page.svelte](/home/momo/src/zstar/ui/src/routes/setup/+page.svelte)
+- [ui/src/routes/workspace/+page.svelte](/home/momo/src/zstar/ui/src/routes/workspace/+page.svelte)
+- [ui/src/routes/skills/+page.svelte](/home/momo/src/zstar/ui/src/routes/skills/+page.svelte)
 
 Acceptance criteria:
 - [ ] MatrixClaw launches as a self-contained single-window Tauri app with no repo checkout assumptions.
@@ -120,7 +120,7 @@ Acceptance criteria:
 
 Verification commands:
 - `cargo fmt --all --check`
-- `cargo test -p matrixclaw-app-host`
+- `cargo test -p zstar-app-host`
 - `pnpm --dir ui check`
 - `pnpm --dir ui build`
 - packaged-product smoke script or test to be added during milestone planning
@@ -133,7 +133,7 @@ Execution workflow:
 - [ ] Other: direct execution
 
 Execution artifact:
-- `docs/plans/2026-03-28-matrixclaw-tauri-product-plan/`
+- `docs/plans/2026-03-28-zstar-tauri-product-plan/`
 
 Status:
 - [ ] not started
@@ -147,10 +147,10 @@ Scope:
 - [ ] Reconcile existing execution-related modules into a Node-oriented model.
 
 Key files/modules:
-- [crates/app-host/src/execution.rs](/home/momo/src/matrixclaw/crates/app-host/src/execution.rs)
-- [crates/app-host/src/local_command.rs](/home/momo/src/matrixclaw/crates/app-host/src/local_command.rs)
-- [crates/app-host/src/sandbox_backend.rs](/home/momo/src/matrixclaw/crates/app-host/src/sandbox_backend.rs)
-- [crates/app-host/src/plugin_launcher.rs](/home/momo/src/matrixclaw/crates/app-host/src/plugin_launcher.rs)
+- [crates/app-host/src/execution.rs](/home/momo/src/zstar/crates/app-host/src/execution.rs)
+- [crates/app-host/src/local_command.rs](/home/momo/src/zstar/crates/app-host/src/local_command.rs)
+- [crates/app-host/src/sandbox_backend.rs](/home/momo/src/zstar/crates/app-host/src/sandbox_backend.rs)
+- [crates/app-host/src/plugin_launcher.rs](/home/momo/src/zstar/crates/app-host/src/plugin_launcher.rs)
 - future `crates/app-host/src/node/`
 
 Acceptance criteria:
@@ -159,7 +159,7 @@ Acceptance criteria:
 - [ ] Gateway code remains free of host capability implementation details.
 
 Verification commands:
-- `cargo test -p matrixclaw-app-host`
+- `cargo test -p zstar-app-host`
 - focused node smoke script or test to be added during milestone planning
 
 Execution workflow:
@@ -185,9 +185,9 @@ Scope:
 - [ ] Keep all connector SDK or protocol specifics isolated behind the Gateway boundary.
 
 Key files/modules:
-- [crates/app-host/src/gateway/client.rs](/home/momo/src/matrixclaw/crates/app-host/src/gateway/client.rs)
-- [crates/app-host/src/gateway/transport.rs](/home/momo/src/matrixclaw/crates/app-host/src/gateway/transport.rs)
-- [crates/app-host/src/lib.rs](/home/momo/src/matrixclaw/crates/app-host/src/lib.rs)
+- [crates/app-host/src/gateway/client.rs](/home/momo/src/zstar/crates/app-host/src/gateway/client.rs)
+- [crates/app-host/src/gateway/transport.rs](/home/momo/src/zstar/crates/app-host/src/gateway/transport.rs)
+- [crates/app-host/src/lib.rs](/home/momo/src/zstar/crates/app-host/src/lib.rs)
 - future connector-specific module(s)
 
 Acceptance criteria:
@@ -196,7 +196,7 @@ Acceptance criteria:
 - [ ] The runtime and node layers remain connector-agnostic.
 
 Verification commands:
-- `cargo test -p matrixclaw-app-host`
+- `cargo test -p zstar-app-host`
 - updated gateway smoke harness for the concrete connector
 
 Execution workflow:

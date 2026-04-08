@@ -105,7 +105,7 @@ pub async fn register_all(
     {
         let screenshots_dir =
             std::path::PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string()))
-                .join(".matrixclaw")
+                .join(".zstar")
                 .join("screenshots");
         let state = browser::make_shared_state(screenshots_dir);
         browser::register_all(registry, state).await;

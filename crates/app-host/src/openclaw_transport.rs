@@ -1,11 +1,11 @@
 use std::path::Path;
 
-use matrixclaw_agent_core::provider::Provider;
-use matrixclaw_compat_openclaw::capabilities::CapabilityDescriptor;
-use matrixclaw_compat_openclaw::http::HttpChatResponse;
-use matrixclaw_compat_openclaw::stream_adapter::ChatFrame;
-use matrixclaw_compat_openclaw::translation::OpenClawChatRequest;
-use matrixclaw_compat_openclaw::websocket::ChatWebSocketConversation;
+use zstar_agent_core::provider::Provider;
+use zstar_compat_openclaw::capabilities::CapabilityDescriptor;
+use zstar_compat_openclaw::http::HttpChatResponse;
+use zstar_compat_openclaw::stream_adapter::ChatFrame;
+use zstar_compat_openclaw::translation::OpenClawChatRequest;
+use zstar_compat_openclaw::websocket::ChatWebSocketConversation;
 
 pub use crate::ingress::{normalize_openclaw_request, OpenClawIngressMetadata};
 use crate::ingress::{

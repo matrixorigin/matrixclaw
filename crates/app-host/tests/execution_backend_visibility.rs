@@ -1,4 +1,4 @@
-use matrixclaw_app_host::http::execution_api::execution_visibility_snapshot;
+use zstar_app_host::http::execution_api::execution_visibility_snapshot;
 
 #[test]
 fn execution_backend_visibility() {

@@ -40,7 +40,7 @@ impl McpClient {
             "protocolVersion": "2024-11-05",
             "capabilities": {},
             "clientInfo": {
-                "name": "matrixclaw",
+                "name": "zstar",
                 "version": "0.1.0"
             }
         });

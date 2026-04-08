@@ -1,7 +1,7 @@
 use std::io;
 use std::path::Path;
 
-use matrixclaw_agent_core::provider::Provider;
+use zstar_agent_core::provider::Provider;
 
 use super::matrix::{normalize_matrix_inbound_event, MatrixInboundEvent};
 use super::store::{GatewayDeliveryRetryRecord, GatewaySessionStore};

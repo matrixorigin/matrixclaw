@@ -98,7 +98,7 @@ impl GatewaySessionStore {
 
 fn store_path(home: impl AsRef<Path>) -> PathBuf {
     home.as_ref()
-        .join(".matrixclaw")
+        .join(".zstar")
         .join("state")
         .join("gateways")
         .join("gateway-session-store.json")

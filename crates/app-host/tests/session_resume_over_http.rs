@@ -8,17 +8,17 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matrixclaw_app_host::http::agent_api::AGENT_RUN_ROUTE;
-use matrixclaw_app_host::http::{HttpRequest, SetupSurface};
-use matrixclaw_app_host::live_runtime::session_db_path;
-use matrixclaw_app_host::ui_assets::UiAssetLayout;
-use matrixclaw_session_runtime::queue::{QueueItem, SessionQueue};
-use matrixclaw_session_runtime::recovery::SessionRecoveryStore;
-use matrixclaw_session_runtime::session::Session;
-use matrixclaw_session_runtime::sqlite::SqliteStorage;
-use matrixclaw_session_runtime::storage::TranscriptStore;
-use matrixclaw_session_runtime::RuntimeMessage;
 use serde_json::{json, Value};
+use zstar_app_host::http::agent_api::AGENT_RUN_ROUTE;
+use zstar_app_host::http::{HttpRequest, SetupSurface};
+use zstar_app_host::live_runtime::session_db_path;
+use zstar_app_host::ui_assets::UiAssetLayout;
+use zstar_session_runtime::queue::{QueueItem, SessionQueue};
+use zstar_session_runtime::recovery::SessionRecoveryStore;
+use zstar_session_runtime::session::Session;
+use zstar_session_runtime::sqlite::SqliteStorage;
+use zstar_session_runtime::storage::TranscriptStore;
+use zstar_session_runtime::RuntimeMessage;
 
 #[test]
 fn session_resume_over_http() {
@@ -240,7 +240,7 @@ fn temp_home() -> PathBuf {
         .expect("clock before unix epoch")
         .as_nanos();
     let home = env::temp_dir().join(format!(
-        "matrixclaw-session-resume-home-{}-{}",
+        "zstar-session-resume-home-{}-{}",
         std::process::id(),
         nanos
     ));

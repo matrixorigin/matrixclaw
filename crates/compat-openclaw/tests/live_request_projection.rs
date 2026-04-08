@@ -1,7 +1,7 @@
-use matrixclaw_compat_openclaw::translation::{
+use zstar_compat_openclaw::translation::{
     split_openclaw_request, OpenClawChatMessage, OpenClawChatRequest, OpenClawChatRole,
 };
-use matrixclaw_session_runtime::RuntimeMessage;
+use zstar_session_runtime::RuntimeMessage;
 
 #[test]
 fn split_openclaw_request_projects_history_for_live_runtime() {

@@ -9,16 +9,16 @@ use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
-use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::provider::{Provider, ProviderError, ProviderResponse};
-use matrixclaw_agent_core::{RunMessageRole, RunRequest};
-use matrixclaw_app_host::gateway::matrix::MatrixInboundEvent;
-use matrixclaw_app_host::gateway::runtime::GatewayRuntime;
-use matrixclaw_app_host::gateway::store::GatewaySessionStore;
-use matrixclaw_app_host::http::agent_api::AGENT_RUN_ROUTE;
-use matrixclaw_app_host::http::{HttpRequest, SetupSurface};
-use matrixclaw_app_host::ui_assets::UiAssetLayout;
 use serde_json::json;
+use zstar_agent_core::event::AgentEvent;
+use zstar_agent_core::provider::{Provider, ProviderError, ProviderResponse};
+use zstar_agent_core::{RunMessageRole, RunRequest};
+use zstar_app_host::gateway::matrix::MatrixInboundEvent;
+use zstar_app_host::gateway::runtime::GatewayRuntime;
+use zstar_app_host::gateway::store::GatewaySessionStore;
+use zstar_app_host::http::agent_api::AGENT_RUN_ROUTE;
+use zstar_app_host::http::{HttpRequest, SetupSurface};
+use zstar_app_host::ui_assets::UiAssetLayout;
 
 #[test]
 fn browser_matrix_session_reuse() {
@@ -192,7 +192,7 @@ impl Provider for RecordingProvider {
     }
 }
 
-fn render_run_message(message: &matrixclaw_agent_core::RunMessage) -> String {
+fn render_run_message(message: &zstar_agent_core::RunMessage) -> String {
     let role = match message.role {
         RunMessageRole::User => "user",
         RunMessageRole::System => "system",
@@ -297,7 +297,7 @@ fn temp_home() -> PathBuf {
         .expect("clock before unix epoch")
         .as_nanos();
     let home = env::temp_dir().join(format!(
-        "matrixclaw-browser-matrix-home-{}-{}",
+        "zstar-browser-matrix-home-{}-{}",
         std::process::id(),
         nanos
     ));

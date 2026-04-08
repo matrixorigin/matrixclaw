@@ -1,16 +1,16 @@
 [package]
-name = "matrixclaw-tools"
+name = "zstar-tools"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "matrixclaw_tools"
+name = "zstar_tools"
 path = "src/lib.rs"
 
 [dependencies]
 async-trait = "0.1"
 getrandom = "0.3"
-matrixclaw-hooks = { path = "../matrixclaw-hooks" }
+zstar-hooks = { path = "../zstar-hooks" }
 headless_chrome = { version = "1.0", optional = true }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }

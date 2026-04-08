@@ -13,11 +13,11 @@ pub struct SkillsTool {
 
 impl SkillsTool {
     pub fn new(home: &Path) -> Self {
-        let skills_dir = home.join(".matrixclaw").join("skills");
+        let skills_dir = home.join(".zstar").join("skills");
         Self {
             descriptor: ToolDescriptor::new(
                 "skills",
-                "List, read, and create reusable skills. Skills are Markdown files stored in ~/.matrixclaw/skills/.",
+                "List, read, and create reusable skills. Skills are Markdown files stored in ~/.zstar/skills/.",
             )
             .with_parameters(vec![
                 ToolParameter::required("action", ParameterType::String, "Action to perform")

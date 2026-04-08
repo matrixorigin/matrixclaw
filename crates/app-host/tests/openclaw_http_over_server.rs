@@ -5,11 +5,11 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use matrixclaw_app_host::http::SetupSurface;
-use matrixclaw_app_host::live_runtime::session_db_path;
-use matrixclaw_app_host::server::spawn_test_server;
-use matrixclaw_app_host::ui_assets::UiAssetLayout;
 use serde_json::{json, Value};
+use zstar_app_host::http::SetupSurface;
+use zstar_app_host::live_runtime::session_db_path;
+use zstar_app_host::server::spawn_test_server;
+use zstar_app_host::ui_assets::UiAssetLayout;
 
 #[tokio::test]
 async fn openclaw_http_over_server() {
@@ -123,7 +123,7 @@ fn temp_home() -> std::path::PathBuf {
         .expect("clock before unix epoch")
         .as_nanos();
     let home = env::temp_dir().join(format!(
-        "matrixclaw-openclaw-http-{}-{}",
+        "zstar-openclaw-http-{}-{}",
         std::process::id(),
         nanos
     ));

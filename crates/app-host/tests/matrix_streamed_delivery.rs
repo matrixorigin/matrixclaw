@@ -1,8 +1,8 @@
-use matrixclaw_app_host::gateway::matrix::{
+use zstar_app_host::gateway::matrix::{
     project_matrix_streamed_delivery, MatrixOutboundRoute, MatrixReplyRoute,
 };
-use matrixclaw_app_host::gateway::{GatewayThread, OutboundDeliveryKind};
-use matrixclaw_app_host::live_runtime::LiveRunEvent;
+use zstar_app_host::gateway::{GatewayThread, OutboundDeliveryKind};
+use zstar_app_host::live_runtime::LiveRunEvent;
 
 #[test]
 fn matrix_streamed_delivery() {

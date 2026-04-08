@@ -41,9 +41,7 @@ impl MemoryNudgeStore {
     }
 
     pub fn db_path_for_home(home: &Path) -> PathBuf {
-        home.join(".matrixclaw")
-            .join("state")
-            .join("memory.sqlite3")
+        home.join(".zstar").join("state").join("memory.sqlite3")
     }
 }
 

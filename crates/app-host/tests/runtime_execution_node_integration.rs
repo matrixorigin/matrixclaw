@@ -8,15 +8,15 @@ use std::sync::{Arc, OnceLock};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matrixclaw_app_host::http::agent_api::AGENT_RUN_ROUTE;
-use matrixclaw_app_host::http::SetupSurface;
-use matrixclaw_app_host::live_runtime::session_db_path;
-use matrixclaw_app_host::server::spawn_test_server;
-use matrixclaw_app_host::ui_assets::UiAssetLayout;
-use matrixclaw_session_runtime::message_projection::DurableTranscriptKind;
-use matrixclaw_session_runtime::sqlite::SqliteStorage;
-use matrixclaw_session_runtime::storage::TranscriptStore;
 use serde_json::{json, Value};
+use zstar_app_host::http::agent_api::AGENT_RUN_ROUTE;
+use zstar_app_host::http::SetupSurface;
+use zstar_app_host::live_runtime::session_db_path;
+use zstar_app_host::server::spawn_test_server;
+use zstar_app_host::ui_assets::UiAssetLayout;
+use zstar_session_runtime::message_projection::DurableTranscriptKind;
+use zstar_session_runtime::sqlite::SqliteStorage;
+use zstar_session_runtime::storage::TranscriptStore;
 
 #[tokio::test]
 async fn runtime_execution_node_integration() {
@@ -204,7 +204,7 @@ fn temp_home() -> PathBuf {
         .expect("clock before unix epoch")
         .as_nanos();
     let home = env::temp_dir().join(format!(
-        "matrixclaw-runtime-node-home-{}-{}",
+        "zstar-runtime-node-home-{}-{}",
         std::process::id(),
         nanos
     ));

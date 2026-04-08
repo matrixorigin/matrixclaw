@@ -4,10 +4,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use matrixclaw_agent_core::event::AgentEvent;
-use matrixclaw_agent_core::provider::Provider;
-use matrixclaw_agent_core::RunRequest;
-use matrixclaw_app_host::openai_compatible::OpenAiCompatibleProvider;
+use zstar_agent_core::event::AgentEvent;
+use zstar_agent_core::provider::Provider;
+use zstar_agent_core::RunRequest;
+use zstar_app_host::openai_compatible::OpenAiCompatibleProvider;
 
 #[tokio::test]
 async fn openrouter_provider_streaming() {
@@ -19,7 +19,7 @@ async fn openrouter_provider_streaming() {
         OpenAiCompatibleProvider::with_base_url(server_url, "test-key", "moonshotai/kimi-k2.5")
             .expect("create fixture-backed provider");
 
-    let request = RunRequest::new("Say MatrixClaw");
+    let request = RunRequest::new("Say ZStar");
     let mut events = Vec::new();
 
     let result = provider
@@ -44,12 +44,12 @@ async fn openrouter_provider_streaming() {
     );
 
     let streamed = result.expect("streaming fixture response should parse");
-    assert_eq!(streamed.content.as_deref(), Some("MatrixClaw"));
+    assert_eq!(streamed.content.as_deref(), Some("ZStar"));
     assert_eq!(
         events,
         vec![
-            AgentEvent::MessageDelta("Matrix".to_string()),
-            AgentEvent::MessageDelta("Claw".to_string()),
+            AgentEvent::MessageDelta("Z".to_string()),
+            AgentEvent::MessageDelta("Star".to_string()),
         ],
         "streamed provider boundary should emit ordered deltas"
     );
@@ -76,8 +76,8 @@ fn spawn_fixture_server(
             "Content-Type: text/event-stream\r\n",
             "Connection: close\r\n",
             "\r\n",
-            "data: {\"choices\":[{\"delta\":{\"content\":\"Matrix\"}}]}\n\n",
-            "data: {\"choices\":[{\"delta\":{\"content\":\"Claw\"}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"Z\"}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"Star\"}}]}\n\n",
             "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
             "data: [DONE]\n\n"
         );

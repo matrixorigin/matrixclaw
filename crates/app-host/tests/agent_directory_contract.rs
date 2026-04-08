@@ -3,15 +3,15 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matrixclaw_app_host::agent_store::{agent_profile_path, list_agent_profiles, AgentProfile};
-use matrixclaw_app_host::session_binding_store::bind_session_to_agent;
+use zstar_app_host::agent_store::{agent_profile_path, list_agent_profiles, AgentProfile};
+use zstar_app_host::session_binding_store::bind_session_to_agent;
 
 fn temp_home() -> PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("clock before unix epoch")
         .as_nanos();
-    let home = env::temp_dir().join(format!("matrixclaw-home-{}-{}", std::process::id(), nanos));
+    let home = env::temp_dir().join(format!("zstar-home-{}-{}", std::process::id(), nanos));
     fs::create_dir_all(&home).expect("create temp home");
     home
 }

@@ -1,4 +1,4 @@
-use matrixclaw_tools::ToolRegistry;
+use zstar_tools::ToolRegistry;
 
 use crate::event::AgentEvent;
 use crate::hooks::{CompositeHook, HookPayload};

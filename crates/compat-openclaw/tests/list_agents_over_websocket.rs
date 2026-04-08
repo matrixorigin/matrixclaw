@@ -1,4 +1,4 @@
-use matrixclaw_compat_openclaw::websocket::{openclaw_agents_list, Frame};
+use zstar_compat_openclaw::websocket::{openclaw_agents_list, Frame};
 
 #[test]
 fn list_agents_over_websocket() {
@@ -14,7 +14,7 @@ fn list_agents_over_websocket() {
         },
         Frame::Authenticated,
         Frame::AgentsList {
-            agents: vec![matrixclaw_compat_openclaw::capabilities::AgentDescriptor {
+            agents: vec![zstar_compat_openclaw::capabilities::AgentDescriptor {
                 id: "default".to_string(),
                 name: "default".to_string(),
             }],

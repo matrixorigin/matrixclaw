@@ -8,10 +8,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 fn optional_matrix_gateway_startup() {
     let home = temp_home();
 
-    let output = Command::new(env!("CARGO_BIN_EXE_matrixclaw"))
+    let output = Command::new(env!("CARGO_BIN_EXE_zstar"))
         .env("HOME", &home)
         .output()
-        .expect("run matrixclaw");
+        .expect("run zstar");
 
     assert!(
         output.status.success(),
@@ -21,7 +21,7 @@ fn optional_matrix_gateway_startup() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("MatrixClaw setup available"),
+        stdout.contains("ZStar setup available"),
         "expected normal startup output to remain available, stdout: {stdout}"
     );
     assert!(
@@ -36,7 +36,7 @@ fn temp_home() -> PathBuf {
         .expect("clock before unix epoch")
         .as_nanos();
     let home = env::temp_dir().join(format!(
-        "matrixclaw-matrix-gateway-home-{}-{}",
+        "zstar-matrix-gateway-home-{}-{}",
         std::process::id(),
         nanos
     ));

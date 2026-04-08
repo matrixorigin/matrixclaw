@@ -1,6 +1,6 @@
 use crate::capabilities::AgentDescriptor;
 use crate::stream_adapter::{project_runtime_event, ChatStreamAdapter};
-use matrixclaw_session_runtime::{
+use zstar_session_runtime::{
     ChatInputMessage, ChatInputRole, ChatRequest, ChatRuntime, RuntimeMessage,
 };
 

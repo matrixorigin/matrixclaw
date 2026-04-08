@@ -1,25 +1,25 @@
 [package]
-name = "matrixclaw-app-host"
+name = "zstar-app-host"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "matrixclaw_app_host"
+name = "zstar_app_host"
 path = "src/lib.rs"
 
 [[bin]]
-name = "matrixclaw"
+name = "zstar"
 path = "src/main.rs"
 
 [dependencies]
 async-trait = "0.1"
 base64 = "0.22"
-matrixclaw-agent-core = { path = "../agent-core" }
-matrixclaw-provider = { path = "../provider-plane" }
-matrixclaw-compat-openclaw = { path = "../compat-openclaw" }
-matrixclaw-manifests = { path = "../manifests" }
-matrixclaw-tools = { path = "../matrixclaw-tools" }
-matrixclaw-session-runtime = { path = "../session-runtime" }
+zstar-agent-core = { path = "../agent-core" }
+zstar-provider = { path = "../provider-plane" }
+zstar-compat-openclaw = { path = "../compat-openclaw" }
+zstar-manifests = { path = "../manifests" }
+zstar-tools = { path = "../zstar-tools" }
+zstar-session-runtime = { path = "../session-runtime" }
 futures-util = "0.3"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 serde = { version = "1", features = ["derive"] }

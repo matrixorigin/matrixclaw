@@ -8,11 +8,9 @@ pub mod policy;
 pub mod provider;
 pub mod tool;
 
-pub use matrixclaw_tools::subagent::{
-    SubagentHandle, SubagentResult, SubagentStatus, SubagentTracker,
-};
-pub use matrixclaw_tools::{ToolCall, ToolDescriptor, ToolResult};
 pub use message::{RunMessage, RunMessageRole};
+pub use zstar_tools::subagent::{SubagentHandle, SubagentResult, SubagentStatus, SubagentTracker};
+pub use zstar_tools::{ToolCall, ToolDescriptor, ToolResult};
 
 #[derive(Debug, Clone)]
 pub struct RunRequest {

@@ -1,1 +1,1 @@
-pub use matrixclaw_tools::{ToolCall, ToolDescriptor, ToolResult};
+pub use zstar_tools::{ToolCall, ToolDescriptor, ToolResult};

@@ -1,12 +1,12 @@
 [package]
-name = "matrixclaw-compat-openclaw"
+name = "zstar-compat-openclaw"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "matrixclaw_compat_openclaw"
+name = "zstar_compat_openclaw"
 path = "src/lib.rs"
 
 [dependencies]
-matrixclaw-session-runtime = { path = "../session-runtime" }
+zstar-session-runtime = { path = "../session-runtime" }
 serde = { version = "1", features = ["derive"] }

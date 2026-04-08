@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use matrixclaw_agent_core::provider::Provider;
+use zstar_agent_core::provider::Provider;
 
 use super::client::MatrixGatewayClient;
 use super::matrix::{project_matrix_streamed_delivery, MatrixOutboundRoute};

@@ -1,10 +1,10 @@
 [package]
-name = "matrixclaw-manifests"
+name = "zstar-manifests"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "matrixclaw_manifests"
+name = "zstar_manifests"
 path = "src/lib.rs"
 
 [dependencies]

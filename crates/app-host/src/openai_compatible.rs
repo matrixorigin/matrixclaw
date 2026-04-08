@@ -1,1 +1,1 @@
-pub type OpenAiCompatibleProvider = matrixclaw_provider::openai::OpenAiProvider;
+pub type OpenAiCompatibleProvider = zstar_provider::openai::OpenAiProvider;

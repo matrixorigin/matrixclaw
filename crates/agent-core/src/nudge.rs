@@ -1,4 +1,4 @@
-use matrixclaw_tools::builtin::nudge_store::NudgeStore;
+use zstar_tools::builtin::nudge_store::NudgeStore;
 
 pub struct NudgeEngine {
     store: Box<dyn NudgeStore>,
@@ -35,7 +35,7 @@ impl NudgeEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use matrixclaw_tools::builtin::nudge_store::NudgeEntry;
+    use zstar_tools::builtin::nudge_store::NudgeEntry;
 
     struct MockNudgeStore {
         entries: Vec<NudgeEntry>,

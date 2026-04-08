@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use matrixclaw_provider::fallback::FallbackProvider;
-use matrixclaw_provider::registry::ProviderRegistry;
 use tokio::sync::Mutex;
+use zstar_provider::fallback::FallbackProvider;
+use zstar_provider::registry::ProviderRegistry;
 
 use super::platform::{IncomingMessage, MessageHandler, OutgoingMessage};
 use crate::live_runtime::{LiveRunRequest, SessionBackedLiveRunService};

@@ -3,20 +3,20 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matrixclaw_app_host::http::workspace_api::{workspace_surface_for_home, WorkspaceEntryKind};
+use zstar_app_host::http::workspace_api::{workspace_surface_for_home, WorkspaceEntryKind};
 
 fn temp_home() -> PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("clock before unix epoch")
         .as_nanos();
-    let home = env::temp_dir().join(format!("matrixclaw-home-{}-{}", std::process::id(), nanos));
+    let home = env::temp_dir().join(format!("zstar-home-{}-{}", std::process::id(), nanos));
     fs::create_dir_all(&home).expect("create temp home");
     home
 }
 
 fn temp_workspace(home: &Path) -> PathBuf {
-    let root = home.join(".matrixclaw").join("config").join("workspace");
+    let root = home.join(".zstar").join("config").join("workspace");
     fs::create_dir_all(root.join("notes").join("2026")).expect("create notes tree");
     fs::create_dir_all(root.join("projects").join("alpha")).expect("create project tree");
     fs::write(

@@ -1,9 +1,9 @@
-use matrixclaw_app_host::gateway::{
+use zstar_app_host::gateway::{
     GatewayAdapter, GatewayInboundEvent, GatewayOutboundDelivery, GatewayReplyRoute, GatewaySender,
     GatewayThread, OutboundDeliveryKind,
 };
-use matrixclaw_app_host::ingress::IngressEnvelope;
-use matrixclaw_app_host::live_runtime::LiveRunEvent;
+use zstar_app_host::ingress::IngressEnvelope;
+use zstar_app_host::live_runtime::LiveRunEvent;
 
 #[test]
 fn gateway_adapter_contract() {

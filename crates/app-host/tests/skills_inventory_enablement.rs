@@ -3,8 +3,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matrixclaw_app_host::commands::install_skill::install_skill;
-use matrixclaw_app_host::http::skills_api::{
+use zstar_app_host::commands::install_skill::install_skill;
+use zstar_app_host::http::skills_api::{
     enabled_skills_path, set_skill_enabled, skills_inventory_for_agent, EnableSkillChange,
     InstalledSkillRecord,
 };
@@ -14,7 +14,7 @@ fn temp_home() -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("clock before unix epoch")
         .as_nanos();
-    let home = env::temp_dir().join(format!("matrixclaw-home-{}-{}", std::process::id(), nanos));
+    let home = env::temp_dir().join(format!("zstar-home-{}-{}", std::process::id(), nanos));
     fs::create_dir_all(&home).expect("create temp home");
     home
 }
@@ -26,7 +26,7 @@ fn temp_skill_source() -> PathBuf {
         .as_nanos();
     let source = env::temp_dir()
         .join(format!(
-            "matrixclaw-skill-source-{}-{}",
+            "zstar-skill-source-{}-{}",
             std::process::id(),
             nanos
         ))
@@ -50,11 +50,10 @@ fn skills_inventory_enablement() {
 
     let outcome = install_skill(&source, &home).expect("install source skill");
     let installed_root = match outcome {
-        matrixclaw_manifests::skill_manifest::SkillInstallOutcome::Imported {
-            installed_root,
-            ..
+        zstar_manifests::skill_manifest::SkillInstallOutcome::Imported {
+            installed_root, ..
         } => installed_root,
-        matrixclaw_manifests::skill_manifest::SkillInstallOutcome::Rejected { reason } => {
+        zstar_manifests::skill_manifest::SkillInstallOutcome::Rejected { reason } => {
             panic!("expected skill import to succeed, got rejection: {reason}")
         }
     };
@@ -82,7 +81,7 @@ fn skills_inventory_enablement() {
             name: "research".to_string(),
             source_root: source.clone(),
             installed_root: installed_root.clone(),
-            manifest_path: installed_root.join("matrixclaw.skill.json"),
+            manifest_path: installed_root.join("zstar.skill.json"),
             provenance_path: installed_root.join("provenance.json"),
         }],
         "installed skills should be listed separately from enablement state"

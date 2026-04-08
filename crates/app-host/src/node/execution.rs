@@ -1,9 +1,9 @@
 use std::io;
 use std::path::PathBuf;
 
-use matrixclaw_manifests::config::ExecutionSettings;
 use serde::{Deserialize, Serialize};
 use serde_json;
+use zstar_manifests::config::ExecutionSettings;
 
 use crate::execution::route_isolated_command;
 use crate::local_command::{execute_local_command, LocalCommandRequest};
