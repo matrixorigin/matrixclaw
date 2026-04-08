@@ -81,6 +81,8 @@ pub async fn run_chat(model_override: Option<&str>) -> Result<(), String> {
         (provider, registry, chain)
     };
 
+    let router = plane_config.build_router(Some(model.clone()));
+
     let service = SessionBackedLiveRunService::new(&home).await;
 
     {
@@ -204,9 +206,14 @@ pub async fn run_chat(model_override: Option<&str>) -> Result<(), String> {
         };
 
         let mut provider_guard = provider_arc.lock().await;
+        let decision = router.route(input, tool_count, &[]);
+        let effective_model = decision.model.as_deref().unwrap_or(&model);
+        if decision.rule_name != "default" {
+            println!("  [route: {} -> {}]", decision.rule_name, decision.provider);
+        }
         let result = service
             .run_with_provider_and_queue_stream(
-                &model,
+                effective_model,
                 request,
                 None,
                 &mut *provider_guard,
