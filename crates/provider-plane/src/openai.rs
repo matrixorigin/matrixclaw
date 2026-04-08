@@ -141,6 +141,7 @@ impl OpenAiProvider {
         let mut final_content = String::new();
         let mut tool_calls: Vec<ToolCall> = Vec::new();
         let mut event_data = Vec::new();
+        let mut buffer = String::new();
 
         let byte_stream = response.bytes_stream();
         use futures_util::StreamExt;
@@ -151,9 +152,12 @@ impl OpenAiProvider {
         while let Some(chunk_result) = stream.next().await {
             let chunk = chunk_result
                 .map_err(|error| ProviderError(format!("provider stream read error: {error}")))?;
-            let text = String::from_utf8_lossy(&chunk);
-            for line in text.lines() {
-                let line = line.trim_end_matches(['\r', '\n']);
+            buffer.push_str(&String::from_utf8_lossy(&chunk));
+
+            while let Some(pos) = buffer.find('\n') {
+                let line = buffer[..pos].trim_end_matches('\r').to_string();
+                buffer = buffer[pos + 1..].to_string();
+
                 if line.is_empty() {
                     if let Some(payload) = drain_sse_event(&mut event_data) {
                         if payload == "[DONE]" {

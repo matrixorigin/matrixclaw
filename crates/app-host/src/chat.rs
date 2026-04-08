@@ -31,7 +31,7 @@ async fn build_provider_parts(
     model: &str,
 ) -> Result<(Arc<ProviderRegistry>, Vec<String>), String> {
     let registry = ProviderRegistry::new();
-    let base_url = env::var("MATRIXCLAW_OPENAI_BASE_URL");
+    let base_url = env::var("ZSTAR_OPENAI_BASE_URL");
     let provider_type = if base_url.is_ok() {
         ProviderType::Custom
     } else {

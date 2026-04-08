@@ -67,7 +67,7 @@ impl Provider for FallbackProvider {
             let mut provider = entry.provider_mut().await;
             match provider.complete(request).await {
                 Ok(response) => return Ok(response),
-                Err(_e) => {
+                Err(_) => {
                     self.health.mark_unhealthy(name);
                     continue;
                 }
@@ -83,28 +83,35 @@ impl Provider for FallbackProvider {
         request: &RunRequest,
         on_event: &mut (dyn FnMut(AgentEvent) + Send),
     ) -> Result<ProviderResponse, ProviderError> {
+        let mut last_error = String::new();
         for name in &self.chain {
             if !self.health.is_healthy(name) {
+                last_error = format!("{name}: unhealthy");
                 continue;
             }
             if !self.check_rate_limit(name) {
+                last_error = format!("{name}: rate limited");
                 continue;
             }
             let Some(entry) = self.registry.get(name).await else {
+                last_error = format!("{name}: not found in registry");
                 continue;
             };
             let mut provider = entry.provider_mut().await;
             match provider.stream(request, on_event).await {
                 Ok(response) => return Ok(response),
-                Err(_e) => {
+                Err(e) => {
+                    last_error = format!("{name}: {e:?}");
                     self.health.mark_unhealthy(name);
                     continue;
                 }
             }
         }
-        Err(ProviderError(
-            "all providers in fallback chain failed".to_string(),
-        ))
+        Err(ProviderError(if last_error.is_empty() {
+            "all providers in fallback chain failed (empty chain)".to_string()
+        } else {
+            format!("all providers in fallback chain failed — last: {last_error}")
+        }))
     }
 }
 
