@@ -1,7 +1,6 @@
 pub mod agent_store;
 pub mod asset_manifest;
 pub mod assets;
-pub mod chat;
 pub mod commands;
 pub mod compat_registry;
 pub mod execution;
@@ -125,8 +124,8 @@ pub fn run(args: impl IntoIterator<Item = String>) -> i32 {
                 }
             }
 
-            let rt = runtime();
-            match rt.block_on(chat::run_chat(model.as_deref())) {
+            let rt = tokio::runtime::Runtime::new().expect("failed to create tokio runtime");
+            match rt.block_on(tui::runner::run_tui_chat(model.as_deref())) {
                 Ok(()) => 0,
                 Err(error) => {
                     eprintln!("chat failed: {error}");

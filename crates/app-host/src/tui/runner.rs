@@ -1,5 +1,4 @@
 use std::env;
-use std::io::{self, Write};
 use std::sync::Arc;
 
 use tokio::sync::Mutex;
@@ -16,6 +15,9 @@ use zstar_tools::builtin::skill_trace::{TraceCollector, TraceStore};
 
 use crate::live_runtime::{LiveRunEvent, LiveRunRequest, SessionBackedLiveRunService};
 use crate::paths;
+use crate::tui::app::ChatApp;
+use crate::tui::event::EventReader;
+use crate::tui::theme::load_tui_config;
 
 const DEFAULT_MODEL: &str = "moonshotai/kimi-k2.5";
 
@@ -49,199 +51,6 @@ async fn build_provider_parts(
     let registry = Arc::new(registry);
     registry.register(config).await?;
     Ok((registry, vec!["default".to_string()]))
-}
-
-pub async fn run_chat(model_override: Option<&str>) -> Result<(), String> {
-    let model = resolve_model(model_override);
-    let home = paths::home_dir();
-
-    let config_path = paths::config_dir(&home).join("providers.json");
-    let plane_config = load_or_default_config(Some(&config_path));
-
-    let (provider_arc, shared_registry, fallback_chain) = if !plane_config.providers.is_empty() {
-        let registry = Arc::new(ProviderRegistry::new());
-        for pc in &plane_config.providers {
-            registry.register(pc.clone()).await?;
-        }
-        let chain = plane_config.fallback_chain.clone();
-        let provider = Arc::new(Mutex::new(FallbackProvider::new(
-            registry.clone(),
-            chain.clone(),
-        )));
-        (provider, registry, chain)
-    } else {
-        let api_key = env::var("OPENROUTER_API_KEY").map_err(|_| {
-                "OPENROUTER_API_KEY is not set. Set it to an OpenRouter API key, or create ~/.zstar/config/providers.json".to_string()
-            })?;
-        let (registry, chain) = build_provider_parts(&api_key, &model).await?;
-        let provider = Arc::new(Mutex::new(FallbackProvider::new(
-            registry.clone(),
-            chain.clone(),
-        )));
-        (provider, registry, chain)
-    };
-
-    let router = plane_config.build_router(Some(model.clone()));
-
-    let service = SessionBackedLiveRunService::new(&home).await;
-
-    {
-        let reg_clone = service.registry();
-        let delegate_runner = make_subagent_runner(provider_arc.clone(), reg_clone.clone());
-        service.register_delegate_tool(delegate_runner).await;
-    }
-
-    {
-        let reg_clone = service.registry();
-        let parallel_runner = make_parallel_subagent_runner(
-            shared_registry.clone(),
-            fallback_chain.clone(),
-            reg_clone,
-        );
-        service
-            .register_parallel_delegate_tool(parallel_runner)
-            .await;
-    }
-
-    {
-        let trace_db_path = TraceStore::db_path_for_home(&home);
-        if let Ok(store) = TraceStore::open(&trace_db_path) {
-            let collector = TraceCollector::new(store);
-            service.add_hook(Box::new(collector)).await;
-        }
-
-        if let Ok(store) = TraceStore::open(&trace_db_path) {
-            let skills_dir = home.join(".zstar").join("skills");
-            let llm_call = make_llm_rewrite_fn(shared_registry.clone(), fallback_chain.clone());
-            let rewriter = Arc::new(SkillRewriter::new(store, skills_dir, llm_call));
-            service.register_skill_evolve_tool(rewriter).await;
-        }
-    }
-
-    let tool_count = service.tool_count().await;
-    let mut session_id: Option<String> = None;
-
-    let memory_db_path = MemoryNudgeStore::db_path_for_home(&home);
-    let nudge_engine = MemoryNudgeStore::open(&memory_db_path)
-        .ok()
-        .map(|store| NudgeEngine::new(Box::new(store), 0.6, 3));
-
-    println!("ZStar chat — type your message and press Enter. Ctrl+C or /quit to exit.");
-    println!("Model: {model} | Tools: {tool_count}");
-    println!();
-
-    loop {
-        print!("> ");
-        io::stdout()
-            .flush()
-            .map_err(|e| format!("flush failed: {e}"))?;
-
-        let mut input = String::new();
-        io::stdin()
-            .read_line(&mut input)
-            .map_err(|e| format!("read failed: {e}"))?;
-        let input = input.trim();
-
-        if input.is_empty() {
-            continue;
-        }
-        if input == "/quit" || input == "/exit" {
-            println!("Goodbye.");
-            return Ok(());
-        }
-        if input == "/clear" {
-            session_id = None;
-            println!("Session cleared.\n");
-            continue;
-        }
-        if input == "/help" {
-            print_help();
-            continue;
-        }
-        if let Some(_model_arg) = input.strip_prefix("/model ") {
-            println!("Note: /model switching is not supported with the provider control plane. Configure providers in providers.json.\n");
-            continue;
-        }
-
-        let nudged_input = if let Some(ref engine) = nudge_engine {
-            match engine.nudge(input) {
-                Some(ctx) => format!("{ctx}\n\n{input}"),
-                None => input.to_string(),
-            }
-        } else {
-            input.to_string()
-        };
-
-        let request = LiveRunRequest {
-            prompt: nudged_input,
-            session_id: session_id.clone(),
-        };
-
-        let mut stdout = io::stdout();
-        let mut on_event = |event: LiveRunEvent| match event.kind.as_str() {
-            "message_delta" => {
-                if let Some(content) = &event.content {
-                    let _ = stdout.write_all(content.as_bytes());
-                    let _ = stdout.flush();
-                }
-            }
-            "tool_call_started" => {
-                if let Some(content) = &event.content {
-                    let _ = stdout.write_all(format!("\n  [tool call: {content}]\n").as_bytes());
-                    let _ = stdout.flush();
-                }
-            }
-            "tool_execution_completed" => {
-                if let Some(content) = &event.content {
-                    let preview = truncate_str(content, 120);
-                    let _ = stdout.write_all(format!("  [tool result: {preview}]\n").as_bytes());
-                    let _ = stdout.flush();
-                }
-            }
-            "message_completed" => {
-                let _ = stdout.write_all(b"\n\n");
-                let _ = stdout.flush();
-            }
-            _ => {}
-        };
-
-        let mut provider_guard = provider_arc.lock().await;
-        let decision = router.route(input, tool_count, &[]);
-        let effective_model = decision.model.as_deref().unwrap_or(&model);
-        if decision.rule_name != "default" {
-            println!("  [route: {} -> {}]", decision.rule_name, decision.provider);
-        }
-        let result = service
-            .run_with_provider_and_queue_stream(
-                effective_model,
-                request,
-                None,
-                &mut *provider_guard,
-                &mut on_event,
-            )
-            .await?;
-        drop(provider_guard);
-
-        session_id = Some(result.session_id);
-    }
-}
-
-fn print_help() {
-    println!("Commands:");
-    println!("  /help       Show this help");
-    println!("  /quit       Exit chat");
-    println!("  /exit       Exit chat");
-    println!("  /clear      Clear session history");
-    println!();
-}
-
-fn truncate_str(s: &str, max_len: usize) -> String {
-    if s.len() <= max_len {
-        s.replace('\n', "\\n")
-    } else {
-        let truncated: String = s.chars().take(max_len).collect();
-        format!("{}...", truncated.replace('\n', "\\n"))
-    }
 }
 
 fn make_subagent_runner(
@@ -380,4 +189,202 @@ fn make_llm_rewrite_fn(registry: Arc<ProviderRegistry>, chain: Vec<String>) -> L
             }
         })
     })
+}
+
+pub async fn run_tui_chat(model_override: Option<&str>) -> Result<(), String> {
+    let model = resolve_model(model_override);
+    let home = paths::home_dir();
+    let (_tui_config, theme) = load_tui_config(&home);
+
+    let config_path = paths::config_dir(&home).join("providers.json");
+    let plane_config = load_or_default_config(Some(&config_path));
+
+    let (provider_arc, shared_registry, fallback_chain) = if !plane_config.providers.is_empty() {
+        let registry = Arc::new(ProviderRegistry::new());
+        for pc in &plane_config.providers {
+            registry.register(pc.clone()).await?;
+        }
+        let chain = plane_config.fallback_chain.clone();
+        let provider = Arc::new(Mutex::new(FallbackProvider::new(
+            registry.clone(),
+            chain.clone(),
+        )));
+        (provider, registry, chain)
+    } else {
+        let api_key = env::var("OPENROUTER_API_KEY").map_err(|_| {
+                "OPENROUTER_API_KEY is not set. Set it to an OpenRouter API key, or create ~/.zstar/config/providers.json".to_string()
+            })?;
+        let (registry, chain) = build_provider_parts(&api_key, &model).await?;
+        let provider = Arc::new(Mutex::new(FallbackProvider::new(
+            registry.clone(),
+            chain.clone(),
+        )));
+        (provider, registry, chain)
+    };
+
+    let router = plane_config.build_router(Some(model.clone()));
+
+    let service = Arc::new(SessionBackedLiveRunService::new(&home).await);
+
+    {
+        let reg_clone = service.registry();
+        let delegate_runner = make_subagent_runner(provider_arc.clone(), reg_clone.clone());
+        service.register_delegate_tool(delegate_runner).await;
+    }
+
+    {
+        let reg_clone = service.registry();
+        let parallel_runner = make_parallel_subagent_runner(
+            shared_registry.clone(),
+            fallback_chain.clone(),
+            reg_clone,
+        );
+        service
+            .register_parallel_delegate_tool(parallel_runner)
+            .await;
+    }
+
+    {
+        let trace_db_path = TraceStore::db_path_for_home(&home);
+        if let Ok(store) = TraceStore::open(&trace_db_path) {
+            let collector = TraceCollector::new(store);
+            service.add_hook(Box::new(collector)).await;
+        }
+
+        if let Ok(store) = TraceStore::open(&trace_db_path) {
+            let skills_dir = home.join(".zstar").join("skills");
+            let llm_call = make_llm_rewrite_fn(shared_registry.clone(), fallback_chain.clone());
+            let rewriter = Arc::new(SkillRewriter::new(store, skills_dir, llm_call));
+            service.register_skill_evolve_tool(rewriter).await;
+        }
+    }
+
+    let tool_count = service.tool_count().await;
+
+    let memory_db_path = MemoryNudgeStore::db_path_for_home(&home);
+    let nudge_engine = MemoryNudgeStore::open(&memory_db_path)
+        .ok()
+        .map(|store| NudgeEngine::new(Box::new(store), 0.6, 3));
+
+    crossterm::terminal::enable_raw_mode().map_err(|e| format!("raw mode: {e}"))?;
+    let mut stdout = std::io::stdout();
+    crossterm::execute!(stdout, crossterm::terminal::EnterAlternateScreen)
+        .map_err(|e| format!("alternate screen: {e}"))?;
+    let backend = ratatui::backend::CrosstermBackend::new(stdout);
+    let mut terminal = ratatui::Terminal::new(backend).map_err(|e| format!("terminal: {e}"))?;
+    terminal.clear().map_err(|e| format!("clear: {e}"))?;
+
+    let (agent_tx, mut agent_rx) = tokio::sync::mpsc::channel::<LiveRunEvent>(256);
+    let mut app = ChatApp::new(theme);
+    let mut event_reader = EventReader::new();
+    let session_id: Arc<tokio::sync::Mutex<Option<String>>> =
+        Arc::new(tokio::sync::Mutex::new(None));
+
+    let result = run_event_loop(
+        &mut terminal,
+        &mut agent_rx,
+        &mut event_reader,
+        &mut app,
+        &service,
+        &provider_arc,
+        &router,
+        &model,
+        tool_count,
+        &nudge_engine,
+        &session_id,
+        &agent_tx,
+    )
+    .await;
+
+    let _ = crossterm::terminal::disable_raw_mode();
+    let _ = crossterm::execute!(
+        terminal.backend_mut(),
+        crossterm::terminal::LeaveAlternateScreen
+    );
+    let _ = terminal.show_cursor();
+
+    result
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn run_event_loop(
+    terminal: &mut ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>,
+    agent_rx: &mut tokio::sync::mpsc::Receiver<LiveRunEvent>,
+    event_reader: &mut EventReader,
+    app: &mut ChatApp,
+    service: &Arc<SessionBackedLiveRunService>,
+    provider_arc: &Arc<Mutex<FallbackProvider>>,
+    router: &zstar_provider::router::ModelRouter,
+    model: &str,
+    tool_count: usize,
+    nudge_engine: &Option<NudgeEngine>,
+    session_id: &Arc<tokio::sync::Mutex<Option<String>>>,
+    agent_tx: &tokio::sync::mpsc::Sender<LiveRunEvent>,
+) -> Result<(), String> {
+    loop {
+        let event = event_reader.next(agent_rx).await;
+        let user_text = app.handle_event(event);
+        if app.should_quit {
+            break;
+        }
+        if let Some(text) = user_text {
+            if text == "/quit" || text == "/exit" {
+                break;
+            }
+            if text == "/clear" {
+                let mut sid = session_id.lock().await;
+                *sid = None;
+                app.responses.clear();
+                continue;
+            }
+
+            let nudged = if let Some(ref engine) = nudge_engine {
+                match engine.nudge(&text) {
+                    Some(ctx) => format!("{ctx}\n\n{text}"),
+                    None => text,
+                }
+            } else {
+                text
+            };
+
+            let decision = router.route(&nudged, tool_count, &[]);
+            let effective_model = decision.model.unwrap_or_else(|| model.to_string());
+
+            let sid = session_id.lock().await.clone();
+            let request = LiveRunRequest {
+                prompt: nudged,
+                session_id: sid,
+            };
+
+            let svc = Arc::clone(service);
+            let provider = Arc::clone(provider_arc);
+            let tx = agent_tx.clone();
+            let sid_arc = Arc::clone(session_id);
+
+            tokio::spawn(async move {
+                let mut guard = provider.lock().await;
+                let mut on_event = |event: LiveRunEvent| {
+                    let _ = tx.blocking_send(event);
+                };
+                let result = svc
+                    .run_with_provider_and_queue_stream(
+                        effective_model,
+                        request,
+                        None,
+                        &mut *guard,
+                        &mut on_event,
+                    )
+                    .await;
+                if let Ok(outcome) = result {
+                    let mut sid = sid_arc.lock().await;
+                    *sid = Some(outcome.session_id);
+                }
+            });
+        }
+        terminal
+            .draw(|f| app.draw(f))
+            .map_err(|e| format!("draw: {e}"))?;
+    }
+
+    Ok(())
 }
