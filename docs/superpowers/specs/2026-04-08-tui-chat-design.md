@@ -102,7 +102,7 @@ enum ResponseBlock {
 - Shows `❯ ` prompt in theme accent color
 - Supports: typing, backspace, left/right cursor, home/end, ctrl+w (delete word), up/down (history)
 - Enter sends, ctrl+c exits, escape cancels current input
-- In-chat commands: `/quit`, `/clear`, `/help`, `/theme <name>`
+- In-chat commands: `/quit`, `/clear`, `/help`
 
 ### Scrolling
 
@@ -115,10 +115,9 @@ enum ResponseBlock {
 
 ### Config location
 
-- `~/.zstar/config/tui.toml` — user's TUI config
-- `~/.zstar/themes/` — custom theme files
-- CLI: `zstar chat --theme <name>`
-- In-chat: `/theme <name>` to switch live
+- `~/.zstar/config/tui.toml` — user's TUI config (theme selection + keybindings)
+- `~/.zstar/themes/` — custom theme TOML files
+- Theme is only configurable via config files — no CLI flag or in-chat command
 
 ### Config structure
 
@@ -182,11 +181,10 @@ Built-in themes are embedded as `include_str!` TOML files. User themes override 
 
 ### Theme loading order
 
-1. Check `--theme` CLI flag
-2. Check `tui.toml` `theme` field
-3. Check for built-in with that name
-4. Check `~/.zstar/themes/<name>.toml`
-5. Fall back to `github-dark`
+1. Check `tui.toml` `theme` field
+2. Check for built-in with that name
+3. Check `~/.zstar/themes/<name>.toml`
+4. Fall back to `github-dark`
 
 ## Dependencies to add
 
@@ -202,11 +200,9 @@ toml = "0.8"
 
 ## Integration
 
-- `zstar chat` uses the new TUI by default
-- `zstar chat --raw` falls back to the old println-based interface
-- `zstar chat --theme <name>` selects theme
-- The existing `chat.rs` is kept as `chat_raw.rs` for the `--raw` fallback
-- The new TUI lives in `tui/` module and is called from `lib.rs`
+- `zstar chat` uses the TUI interface
+- The old `chat.rs` is replaced entirely by the new TUI module
+- The TUI lives in `tui/` module and is called from `lib.rs`
 
 ## Testing
 
@@ -220,6 +216,6 @@ toml = "0.8"
 2. Tool calls show as expandable cards with name, args, result, timing
 3. LLM responses render as full Markdown with syntax-highlighted code blocks
 4. Clear visual boundary between user input and agent response
-5. Theme switchable via CLI flag, config file, or in-chat command
+5. Theme configurable via config files only (`tui.toml` + `themes/` directory)
 6. Scrolling works with auto-scroll and manual override
 7. All existing functionality preserved (nudge, routing, subagents, hooks)
