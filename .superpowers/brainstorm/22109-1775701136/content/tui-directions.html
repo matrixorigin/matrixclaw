@@ -1,0 +1,106 @@
+<h2>ZStar Chat TUI — Design Directions</h2>
+<p class="subtitle">3 approaches for the interactive chat experience</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#1a1b26;padding:16px;border-radius:8px;font-family:monospace;font-size:13px;color:#a9b1d6;line-height:1.6;min-height:320px">
+        <div style="color:#7aa2f7;margin-bottom:8px">❯ <span style="color:#c0caf5">List files in the current directory</span></div>
+        <div style="color:#565f89;font-size:12px;margin-bottom:12px">┌─ <span style="color:#7dcfff">⚡ thinking</span> <span style="color:#565f89">━━━━━━━━━━━━━━━━━━━━━━━━━</span> 1.2s</div>
+        <div style="color:#bb9af7;margin-bottom:12px;padding-left:12px;border-left:2px solid #bb9af7">I'll list the files using the list_directory tool.</div>
+        <div style="margin-bottom:12px">
+          <div style="color:#7dcfff;font-size:12px">┌─ <span style="color:#9ece6a">list_directory</span> <span style="color:#565f89">.</span></div>
+          <div style="color:#565f89;font-size:12px">│ <span style="color:#9ece6a">✓</span> returned 47 entries <span style="color:#565f89">(0.1s)</span></div>
+          <div style="color:#565f89;font-size:12px">└─</div>
+        </div>
+        <div style="color:#565f89;font-size:12px;margin-bottom:8px">┌─ <span style="color:#7dcfff">⚡ thinking</span> <span style="color:#565f89">━━━━━━━━━━━━━━━━━━━━━━━━━</span> 0.8s</div>
+        <div style="color:#bb9af7;margin-bottom:12px;padding-left:12px;border-left:2px solid #bb9af7">Now I'll format the results for the user.</div>
+        <div style="color:#c0caf5;margin-bottom:4px">Here are the files in the current directory:</div>
+        <div style="color:#9ece6a;margin-bottom:2px">  src/</div>
+        <div style="color:#9ece6a;margin-bottom:2px">  Cargo.toml</div>
+        <div style="color:#9ece6a;margin-bottom:2px">  README.md</div>
+        <div style="color:#9ece6a;margin-bottom:2px">  DESIGN.md</div>
+        <div style="color:#565f89">  ... 43 more</div>
+        <div style="margin-top:12px;padding-top:8px;border-top:1px solid #2f3347;color:#565f89;font-size:12px">❯ <span style="color:#7aa2f7">_</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Clean &amp; Structured</h3>
+      <p>Tree-style indicators (┌─└─) for thinking/tool steps. Collapsible by default. Minimal color palette. Unix-philosophy aesthetic.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0d1117;padding:16px;border-radius:8px;font-family:monospace;font-size:13px;color:#8b949e;line-height:1.6;min-height:320px">
+        <div style="color:#58a6ff;margin-bottom:12px"><b>❯ List files in the current directory</b></div>
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px;margin-bottom:12px">
+          <div style="color:#d2a8ff;font-size:12px;margin-bottom:4px">💭 <b>Thinking</b> <span style="color:#484f58">1.2s</span></div>
+          <div style="color:#8b949e;font-size:12px">I'll use the list_directory tool to show what's here.</div>
+        </div>
+        <div style="background:#161b22;border:1px solid #238636;border-radius:6px;padding:10px;margin-bottom:12px">
+          <div style="color:#3fb950;font-size:12px;margin-bottom:4px">🔧 <b>list_directory</b> <span style="color:#484f58">path=.</span></div>
+          <div style="color:#8b949e;font-size:12px;margin-top:4px;padding-top:6px;border-top:1px solid #21262d">
+            <span style="color:#3fb950">✓</span> 47 entries returned <span style="color:#484f58">(0.1s)</span>
+          </div>
+        </div>
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px;margin-bottom:12px">
+          <div style="color:#d2a8ff;font-size:12px;margin-bottom:4px">💭 <b>Thinking</b> <span style="color:#484f58">0.8s</span></div>
+          <div style="color:#8b949e;font-size:12px">Formatting the results nicely.</div>
+        </div>
+        <div style="color:#c9d1d9;margin-bottom:4px"><b>Here are the files:</b></div>
+        <div style="color:#7ee787">  <b>src/</b></div>
+        <div style="color:#c9d1d9">  Cargo.toml</div>
+        <div style="color:#c9d1d9">  README.md</div>
+        <div style="color:#c9d1d9">  DESIGN.md</div>
+        <div style="color:#484f58">  ... 43 more</div>
+        <div style="margin-top:12px;padding-top:8px;border-top:1px solid #21262d;color:#58a6ff">❯ <span style="animation:blink 1s infinite">_</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Card-Based (GitHub-style)</h3>
+      <p>Each thinking/tool step in a bordered card. Green borders for tools, purple for thinking. Emoji icons. Easy to scan.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#fafafa;padding:16px;border-radius:8px;font-family:-apple-system,monospace;font-size:13px;color:#373a40;line-height:1.6;min-height:320px">
+        <div style="color:#4c6ef5;margin-bottom:12px;font-weight:600">❯ List files in the current directory</div>
+        <div style="background:#e7f5ff;border-left:3px solid #4c6ef5;padding:8px 12px;margin-bottom:8px;font-size:12px;border-radius:0 4px 4px 0">
+          <span style="color:#4c6ef5;font-weight:600">Thinking…</span> <span style="color:#868e96">1.2s</span>
+          <div style="color:#495057;margin-top:4px">I'll use list_directory to show what's here.</div>
+        </div>
+        <div style="background:#ebfbee;border-left:3px solid #40c057;padding:8px 12px;margin-bottom:8px;font-size:12px;border-radius:0 4px 4px 0">
+          <span style="color:#40c057;font-weight:600">⏵ list_directory</span> <span style="color:#868e96">path=. → 47 entries (0.1s)</span>
+          <div style="color:#495057;margin-top:4px;font-size:11px;font-family:monospace;background:#f1f3f5;padding:4px 8px;border-radius:3px">[details hidden — press <b>d</b> to expand]</div>
+        </div>
+        <div style="background:#e7f5ff;border-left:3px solid #4c6ef5;padding:8px 12px;margin-bottom:12px;font-size:12px;border-radius:0 4px 4px 0">
+          <span style="color:#4c6ef5;font-weight:600">Thinking…</span> <span style="color:#868e96">0.8s</span>
+          <div style="color:#495057;margin-top:4px">Formatting results now.</div>
+        </div>
+        <div style="color:#212529;margin-bottom:4px;font-weight:600">Here are the files:</div>
+        <div style="color:#2b8a3e;font-weight:500">  <b>src/</b></div>
+        <div style="color:#495057">  Cargo.toml</div>
+        <div style="color:#495057">  README.md</div>
+        <div style="color:#495057">  DESIGN.md</div>
+        <div style="color:#adb5bd">  ... 43 more</div>
+        <div style="margin-top:12px;padding-top:8px;border-top:1px solid #dee2e6;color:#4c6ef5;font-weight:600">❯ <span style="color:#4c6ef5">|</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Light Mode + Expandable</h3>
+      <p>Left-border accents. Collapsible tool details (press 'd' to expand). Clean light theme. Professional look.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:24px">
+  <h3>Key features in all 3:</h3>
+  <ul>
+    <li><b>Thinking indicator</b> — spinner + duration + thought snippet while LLM processes</li>
+    <li><b>Tool step details</b> — tool name, args summary, result preview, timing</li>
+    <li><b>Input/response boundary</b> — clear visual separator with prompt indicator</li>
+    <li><b>Formatted output</b> — bold, italic, code blocks, colored file types</li>
+  </ul>
+</div>

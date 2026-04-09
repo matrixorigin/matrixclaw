@@ -339,3 +339,12 @@ Skills automatically improve from execution feedback through three components:
 - Callback pattern (`LlmRewriteFn`) for LLM calls avoids direct provider dependency in tools crate
 - Skill versioning archives previous versions to `v<N>.md` before rewriting, enabling rollback
 - Triggered automatically via lifecycle hooks or manually via `skill_evolve` tool
+
+## TUI Chat Interface
+
+Card-based Ratatui TUI replaces the raw println REPL:
+
+1. **Theme system** — 3 built-in themes (github-dark, tokyo-night, light) + custom themes via `~/.zstar/themes/`. Config in `~/.zstar/config/tui.toml`. Ghostty-style TOML configuration.
+2. **Widgets** — `ThinkingCard` (purple, collapsed), `ToolCard` (green/red, expandable with `d` key), `MarkdownWidget` (full rendering with syntax-highlighted code blocks), `InputBar` (prompt + history), `PromptBlock` (input/response boundary)
+3. **Markdown rendering** — comrak AST → styled lines, syntect for code block highlighting, supports headings/bold/italic/code/links/lists/blockquotes/tables
+4. **Event loop** — `tokio::select!` bridges crossterm key events and agent `LiveRunEvent` channel. Auto-scroll with manual page up/down override.
