@@ -1,0 +1,27 @@
+[color]
+background = "#fafafa"
+foreground = "#373a40"
+border = "#dee2e6"
+accent = "#4c6ef5"
+
+[color.card]
+thinking_bg = "#e7f5ff"
+thinking_border = "#4c6ef5"
+thinking_fg = "#868e96"
+tool_bg = "#ebfbee"
+tool_border = "#40c057"
+tool_fg = "#868e96"
+tool_error_border = "#e03131"
+error_fg = "#e03131"
+success_fg = "#2b8a3e"
+
+[color.syntax]
+highlight_theme = "inspired-github"
+
+[color.markdown]
+heading = "#4c6ef5"
+bold = "#212529"
+italic = "#868e96"
+code_bg = "#f1f3f5"
+code_fg = "#1098ad"
+link = "#4c6ef5"

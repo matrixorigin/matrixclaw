@@ -22,6 +22,7 @@ pub mod sandbox_backend;
 pub mod server;
 pub mod session_binding_store;
 pub mod setup;
+pub mod tui;
 pub mod ui_assets;
 
 pub const VERSION: &str = "0.1.0";

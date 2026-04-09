@@ -1,0 +1,27 @@
+[color]
+background = "#0d1117"
+foreground = "#c9d1d9"
+border = "#30363d"
+accent = "#58a6ff"
+
+[color.card]
+thinking_bg = "#161b22"
+thinking_border = "#d2a8ff"
+thinking_fg = "#8b949e"
+tool_bg = "#161b22"
+tool_border = "#238636"
+tool_fg = "#8b949e"
+tool_error_border = "#f85149"
+error_fg = "#f85149"
+success_fg = "#3fb950"
+
+[color.syntax]
+highlight_theme = "base16-eighties.dark"
+
+[color.markdown]
+heading = "#58a6ff"
+bold = "#c9d1d9"
+italic = "#8b949e"
+code_bg = "#1c2128"
+code_fg = "#79c0ff"
+link = "#58a6ff"
