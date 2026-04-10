@@ -1,4 +1,5 @@
 use std::env;
+use std::sync::mpsc as std_mpsc;
 use std::sync::Arc;
 
 use tokio::sync::Mutex;
@@ -362,9 +363,17 @@ async fn run_event_loop(
             let sid_arc = Arc::clone(session_id);
 
             tokio::spawn(async move {
+                let (sync_tx, sync_rx) = std_mpsc::channel::<LiveRunEvent>();
+
+                tokio::spawn(async move {
+                    while let Ok(event) = sync_rx.recv() {
+                        let _ = tx.send(event).await;
+                    }
+                });
+
                 let mut guard = provider.lock().await;
                 let mut on_event = |event: LiveRunEvent| {
-                    let _ = tx.blocking_send(event);
+                    let _ = sync_tx.send(event);
                 };
                 let result = svc
                     .run_with_provider_and_queue_stream(
